@@ -24,7 +24,7 @@ export async function render(params) {
       <div class="section-head">
         <h2 class="section-title"><span class="emoji">🔗</span>محصولات مرتبط</h2>
       </div>
-      <div class="p-grid">${product.related.map(p => isMobile ? productCardH(p) : productCard(p)).join('')}</div>
+      <div class="p-grid ${isMobile ? 'rail' : ''}">${product.related.map(p => isMobile ? productCardH(p) : productCard(p)).join('')}</div>
     </section>` : '';
 
   const reviewForm = Session.isLoggedIn ? `

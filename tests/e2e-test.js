@@ -209,6 +209,26 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   await sleep(400);
   log('موبایل: نوار خرید چسبان', await page.$('[data-mobile-buybar]') !== null);
 
+  // تفاوت‌های UI: ریل افقی موبایل + bottom-nav فیکس + منوی دسکتاپ
+  await page.goto(BASE + '/#/', { waitUntil: 'networkidle0' });
+  await sleep(600);
+  const rail = await page.$('.p-grid.rail') !== null;
+  const bnFixed = await page.$eval('#bottom-nav', el => getComputedStyle(el).position).catch(() => '');
+  log('موبایل: ریل اسکرول افقی', rail);
+  log('موبایل: ناوبری فیکس', bnFixed === 'fixed', bnFixed);
+
+  // دسکتاپ: منوی مگا + کارت قهرمان + bottom-nav مخفی
+  await page.setViewport({ width: 1440, height: 900 });
+  await page.goto(BASE + '/', { waitUntil: 'networkidle0' });
+  await page.goto(BASE + '/#/', { waitUntil: 'networkidle0' });
+  await sleep(1000);
+  const megaVisible = await page.$eval('.nav-bar', el => el.getBoundingClientRect().height > 4).catch(() => false);
+  const featured = await page.$('.featured-card') !== null;
+  const bnHidden = await page.$eval('#bottom-nav', el => getComputedStyle(el).display === 'none').catch(() => false);
+  log('دسکتاپ: منوی مگا دیده می‌شود', megaVisible);
+  log('دسکتاپ: کارت قهرمان پرفروش‌ها', featured);
+  log('دسکتاپ: ناوبری موبایل مخفی', bnHidden);
+
   // گزارش
   console.log('\n========== گزارش خطاها ==========');
   if (errors.length === 0) console.log('🎉 هیچ خطایی ثبت نشد!');

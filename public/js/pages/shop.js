@@ -111,7 +111,7 @@ export async function render(params, query) {
           </div>
         </div>
 
-        ${data.products.length ? `<div class="p-grid">${data.products.map(card).join('')}</div>` : `
+        ${data.products.length ? `<div class="p-grid ${isMobile ? 'plist' : ''}">${data.products.map(card).join('')}</div>` : `
           <div class="empty-state" style="background:var(--card);border:1px solid var(--line);border-radius:22px">
             <div class="es-ic">🔍</div>
             <h3>محصولی پیدا نشد</h3>

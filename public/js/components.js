@@ -41,7 +41,7 @@ export function productCard(p, opts = {}) {
         </div>
         <div class="p-actions">
           ${inStock
-            ? `<button class="p-add" data-add="${p.id}" aria-label="افزودن به سبد">+</button>`
+            ? `<button class="p-add" data-add="${p.id}" aria-label="افزودن به سبد"><span class="pa-ic">+</span><span class="pa-txt">افزودن</span></button>`
             : `<span class="p-stock out">ناموجود</span>`}
         </div>
       </div>
@@ -57,7 +57,7 @@ export function productCardH(p) {
   return `
   <article class="p-card hz" data-slug="${p.slug}">
     <div class="p-media">
-      <a href="#/product/${p.slug}"><img src="${p.image}" alt="${p.name}" loading="lazy" onerror="this.src='/assets/img/placeholder.jpg'"></a>
+      <a href="#/product/${p.slug}"><img src="${p.image || '/assets/img/placeholder.jpg'}" alt="${p.name}" loading="lazy" onerror="this.src='/assets/img/placeholder.jpg'"></a>
       ${off ? `<span class="p-badge off">٪${faNum(off)}</span>` : ''}
       <button class="p-wish ${wished}" data-wish="${p.id}" aria-label="علاقه‌مندی"><span>${wished ? '❤️' : '🤍'}</span></button>
     </div>
@@ -71,7 +71,7 @@ export function productCardH(p) {
           ${off ? `<div class="p-price-old">${price(p.price)}</div>` : ''}
         </div>
         ${inStock
-          ? `<button class="p-add" data-add="${p.id}" aria-label="افزودن به سبد">+</button>`
+          ? `<button class="p-add" data-add="${p.id}" aria-label="افزودن به سبد"><span class="pa-ic">+</span></button>`
           : `<span class="p-stock out">ناموجود</span>`}
       </div>
     </div>
@@ -204,10 +204,9 @@ export function renderMobileHeader() {
       <span class="logo-icon">🐾</span>
       <span class="logo-text">پت‌شاپ</span>
     </a>
-    <div class="mob-search">
-      <input type="search" placeholder="جستجو..." data-search-input aria-label="جستجو">
-      <button class="search-submit" data-search-open aria-label="جستجو"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></button>
-    </div>
+    <button class="icon-btn" data-search-open aria-label="جستجو" style="background:var(--bg)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    </button>
     ${cartIcon(true)}
   </div>
   <div id="mob-drawer"></div>`;
@@ -216,7 +215,6 @@ export function renderMobileHeader() {
     openDrawer(categories);
   });
   mh.querySelector('[data-search-open]').addEventListener('click', openSearch);
-  mh.querySelector('[data-search-input]').addEventListener('keydown', (e) => { if (e.key === 'Enter') location.hash = '#/search/' + encodeURIComponent(e.target.value); });
   mh.querySelector('[data-open-cart]').addEventListener('click', () => openCart(true));
 }
 

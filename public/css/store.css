@@ -181,7 +181,7 @@ h1,h2,h3,h4 { line-height: 1.4; }
 .header-actions .icon-btn:hover { background: var(--brand); }
 
 /* Nav bar + Mega menu */
-.nav-bar { border-top: 1px solid var(--line); display: none; }
+.nav-bar { border-top: 1px solid var(--line); background: #fff; }
 .nav-bar .container { display: flex; align-items: center; }
 .main-nav { display: flex; align-items: center; gap: 2px; flex: 1; }
 .main-nav > li { position: relative; }
@@ -470,6 +470,7 @@ h1,h2,h3,h4 { line-height: 1.4; }
   display: flex; align-items: center; justify-content: center;
   transition: all .2s ease;
 }
+.p-add .pa-txt { display: none; }
 .p-card:hover .p-add { background: var(--brand); color: #fff; box-shadow: 0 6px 14px rgba(249,115,22,.4); }
 .p-add:active { transform: scale(.9); }
 .p-stock { font-size: 11px; font-weight: 600; }
@@ -1242,3 +1243,26 @@ h1,h2,h3,h4 { line-height: 1.4; }
   .nl-form input { background: #fff; border-radius: 14px; padding: 13px 16px; }
   .nl-form .btn { width: 100%; }
 }
+
+/* ============================================================
+   کارت قهرمان (پرفروش هفته) — فقط دسکتاپ
+   ============================================================ */
+.featured-card {
+  display: grid; grid-template-columns: 1.15fr 1fr; gap: 0;
+  border-radius: 26px; overflow: hidden;
+  background: linear-gradient(135deg, #FFF7ED, #fff);
+  border: 1px solid var(--line);
+  margin-bottom: 18px;
+  transition: box-shadow .25s ease, transform .25s ease;
+}
+.featured-card:hover { box-shadow: var(--shadow); transform: translateY(-3px); }
+.featured-card .fc-media { position: relative; min-height: 300px; overflow: hidden; }
+.featured-card .fc-media img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; transition: transform .5s ease; }
+.featured-card:hover .fc-media img { transform: scale(1.04); }
+.featured-card .fc-body { padding: 34px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 12px; }
+.fc-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--brand); color: #fff; padding: 6px 16px; border-radius: 30px; font-size: 12px; font-weight: 700; box-shadow: 0 6px 16px rgba(249,115,22,.35); }
+.fc-name { font-size: 21px; font-weight: 800; line-height: 1.6; }
+.fc-price { font-size: 24px; font-weight: 800; color: var(--brand-dark); display: flex; align-items: baseline; gap: 5px; }
+.fc-price .unit { font-size: 12px; color: var(--muted); font-weight: 500; }
+.fc-cta { margin-top: 6px; }
+.bs-wrap .p-grid { grid-template-columns: repeat(5, 1fr); }

@@ -1,0 +1,67 @@
+/* ============================================================
+   پت‌شاپ — استایل‌های اختصاصی دسکتاپ (Desktop Only)
+   فقط روی نمایشگرهای ≥ 901px اعمال می‌شود
+   ============================================================ */
+
+/* ---------- دکمه افزودن قرصی با متن (فقط دسکتاپ) ---------- */
+@media (min-width: 901px) {
+  .p-card .p-add {
+    width: 40px;
+    padding-inline: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .p-card .p-add .pa-txt {
+    display: inline;
+    font-size: 12.5px;
+    font-weight: 700;
+    margin-inline-start: 5px;
+    max-width: 0;
+    opacity: 0;
+    transition: max-width .22s ease, opacity .18s ease;
+  }
+  .p-card:hover .p-add .pa-txt {
+    max-width: 64px;
+    opacity: 1;
+  }
+  .p-card:hover .p-add {
+    width: 96px;
+    border-radius: 22px;
+  }
+
+  /* ---------- نوار منوی چسبان ---------- */
+  .nav-bar {
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    background: #fff;
+    box-shadow: 0 1px 0 var(--line);
+  }
+
+  /* ---------- کارت دسته‌بندی دسکتاپ: هاله روی هاور ---------- */
+  .cat-card {
+    transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+
+  /* ---------- لینک‌های منو: خط نارنجی زیر هاور ---------- */
+  .main-nav > li > a {
+    position: relative;
+  }
+  .main-nav > li > a::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    inset-inline-start: 14px;
+    inset-inline-end: 14px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--brand);
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform .2s ease;
+  }
+  .main-nav > li > a:hover::after,
+  .main-nav > li.has-open > a::after {
+    transform: scaleX(1);
+  }
+}

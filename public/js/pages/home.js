@@ -16,7 +16,7 @@ export async function render() {
   // انتخاب کارت محصول بر اساس عرض
   const isMobile = window.innerWidth <= 560;
   const card = (p) => isMobile ? productCardH(p) : productCard(p);
-  const grid = (products) => products.length ? `<div class="p-grid">${products.map(card).join('')}</div>` : '';
+  const grid = (products) => products.length ? `<div class="p-grid ${isMobile ? 'rail' : ''}">${products.map(card).join('')}</div>` : '';
 
   const heroSlides = (data.hero || []).filter(b => b.image);
   const heroHtml = heroSlides.length ? `
@@ -95,6 +95,32 @@ export async function render() {
           ${link ? `<a class="section-link" href="${link}">مشاهده همه ←</a>` : ''}
         </div>
         ${grid(products)}
+      </div>
+    </section>` : '';
+
+  // کارت قهرمان دسکتاپ: اولین محصول سکشن پرفروش‌ها با نمایش بزرگ
+  const heroCard = (p) => isMobile ? '' : `
+    <a class="featured-card" href="#/product/${p.slug}">
+      <div class="fc-media"><img src="${p.image || '/assets/img/placeholder.jpg'}" alt="${p.name}" loading="lazy" onerror="this.src='/assets/img/placeholder.jpg'"></div>
+      <div class="fc-body">
+        <span class="fc-badge">🏆 پرفروش هفته</span>
+        <h3 class="fc-name">${p.name}</h3>
+        <div class="fc-price">${price(currentPrice(p))} <span class="unit">تومان</span></div>
+        <span class="btn btn-primary fc-cta">خرید این محصول ←</span>
+      </div>
+    </a>`;
+  const bestsellersHtml = sec('bestsellers') && data.bestsellers.length ? `
+    <section class="section" data-sec="bestsellers">
+      <div class="container">
+        <div class="section-head">
+          <h2 class="section-title"><span class="emoji">🔥</span>${secTitle('bestsellers', 'پرفروش‌ترین‌ها')}</h2>
+          <a class="section-link" href="#/shop?sort=best">مشاهده همه ←</a>
+        </div>
+        ${isMobile ? grid(data.bestsellers) : `
+        <div class="bs-wrap">
+          ${heroCard(data.bestsellers[0])}
+          <div class="p-grid cols-5">${data.bestsellers.slice(1, 6).map(productCard).join('')}</div>
+        </div>`}
       </div>
     </section>` : '';
 
@@ -217,7 +243,7 @@ export async function render() {
     </div>
     ${catHtml}
     <div class="container">
-      ${sectionBlock('bestsellers', secTitle('bestsellers', 'پرفروش‌ترین‌ها'), '🔥', data.bestsellers, '#/shop?sort=best')}
+      ${bestsellersHtml}
       ${sectionBlock('new', secTitle('new', 'جدیدترین محصولات'), '✨', data.new, '#/shop?sort=newest')}
     </div>
     <div class="container">
