@@ -2,7 +2,7 @@
 import { API, price, faNum, currentPrice, discountPct, dateFa } from '../api.js';
 import { Cart, Settings } from '../store.js';
 import { productCard, productCardH, stars } from '../components.js';
-import { ic } from '../icons.js';
+import { ic, catIcon, emojiIcon } from '../icons.js';
 
 let data = null;
 let heroTimer = null;
@@ -79,8 +79,8 @@ export async function render() {
         <div class="cat-grid">
           ${data.categories.map(c => `
             <a class="cat-card" href="#/category/${c.slug}">
-              <span class="cat-emoji">${c.icon || ic('paw', 30)}</span>
-              ${c.image ? `<img class="cat-img" src="${c.image}" alt="${c.name}" loading="lazy">` : '<span style="font-size:44px">${ic(\'paw\', 40)}</span>'}
+              <span class="cat-emoji">${catIcon(c, 30)}</span>
+              ${c.image ? `<img class="cat-img" src="${c.image}" alt="${c.name}" loading="lazy">` : '<span style="font-size:44px">${catIcon(c, 40)}</span>'}
               <span class="cat-name">${c.name}</span>
               <span class="cat-count">${faNum(c.count)} محصول</span>
             </a>`).join('')}
@@ -165,7 +165,7 @@ export async function render() {
         <div class="features-grid">
           ${data.features.map(f => `
             <div class="feature-item">
-              <div class="f-ic">${f.icon}</div>
+              <div class="f-ic">${emojiIcon(f.icon, 22, 'sparkles')}</div>
               <div class="f-t">${f.title}</div>
               <div class="f-x">${f.text}</div>
             </div>`).join('')}

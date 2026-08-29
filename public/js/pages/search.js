@@ -1,7 +1,7 @@
 // pages/search.js — صفحه نتایج جستجو
 import { API, price, faNum, currentPrice } from '../api.js';
 import { productCard, productCardH } from '../components.js';
-import { ic } from '../icons.js';
+import { ic, catIcon } from '../icons.js';
 
 export function title(params) { return 'جستجو: ' + params.q + ' | پت‌شاپ'; }
 
@@ -31,7 +31,7 @@ export async function render(params, query) {
       <div class="cat-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
         ${searchRes.categories.map(c => `
           <a class="cat-card" href="#/category/${c.slug}">
-            <span class="cat-emoji">${c.icon || ic('paw', 30)}</span>
+            <span class="cat-emoji">${catIcon(c, 30)}</span>
             <span class="cat-name">${c.name}</span>
             <span class="cat-count">${faNum(c.count)} محصول</span>
           </a>`).join('')}

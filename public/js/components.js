@@ -1,6 +1,6 @@
 // components.js — کامپوننت‌های مشترک فروشگاه
 import { API, price, discountPct, currentPrice, faNum } from './api.js';
-import { ic } from './icons.js';
+import { ic, catIcon, emojiIcon } from './icons.js';
 import { Cart, Session } from './store.js';
 
 // ---------- ستاره‌ها ----------
@@ -107,8 +107,8 @@ export async function renderHeader() {
   // ساخت منوی دسته با مگامنو (همه دسته‌های ریشه در ستون‌ها)
   const megaItems = cats.map(c => `
     <div>
-      <a href="#/category/${c.slug}" class="mega-sub">${c.icon || ic('paw', 14)} ${c.name}</a>
-      ${c.children.map(ch => `<a href="#/category/${ch.slug}"><span class="mi">${ch.icon || ic('paw', 12)}</span>${ch.name}</a>`).join('')}
+      <a href="#/category/${c.slug}" class="mega-sub">${catIcon(c, 14)} ${c.name}</a>
+      ${c.children.map(ch => `<a href="#/category/${ch.slug}"><span class="mi">${catIcon(ch, 12)}</span>${ch.name}</a>`).join('')}
     </div>`).join('');
 
   el.innerHTML = `
@@ -234,11 +234,11 @@ function openDrawer(categories) {
         ${categories.map(c => `
           <div>
             <a class="dm-cat" href="#/category/${c.slug}" data-dm-close>
-              <span class="mi">${c.icon || ic('paw', 15)}</span> ${c.name}
+              <span class="mi">${catIcon(c, 15)}</span> ${c.name}
               <span class="cnt">${faNum(c.count)}</span>
               ${c.children.length ? '<span class="chev">◀</span>' : ''}
             </a>
-            ${c.children.length ? `<div class="dm-sub">${c.children.map(ch => `<a href="#/category/${ch.slug}" data-dm-close>${ch.icon || ''} ${ch.name}</a>`).join('')}</div>` : ''}
+            ${c.children.length ? `<div class="dm-sub">${c.children.map(ch => `<a href="#/category/${ch.slug}" data-dm-close>${catIcon(ch, 13)} ${ch.name}</a>`).join('')}</div>` : ''}
           </div>`).join('')}
       </div>
       <div class="dm-links">
@@ -356,7 +356,7 @@ export function openSearch() {
               <div style="flex:1"><div class="so-name">${p.name}</div><div class="so-price">${price(currentPrice(p))} تومان</div></div>
             </a>`).join('')}</div>` : ''}
           ${r.categories.length ? `<div class="so-group"><h4>${ic('grid', 15)} دسته‌ها</h4>${r.categories.map(c => `
-            <a class="so-item" href="#/category/${c.slug}" data-so-close><span style="font-size:24px">${c.icon || ic('paw', 22)}</span><div class="so-name">${c.name}</div></a>`).join('')}</div>` : ''}
+            <a class="so-item" href="#/category/${c.slug}" data-so-close><span style="font-size:24px">${catIcon(c, 22)}</span><div class="so-name">${c.name}</div></a>`).join('')}</div>` : ''}
           ${r.articles.length ? `<div class="so-group"><h4>${ic('book', 15)} مقالات</h4>${r.articles.map(a => `
             <a class="so-item" href="#/blog/${a.slug}" data-so-close><span style="font-size:20px">${ic('file', 18)}</span><div class="so-name">${a.title}</div></a>`).join('')}</div>` : ''}
           ${!r.products.length && !r.categories.length && !r.articles.length ? '<p style="color:var(--muted);text-align:center;padding:30px;font-size:13.5px">نتیجه‌ای پیدا نشد</p>' : ''}`;
@@ -414,7 +414,7 @@ export async function renderFooter() {
             <span class="logo-text" style="color:#fff">پت‌شاپ</span>
           </div>
           <p class="f-desc">${footer.description || 'پت‌شاپ؛ مرجع تخصصی محصولات حیوانات خانگی.'}</p>
-          ${footer.badges?.length ? `<div class="f-badges">${footer.badges.map(b => `<span class="f-badge">${b.icon} ${b.title}</span>`).join('')}</div>` : ''}
+          ${footer.badges?.length ? `<div class="f-badges">${footer.badges.map(b => `<span class="f-badge">${emojiIcon(b.icon, 16, 'shield')} ${b.title}</span>`).join('')}</div>` : ''}
         </div>
         <div class="f-col">
           <h4>دسترسی سریع</h4>

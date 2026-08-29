@@ -61,6 +61,21 @@ const paths = {
   store: '<path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/>',
   alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
   info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  dog: '<circle cx="12" cy="10.5" r="5.5"/><path d="M7.8 6.2 5.5 2.5M16.2 6.2l2.3-3.7"/><circle cx="9.7" cy="9.6" r=".8"/><circle cx="14.3" cy="9.6" r=".8"/><path d="M9.2 13.6c1.7 1.5 3.9 1.5 5.6 0"/><path d="M12 10.4v2.6"/>',
+  cat: '<circle cx="12" cy="12" r="5.5"/><path d="M7.8 8 5.5 4.5M16.2 8l2.3-3.5"/><circle cx="9.7" cy="11" r=".8"/><circle cx="14.3" cy="11" r=".8"/><path d="M9.5 14.2c1.5 1.2 3.5 1.2 5 0"/><path d="M6.8 13.6 4.5 14.2M17.2 13.6l2.3.6"/>',
+  bone: '<path d="M17 10c.7-.7 1.69 0 2.5 0a2.5 2.5 0 1 0 0-5 .5.5 0 0 1-.5-.5 2.5 2.5 0 1 0-5 0c0 .81.7 1.8 0 2.5l-7 7c-.7.7-1.69 0-2.5 0a2.5 2.5 0 0 0 0 5c.28 0 .5.22.5.5a2.5 2.5 0 1 0 5 0c0-.81-.7-1.8 0-2.5Z"/>',
+  brush: '<path d="M18.37 2.63 14 7l-1.59-1.59a2 2 0 0 0-2.82 0L8 7l9 9 1.59-1.59a2 2 0 0 0 0-2.82L17 10l4.37-4.37a2.12 2.12 0 1 0-3-3Z"/><path d="M9 8c-2 3-4 3.5-7 4l8 10c2-1 6-5 6-7"/><path d="M14.5 17.5 4.5 15"/>',
+  toy: '<path d="M6 12h4M8 10v4"/><path d="M15 13h.01M18 11h.01"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5Z"/>',
+  scissors: '<circle cx="6" cy="9" r="3"/><circle cx="6" cy="21" r="3"/><path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 8.12 12 12"/>',
+  collar: '<rect x="3" y="14" width="18" height="6" rx="3"/><path d="M8.5 14v-1.5a3.5 3.5 0 0 1 7 0V14"/><circle cx="12" cy="17" r=".9"/>',
+  bed: '<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/>',
+  backpack: '<path d="M4 10a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M8 21v-5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v5"/>',
+  pill: '<path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/>',
+  gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/>',
+  bird: '<path d="M16 7h.01"/><path d="M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.28-2.3L2 20"/><path d="m20 7 2 .5-2 .5"/><path d="M10 18v3"/><path d="M14 17.75V21"/><path d="M7 18a6 6 0 0 0 3.84-10.61"/>',
+  mouse: '<circle cx="12" cy="11" r="6.5"/><path d="M12 4.5V2M8 6.8 5.8 4.6M16 6.8l2.2-2.2"/><circle cx="9.6" cy="10.2" r=".8"/><circle cx="14.4" cy="10.2" r=".8"/><path d="M9.3 14.2c1.6 1.3 3.8 1.3 5.4 0"/><path d="M12 13.2v1.4"/>',
+  fish: '<path d="M2.5 12C6 8.2 10 6 14 6c2.9 0 5.4 1.3 7.1 3.6L23 12l-1.9 2.4C19.4 16.7 16.9 18 14 18c-4 0-8-2.2-11.5-6Z"/><circle cx="17.2" cy="11.3" r=".9"/>',
+  bowl: '<path d="M2 11h20v1a10 10 0 0 1-20 0Z"/><path d="M6 11V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3"/>',
   paw: '<circle cx="5" cy="10" r="2"/><circle cx="9" cy="5.5" r="2"/><circle cx="15" cy="5.5" r="2"/><circle cx="19" cy="10" r="2"/><path d="M12 12c-3 0-5.5 2-5.5 4.5a2.5 2.5 0 0 0 5 .5 2.5 2.5 0 0 0 5-.5C17.5 14 15 12 12 12z"/>',
 };
 
@@ -71,4 +86,43 @@ export function ic(name, size = 18, cls = '') {
   if (cls) attrs.class = cls;
   const a = Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ');
   return `<svg ${a}>${p}</svg>`;
+}
+
+
+// ---------- ترجمه ایموجی / نام به آیکون مینیمال ----------
+const EMOJI_MAP = {
+  '🐕': 'dog', '🐶': 'dog', '🐈': 'cat', '🐱': 'cat', '🦴': 'bone', '🧴': 'brush',
+  '🧸': 'toy', '✂': 'scissors', '🎗': 'collar', '🛏': 'bed', '🎒': 'backpack',
+  '💊': 'pill', '🎁': 'gift', '🐦': 'bird', '🐹': 'mouse', '🐠': 'fish',
+  '🐾': 'paw', '🛡': 'shield', '💳': 'card', '✅': 'check', '⭐': 'star',
+  '🔥': 'flame', '✨': 'sparkles', '💬': 'chat', '📦': 'package', '🚚': 'truck',
+  '❤': 'heart', '💡': 'info', '⚠': 'alert', '🎉': 'sparkles', '🏆': 'star',
+  '📞': 'phone', '🕘': 'clock', '📍': 'pin', '✉': 'mail', '📱': 'phone',
+  '📰': 'book', '🛍': 'bag', '🗂': 'grid', '🏷': 'tag', '🔍': 'search',
+  '🔗': 'link', '📋': 'list', '📝': 'pen', '💰': 'cash', '🎟': 'ticket',
+};
+
+// ترجمه ایموجی (با حذف Variation Selector) یا نام آیکون مستقیم
+export function emojiIcon(e, size = 18, fallback = 'paw') {
+  const src = String(e || '').trim().replace(/\uFE0F/g, '');
+  if (src && paths[src]) return ic(src, size);
+  const mapped = EMOJI_MAP[src];
+  return ic(mapped || fallback, size);
+}
+
+const CAT_KW = [
+  ['سگ', 'dog'], ['گربه', 'cat'], ['تشویقی', 'bone'], ['بهداشت', 'brush'],
+  ['اسباب', 'toy'], ['نگهداری', 'scissors'], ['قلاده', 'collar'], ['خواب', 'bed'],
+  ['سفر', 'backpack'], ['مکمل', 'pill'], ['سایر', 'gift'], ['پرنده', 'bird'],
+  ['جوند', 'mouse'], ['ماهی', 'fish'], ['ظرف', 'bowl'], ['غذا', 'bowl'],
+];
+
+// آیکون دسته: ایموجی یا نام آیکون از پنل، وگرنه بر اساس نام دسته
+export function catIcon(c, size = 18) {
+  const src = String(c?.icon || '').trim().replace(/\uFE0F/g, '');
+  if (src && paths[src]) return ic(src, size);
+  if (EMOJI_MAP[src]) return ic(EMOJI_MAP[src], size);
+  const title = String(c?.name || '');
+  for (const [kw, icn] of CAT_KW) if (title.includes(kw)) return ic(icn, size);
+  return ic('paw', size);
 }

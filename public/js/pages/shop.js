@@ -1,7 +1,7 @@
 // pages/shop.js — فروشگاه با فیلتر، مرتب‌سازی و صفحه‌بندی
 import { API, price, faNum, currentPrice } from '../api.js';
 import { productCard, productCardH } from '../components.js';
-import { ic } from '../icons.js';
+import { ic, catIcon } from '../icons.js';
 
 let state = { page: 1, perPage: 12, total: 0, pages: 1 };
 let lastQuery = null;
@@ -40,7 +40,7 @@ export async function render(params, query) {
 
   const catListHtml = (list, depth = 0) => list.map(c => `
     <button class="sf-cat ${c.slug === activeCat ? 'active' : ''} ${depth ? 'sub' : ''}" data-cat="${c.slug}">
-      ${c.icon || ic('paw', 13)} ${c.name} <span style="opacity:.6;font-size:11px">${faNum(c.count)}</span>
+      ${catIcon(c, 13)} ${c.name} <span style="opacity:.6;font-size:11px">${faNum(c.count)}</span>
     </button>
     ${c.children?.length ? catListHtml(c.children, depth + 1) : ''}`).join('');
 
@@ -54,7 +54,7 @@ export async function render(params, query) {
 
     <div class="page-hero">
       <div>
-        <h1>${activeCatObj ? (activeCatObj.icon ? activeCatObj.icon + ' ' : '') + activeCatObj.name : 'فروشگاه پت‌شاپ'}</h1>
+        <h1>${activeCatObj ? catIcon(activeCatObj, 20) + ' ' + activeCatObj.name : 'فروشگاه پت‌شاپ'}</h1>
         <p>${activeCatObj ? `${faNum(activeCatObj.count)} محصول در این دسته` : `همه محصولات برای سگ، گربه و سایر حیوانات خانگی (${faNum(state.total)} محصول)`}</p>
       </div>
       <div class="ph-ic">${ic('paw', 42)}</div>

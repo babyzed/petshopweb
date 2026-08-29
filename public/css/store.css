@@ -1311,3 +1311,11 @@ h1,h2,h3,h4 { line-height: 1.4; }
 .mega-sub svg, .dm-cat svg, .dm-links a svg { vertical-align: -3px; }
 .p-badge.sp { display: inline-flex; align-items: center; gap: 5px; }
 .f-bottom svg { display: inline-block; vertical-align: -2px; }
+
+/* ============================================================
+   آیکون‌های SVG دسته‌ها و داده‌های ادمین
+   ============================================================ */
+.cat-emoji svg, .f-ic svg { display: block; margin: 0 auto; }
+.f-ic { display: flex; align-items: center; justify-content: center; }
+.f-badge svg, .shop-hero h1 svg, .page-hero h1 svg, .category-title svg { vertical-align: -4px; }
+.so-item svg { vertical-align: -4px; }
