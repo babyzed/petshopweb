@@ -1,0 +1,26 @@
+# ============================================================
+# پت‌شاپ — Docker Compose
+# اجرا: docker compose up -d --build
+# توقف: docker compose down
+# ============================================================
+services:
+  web:
+    build: .
+    container_name: petshop
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - TZ=Asia/Tehran
+    volumes:
+      # دیتابیس SQLite — با حذف کانتینر از بین نمی‌رود
+      - ./data:/app/data
+      # تصاویر آپلودشده از پنل مدیریت
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/settings/public').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
