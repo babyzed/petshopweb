@@ -2,6 +2,7 @@
 import { API, price, faNum, currentPrice, discountPct, dateFa } from '../api.js';
 import { Cart, Settings } from '../store.js';
 import { productCard, productCardH, stars } from '../components.js';
+import { ic } from '../icons.js';
 
 let data = null;
 let heroTimer = null;
@@ -14,7 +15,7 @@ export async function render() {
   const secTitle = (k, fallback) => hs.sections?.[k]?.title || fallback;
 
   // انتخاب کارت محصول بر اساس عرض
-  const isMobile = window.innerWidth <= 560;
+  const isMobile = window.innerWidth <= 900;
   const card = (p) => isMobile ? productCardH(p) : productCard(p);
   const grid = (products) => products.length ? `<div class="p-grid ${isMobile ? 'rail' : ''}">${products.map(card).join('')}</div>` : '';
 
@@ -25,7 +26,7 @@ export async function render() {
         <div class="hero-slide ${i === 0 ? 'active' : ''}" data-slide="${i}">
           <img src="${s.image}" alt="${s.title}" loading="${i === 0 ? 'eager' : 'lazy'}">
           <div class="hero-content">
-            <span class="hero-tag">🐾 پت‌شاپ؛ همراه وفادار شما</span>
+            <span class="hero-tag">${ic('paw', 15)} پت‌شاپ؛ همراه وفادار شما</span>
             <h2 class="hero-title">${s.title}</h2>
             <p class="hero-subtitle">${s.subtitle || ''}</p>
             <div class="hero-cta">
@@ -42,7 +43,7 @@ export async function render() {
         <div class="mh-slide ${i === 0 ? 'active' : ''}" data-mslide="${i}">
           <img src="${s.image}" alt="${s.title}" loading="lazy">
           <div class="mh-body">
-            <span class="hero-tag">🐾 پت‌شاپ</span>
+            <span class="hero-tag">${ic('paw', 14)} پت‌شاپ</span>
             <h2 class="mh-title">${s.title}</h2>
             <p class="mh-sub">${s.subtitle || ''}</p>
             <a class="btn btn-primary mh-cta" href="${s.link || '#/shop'}">مشاهده</a>
@@ -72,14 +73,14 @@ export async function render() {
     <section class="section" data-sec="categories">
       <div class="container">
         <div class="section-head">
-          <h2 class="section-title"><span class="emoji">🗂️</span>${secTitle('categories', 'دسته‌بندی محصولات')}</h2>
+          <h2 class="section-title"><span class="st-ic">${ic('grid', 22)}</span>${secTitle('categories', 'دسته‌بندی محصولات')}</h2>
           <a class="section-link" href="#/shop">همه محصولات ←</a>
         </div>
         <div class="cat-grid">
           ${data.categories.map(c => `
             <a class="cat-card" href="#/category/${c.slug}">
-              <span class="cat-emoji">${c.icon || '🐾'}</span>
-              ${c.image ? `<img class="cat-img" src="${c.image}" alt="${c.name}" loading="lazy">` : '<span style="font-size:44px">🐾</span>'}
+              <span class="cat-emoji">${c.icon || ic('paw', 30)}</span>
+              ${c.image ? `<img class="cat-img" src="${c.image}" alt="${c.name}" loading="lazy">` : '<span style="font-size:44px">${ic(\'paw\', 40)}</span>'}
               <span class="cat-name">${c.name}</span>
               <span class="cat-count">${faNum(c.count)} محصول</span>
             </a>`).join('')}
@@ -87,11 +88,11 @@ export async function render() {
       </div>
     </section>` : '';
 
-  const sectionBlock = (key, title, emoji, products, link) => sec(key) && products.length ? `
+  const sectionBlock = (key, title, iconName, products, link) => sec(key) && products.length ? `
     <section class="section" data-sec="${key}">
       <div class="container">
         <div class="section-head">
-          <h2 class="section-title"><span class="emoji">${emoji}</span>${title}</h2>
+          <h2 class="section-title"><span class="st-ic">${ic(iconName, 22)}</span>${title}</h2>
           ${link ? `<a class="section-link" href="${link}">مشاهده همه ←</a>` : ''}
         </div>
         ${grid(products)}
@@ -103,7 +104,7 @@ export async function render() {
     <a class="featured-card" href="#/product/${p.slug}">
       <div class="fc-media"><img src="${p.image || '/assets/img/placeholder.jpg'}" alt="${p.name}" loading="lazy" onerror="this.src='/assets/img/placeholder.jpg'"></div>
       <div class="fc-body">
-        <span class="fc-badge">🏆 پرفروش هفته</span>
+        <span class="fc-badge">${ic('star', 13)} پرفروش هفته</span>
         <h3 class="fc-name">${p.name}</h3>
         <div class="fc-price">${price(currentPrice(p))} <span class="unit">تومان</span></div>
         <span class="btn btn-primary fc-cta">خرید این محصول ←</span>
@@ -113,7 +114,7 @@ export async function render() {
     <section class="section" data-sec="bestsellers">
       <div class="container">
         <div class="section-head">
-          <h2 class="section-title"><span class="emoji">🔥</span>${secTitle('bestsellers', 'پرفروش‌ترین‌ها')}</h2>
+          <h2 class="section-title"><span class="st-ic">${ic('flame', 22)}</span>${secTitle('bestsellers', 'پرفروش‌ترین‌ها')}</h2>
           <a class="section-link" href="#/shop?sort=best">مشاهده همه ←</a>
         </div>
         ${isMobile ? grid(data.bestsellers) : `
@@ -128,7 +129,7 @@ export async function render() {
     <section class="section" data-sec="brands">
       <div class="container">
         <div class="section-head">
-          <h2 class="section-title"><span class="emoji">🏷️</span>${secTitle('brands', 'برندهای معتبر')}</h2>
+          <h2 class="section-title"><span class="st-ic">${ic('tag', 22)}</span>${secTitle('brands', 'برندهای معتبر')}</h2>
         </div>
         <div class="brands-row">
           ${data.brands.map(b => `<a class="brand-chip" href="#/shop?brand=${b.id}">${b.logo ? `<img src="${b.logo}" style="height:26px">` : ''}${b.name}</a>`).join('')}
@@ -141,7 +142,7 @@ export async function render() {
       <div class="container">
         <div class="about-teaser">
           <div>
-            <span class="at-badge">🏆 ${data.about_teaser.badge || ''}</span>
+            <span class="at-badge">${ic('star', 13)} ${data.about_teaser.badge || ''}</span>
             <h2 class="at-title">${data.about_teaser.title || ''}</h2>
             <p class="at-text">${data.about_teaser.text || ''}</p>
             ${data.about_teaser.stats?.length ? `
@@ -152,7 +153,7 @@ export async function render() {
           </div>
           <div class="at-media">
             ${data.about_teaser.image ? `<img src="${data.about_teaser.image}" alt="درباره پت‌شاپ" loading="lazy">` : ''}
-            <div class="at-float"><span class="af-ic">🐶</span><span>مورد اعتماد بیش از ۱۵ هزار خانواده</span></div>
+            <div class="at-float"><span class="af-ic">${ic('paw', 22)}</span><span>مورد اعتماد بیش از ۱۵ هزار خانواده</span></div>
           </div>
         </div>
       </div>
@@ -176,7 +177,7 @@ export async function render() {
     <section class="section" data-sec="blog">
       <div class="container">
         <div class="section-head">
-          <h2 class="section-title"><span class="emoji">📰</span>${secTitle('blog', 'مجله پت')}</h2>
+          <h2 class="section-title"><span class="st-ic">${ic('book', 22)}</span>${secTitle('blog', 'مجله پت')}</h2>
           <a class="section-link" href="#/blog">همه مقالات ←</a>
         </div>
         <div class="blog-grid">
@@ -189,7 +190,7 @@ export async function render() {
               <div class="a-body">
                 <h3 class="a-title">${a.title}</h3>
                 <p class="a-excerpt">${a.excerpt || ''}</p>
-                <div class="a-meta"><span>🗓 ${dateFa(a.created_at)}</span><span>👁 ${faNum(3 + a.id % 20)} بازدید</span></div>
+                <div class="a-meta"><span>${ic('calendar', 13)} ${dateFa(a.created_at)}</span><span>${ic('eye', 13)} ${faNum(3 + a.id % 20)} بازدید</span></div>
               </div>
             </a>`).join('')}
         </div>
@@ -200,7 +201,7 @@ export async function render() {
     <section class="section" data-sec="testimonials">
       <div class="container">
         <div class="section-head">
-          <h2 class="section-title"><span class="emoji">💬</span>${secTitle('testimonials', 'نظر مشتریان')}</h2>
+          <h2 class="section-title"><span class="st-ic">${ic('chat', 22)}</span>${secTitle('testimonials', 'نظر مشتریان')}</h2>
         </div>
         <div class="testi-grid">
           ${data.testimonials.map(t => `
@@ -225,7 +226,7 @@ export async function render() {
       <div class="container">
         <div class="newsletter">
           <div>
-            <h2 class="nl-title">🐾 عضویت در خبرنامه پت‌شاپ</h2>
+            <h2 class="nl-title">${ic('paw', 18)} عضویت در خبرنامه پت‌شاپ</h2>
             <p class="nl-text">از تخفیف‌های ویژه و نکات تخصصی مراقبت از پت‌ها باخبر شوید.</p>
           </div>
           <form class="nl-form" data-newsletter>
@@ -244,14 +245,14 @@ export async function render() {
     ${catHtml}
     <div class="container">
       ${bestsellersHtml}
-      ${sectionBlock('new', secTitle('new', 'جدیدترین محصولات'), '✨', data.new, '#/shop?sort=newest')}
+      ${sectionBlock('new', secTitle('new', 'جدیدترین محصولات'), 'sparkles', data.new, '#/shop?sort=newest')}
     </div>
     <div class="container">
-      ${sectionBlock('sales', secTitle('sales', 'تخفیف‌های ویژه'), '💥', data.sales, '#/shop?on_sale=1')}
+      ${sectionBlock('sales', secTitle('sales', 'تخفیف‌های ویژه'), 'percent', data.sales, '#/shop?on_sale=1')}
     </div>
     ${sec('sales') ? `<div class="container" style="padding-top:0">${bannerWide(data.promo)}</div>` : ''}
     <div class="container">
-      ${sectionBlock('special', secTitle('special', 'پیشنهاد پت‌شاپ'), '🌟', data.special, '#/shop?sort=popular')}
+      ${sectionBlock('special', secTitle('special', 'پیشنهاد پت‌شاپ'), 'star', data.special, '#/shop?sort=popular')}
     </div>
     ${brandsHtml}
     ${aboutHtml}
@@ -302,7 +303,7 @@ export function mount(el) {
     nl.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = nl.querySelector('input').value;
-      nl.innerHTML = '<p style="color:#fff;font-weight:700">✅ عضویت شما با موفقیت ثبت شد! به خانواده پت‌شاپ خوش آمدید 🐾</p>';
+      nl.innerHTML = '<p style="color:#fff;font-weight:700">عضویت شما با موفقیت ثبت شد! به خانواده پت‌شاپ خوش آمدید.</p>';
     });
   }
 }

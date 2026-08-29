@@ -1,6 +1,7 @@
 // pages/shop.js — فروشگاه با فیلتر، مرتب‌سازی و صفحه‌بندی
 import { API, price, faNum, currentPrice } from '../api.js';
 import { productCard, productCardH } from '../components.js';
+import { ic } from '../icons.js';
 
 let state = { page: 1, perPage: 12, total: 0, pages: 1 };
 let lastQuery = null;
@@ -30,7 +31,7 @@ export async function render(params, query) {
   state.total = data.total;
   state.pages = Math.max(1, data.pages);
 
-  const isMobile = window.innerWidth <= 560;
+  const isMobile = window.innerWidth <= 900;
   const card = (p) => isMobile ? productCardH(p) : productCard(p);
 
   const selected = [];
@@ -39,7 +40,7 @@ export async function render(params, query) {
 
   const catListHtml = (list, depth = 0) => list.map(c => `
     <button class="sf-cat ${c.slug === activeCat ? 'active' : ''} ${depth ? 'sub' : ''}" data-cat="${c.slug}">
-      ${c.icon || '🐾'} ${c.name} <span style="opacity:.6;font-size:11px">${faNum(c.count)}</span>
+      ${c.icon || ic('paw', 13)} ${c.name} <span style="opacity:.6;font-size:11px">${faNum(c.count)}</span>
     </button>
     ${c.children?.length ? catListHtml(c.children, depth + 1) : ''}`).join('');
 
@@ -53,41 +54,41 @@ export async function render(params, query) {
 
     <div class="page-hero">
       <div>
-        <h1>${activeCatObj ? activeCatObj.icon + ' ' + activeCatObj.name : '🛍️ فروشگاه پت‌شاپ'}</h1>
+        <h1>${activeCatObj ? (activeCatObj.icon ? activeCatObj.icon + ' ' : '') + activeCatObj.name : 'فروشگاه پت‌شاپ'}</h1>
         <p>${activeCatObj ? `${faNum(activeCatObj.count)} محصول در این دسته` : `همه محصولات برای سگ، گربه و سایر حیوانات خانگی (${faNum(state.total)} محصول)`}</p>
       </div>
-      <div class="ph-ic">🐶</div>
+      <div class="ph-ic">${ic('paw', 42)}</div>
     </div>
 
     <div class="shop-layout" style="margin-top:22px">
       <aside class="shop-filters" aria-label="فیلترها">
         <div class="sf-group">
-          <div class="sf-title">🗂️ دسته‌بندی</div>
+          <div class="sf-title">${ic('grid', 15)} دسته‌بندی</div>
           <button class="sf-cat ${!activeCat ? 'active' : ''}" data-cat="">همه دسته‌ها</button>
           ${catListHtml(cats)}
         </div>
         <div class="sf-group">
-          <div class="sf-title">🏷️ برند</div>
+          <div class="sf-title">${ic('tag', 15)} برند</div>
           ${brands.map(b => `
             <label class="sf-check">
               <input type="checkbox" data-brand="${b.id}" ${query.get('brand') == b.id ? 'checked' : ''}> ${b.name}
             </label>`).join('')}
         </div>
         <div class="sf-group">
-          <div class="sf-title">💲 محدوده قیمت (تومان)</div>
+          <div class="sf-title">${ic('cash', 15)} محدوده قیمت (تومان)</div>
           <div class="sf-range">
             <input type="number" placeholder="از" min="0" value="${query.get('min_price') || ''}" data-min-price>
             <input type="number" placeholder="تا" min="0" value="${query.get('max_price') || ''}" data-max-price>
           </div>
         </div>
         <div class="sf-group">
-          <div class="sf-title">⚙️ وضعیت</div>
+          <div class="sf-title">${ic('sliders', 15)} وضعیت</div>
           <label class="sf-check"><input type="checkbox" data-stock ${query.get('in_stock') === '1' ? 'checked' : ''}> فقط موجود</label>
           <label class="sf-check"><input type="checkbox" data-sale ${query.get('on_sale') === '1' ? 'checked' : ''}> فقط تخفیف‌دار</label>
         </div>
         ${data.featureOptions?.length ? `
         <div class="sf-group">
-          <div class="sf-title">🔍 ویژگی‌های محصول</div>
+          <div class="sf-title">${ic('search', 15)} ویژگی‌های محصول</div>
           ${[...new Map(data.featureOptions.map(f => [f.k, f])).values()].map(f => `
             <label class="sf-check"><input type="checkbox" data-feature="${f.k}" ${query.get('feature') === f.k ? 'checked' : ''}> ${f.k}: ${f.v}</label>`).join('')}
         </div>` : ''}
@@ -99,7 +100,7 @@ export async function render(params, query) {
         <div class="shop-toolbar">
           <span class="shop-count"><b>${faNum(state.total)}</b> محصول یافت شد</span>
           <div style="display:flex;gap:8px;align-items:center">
-            <button class="btn btn-ghost mobile-filter-btn" data-open-filters>⚙️ فیلترها</button>
+            <button class="btn btn-ghost mobile-filter-btn" data-open-filters>${ic('sliders', 15)} فیلترها</button>
             <select class="sort-select" data-sort>
               <option value="newest" ${(query.get('sort') || 'newest') === 'newest' ? 'selected' : ''}>جدیدترین</option>
               <option value="best" ${query.get('sort') === 'best' ? 'selected' : ''}>پرفروش‌ترین</option>
@@ -113,7 +114,7 @@ export async function render(params, query) {
 
         ${data.products.length ? `<div class="p-grid ${isMobile ? 'plist' : ''}">${data.products.map(card).join('')}</div>` : `
           <div class="empty-state" style="background:var(--card);border:1px solid var(--line);border-radius:22px">
-            <div class="es-ic">🔍</div>
+            <div class="es-ic">${ic('search', 32)}</div>
             <h3>محصولی پیدا نشد</h3>
             <p>فیلترها را تغییر دهید یا دسته دیگری را امتحان کنید.</p>
           </div>`}
@@ -138,7 +139,7 @@ export async function render(params, query) {
       <div class="fs-backdrop" data-close-sheet></div>
       <div class="fs-panel">
         <div class="fs-grip"></div>
-        <div class="fs-head"><h3>⚙️ فیلترها</h3><button class="btn btn-ghost" data-close-sheet>بستن</button></div>
+        <div class="fs-head"><h3>${ic('sliders', 16)} فیلترها</h3><button class="btn btn-ghost" data-close-sheet>بستن</button></div>
         ${catListHtml(cats)}
         <hr style="border:none;border-top:1px solid var(--line);margin:12px 0">
         ${brands.map(b => `<label class="sf-check"><input type="checkbox" data-brand="${b.id}" ${query.get('brand') == b.id ? 'checked' : ''}> ${b.name}</label>`).join('')}

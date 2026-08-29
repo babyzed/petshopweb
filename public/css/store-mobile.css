@@ -1,22 +1,23 @@
 /* ============================================================
-   پت‌شاپ — استایل‌های اختصاصی موبایل (Mobile Only)
-   UI کاملاً متفاوت: کارت افقی، ریل اسکرول، هدر فشرده، تاچ
+   پت‌شاپ — استایل‌های اختصاصی موبایل و تبلت (Mobile/Tablet Only)
+   هر چیزی زیر ۹۰۱px UI موبایل می‌گیرد (کارت افقی، ریل، ناوبری پایین)
+   زیر ۵۶۰px تنظیمات ظریف گوشی‌های کوچک
    ============================================================ */
 
-@media (max-width: 560px) {
+@media (max-width: 900px) {
 
-  /* ---------- پایه موبایل ---------- */
+  /* ---------- پایه ---------- */
   body { font-size: 14px; }
   .container { width: 100%; padding-inline: 12px; }
 
-  /* ---------- هدر موبایل: فشرده، جستجو آیکونی ---------- */
+  /* ---------- هدر: فشرده، جستجو آیکونی ---------- */
   .mob-bar { padding: 8px 10px; gap: 6px; }
   .mob-bar .logo-icon { width: 34px; height: 34px; border-radius: 11px; font-size: 17px; }
   .mob-bar .logo-text { font-size: 15.5px; }
   .mob-bar .icon-btn { width: 40px; height: 40px; border-radius: 13px; }
   .mob-search { display: none; } /* جستجو با آیکون باز می‌شود */
 
-  /* ---------- جستجوی موبایل: صفحه تمام‌عرض ---------- */
+  /* ---------- جستجو: تمام‌عرض ---------- */
   .search-overlay { background: var(--bg); }
   .search-overlay .so-head { padding: 12px; max-width: 100%; }
   .search-overlay .so-input { flex: 1; }
@@ -30,10 +31,8 @@
   }
   .search-overlay .so-body { padding: 4px 12px 40px; max-width: 100%; }
 
-  /* ---------- ناوبری پایین: ارتفاع بهتر + افکت لمسی ---------- */
-  .bottom-nav {
-    padding: 6px 6px calc(8px + env(safe-area-inset-bottom));
-  }
+  /* ---------- ناوبری پایین ---------- */
+  .bottom-nav { padding: 6px 6px calc(8px + env(safe-area-inset-bottom)); }
   .bn-item { min-width: 52px; }
   .bn-item:active { transform: scale(.9); }
   .bn-item .bn-ic { font-size: 20px; }
@@ -43,7 +42,7 @@
   }
   body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
 
-  /* ---------- کارت افقی موبایل: تمام‌عرض، بزرگ‌تر ---------- */
+  /* ---------- کارت افقی: بزرگ، تمام‌عرض ---------- */
   .p-card.hz {
     border-radius: 20px;
     overflow: hidden;
@@ -82,24 +81,26 @@
   }
   .p-grid.rail .p-card.hz { flex: 0 0 176px; }
 
-  /* ---------- لیست عمودی (فروشگاه) ---------- */
-  .p-grid.plist { grid-template-columns: 1fr; gap: 10px; }
+  /* ---------- فروشگاه: دو ستون کارت افقی (تبلت) ---------- */
+  .p-grid.plist { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .p-grid.plist .p-card { flex-direction: row; }
-  .p-grid.plist .p-card .p-media { width: 110px; }
+  .p-grid.plist .p-card .p-media { width: 100px; min-height: 108px; }
+  .p-grid.plist .p-card.hz .p-body { padding: 10px; }
+  .p-grid.plist .p-card.hz .p-name { font-size: 12.5px; }
 
-  /* ---------- دکمه‌های لمس موبایل ---------- */
+  /* ---------- اهداف لمسی ---------- */
   .icon-btn { width: 40px; height: 40px; }
   .btn { min-height: 44px; }
   .btn-lg { min-height: 48px; }
 
-  /* ---------- هیرو موبایل ---------- */
+  /* ---------- هیرو ---------- */
   .mobile-hero { margin: 8px 0 0; border-radius: 18px; }
   .mobile-hero img { height: 300px; }
   .mh-title { font-size: 19px; }
   .mh-sub { font-size: 12px; }
   .mh-cta { padding: 10px 22px; font-size: 13px; }
 
-  /* ---------- برندها: چرخش افقی ---------- */
+  /* ---------- برندها ---------- */
   .brands-row { gap: 10px; }
   .brand-chip { padding: 10px 16px; font-size: 12.5px; }
 
@@ -109,12 +110,12 @@
   .section-title .emoji { font-size: 20px; }
   .section-link { font-size: 11.5px; }
 
-  /* ---------- فوتر موبایل ---------- */
+  /* ---------- فوتر ---------- */
   .site-footer { margin-top: 34px; padding-top: 34px; }
   .f-grid { grid-template-columns: 1fr; gap: 24px; }
   .f-col h4 { font-size: 14px; margin-bottom: 12px; }
 
-  /* ---------- چک‌اوت موبایل ---------- */
+  /* ---------- چک‌اوت ---------- */
   .checkout-card { padding: 16px; border-radius: 18px; }
   .checkout-layout { gap: 16px; }
   .coupon-row { flex-direction: column; }
@@ -146,6 +147,9 @@
   .pd-main-img { border-radius: 18px; }
   .pd-thumbs { gap: 8px; }
   .pd-thumb { width: 62px; height: 62px; border-radius: 12px; }
+  .pd-layout { gap: 18px; }
+  .pd-cats { font-size: 11px; }
+  .pd-meta { gap: 10px; font-size: 11.5px; }
 
   /* ---------- نوار خرید چسبان ---------- */
   .mobile-buybar {
@@ -165,6 +169,9 @@
   .cd-items { padding: 12px; gap: 10px; }
   .cd-item img { width: 68px; height: 68px; border-radius: 10px; }
   .cd-item { padding: 10px; border-radius: 14px; }
+  .cd-foot .btn { min-height: 48px; font-size: 14.5px; }
+  .cd-sum.total { font-size: 15px; }
+  .cd-item .cd-name { font-size: 12.5px; }
 
   /* ---------- صفحات محتوا ---------- */
   .blog-grid { gap: 14px; }
@@ -177,12 +184,6 @@
   /* ---------- کشوی منو ---------- */
   .dm-panel { width: 82%; }
   .dm-cat { padding: 13px 10px; font-size: 14px; }
-
-  /* ---------- صفحه محصول: گالری بدون گوشه‌های تیز ---------- */
-  .pd-layout { gap: 18px; }
-  .pd-main-img { border-radius: 18px; }
-  .pd-cats { font-size: 11px; }
-  .pd-meta { gap: 10px; font-size: 11.5px; }
 
   /* ---------- جداول و لیست‌ها ---------- */
   .sum-row { font-size: 12.5px; }
@@ -216,11 +217,6 @@
   .nl-title { font-size: 17px; }
   .nl-text { font-size: 12px; }
 
-  /* ---------- سبد خرید: دکمه بزرگ ---------- */
-  .cd-foot .btn { min-height: 48px; font-size: 14.5px; }
-  .cd-sum.total { font-size: 15px; }
-  .cd-item .cd-name { font-size: 12.5px; }
-
   /* ---------- صفحه سفارش ---------- */
   .order-timeline { gap: 2px; }
   .ot-label { font-size: 9.5px; }
@@ -242,4 +238,24 @@
   .p-wish:active { transform: scale(.85); }
   .sf-cat { padding: 12px 10px; font-size: 14px; }
   .sort-select { min-height: 40px; }
+
+  /* ============================================================
+     گوشی‌های کوچک (زیر 560px)
+     ============================================================ */
+  @media (max-width: 560px) {
+    .p-grid.plist { grid-template-columns: 1fr; }
+    .p-grid.plist .p-card .p-media { width: 110px; min-height: 118px; }
+    .p-grid.plist .p-card.hz .p-name { font-size: 13.5px; }
+    .auth-card { padding: 24px 18px; }
+    .page-hero { padding: 20px 14px; }
+    .page-hero h1 { font-size: 17px; }
+    .breadcrumb { font-size: 11px; padding: 10px 0; }
+    .cat-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .f-grid { gap: 20px; }
+    .order-card { padding: 12px; }
+    .article-single h1 { font-size: 18px; }
+    .as-content { font-size: 13.5px; }
+    .contact-card { padding: 18px; }
+    .success-box { padding: 30px 18px; }
+  }
 }

@@ -2,6 +2,7 @@
 import { API, price, faNum } from '../api.js';
 import { Cart, Session } from '../store.js';
 import { toast } from '../components.js';
+import { ic } from '../icons.js';
 
 let coupon = null;
 let shippingCost = 0;
@@ -14,7 +15,7 @@ export async function render() {
     return `
     <div class="container">
       <div class="empty-state" style="background:var(--card);border:1px solid var(--line);border-radius:24px;margin:40px auto;max-width:520px">
-        <div class="es-ic">🛒</div>
+        <div class="es-ic">${ic('cart', 30)}</div>
         <h3>سبد خرید شما خالی است</h3>
         <p>قبل از تسویه، چند محصول جذاب به سبد اضافه کنید.</p>
         <a class="btn btn-primary" href="#/shop" style="margin-top:14px">رفتن به فروشگاه</a>
@@ -40,10 +41,10 @@ export async function render() {
     </nav>
     <div class="page-hero">
       <div>
-        <h1>🧾 تسویه حساب</h1>
+        <h1>تسویه حساب</h1>
         <p>سریع و آسان؛ در کمتر از یک دقیقه سفارش‌تان را ثبت کنید</p>
       </div>
-      <div class="ph-ic">🛍️</div>
+      <div class="ph-ic">${ic('card', 44)}</div>
     </div>
 
     <div class="checkout-layout" style="margin-top:22px">
@@ -91,12 +92,12 @@ export async function render() {
           <h3><span class="cc-step">۳</span> روش پرداخت</h3>
           <div class="payment-methods">
             <label class="pay-method selected">
-              <span class="pm-ic">💳</span>
+              <span class="pm-ic">${ic('card', 20)}</span>
               <div><div class="pm-name">پرداخت آنلاین (نمایشی)</div><div class="pm-desc">اتصال امن به درگاه پرداخت</div></div>
               <input type="radio" name="pay" value="online" checked>
             </label>
             <label class="pay-method">
-              <span class="pm-ic">💵</span>
+              <span class="pm-ic">${ic('cash', 20)}</span>
               <div><div class="pm-name">پرداخت در محل</div><div class="pm-desc">مبلغ را هنگام تحویل بپردازید</div></div>
               <input type="radio" name="pay" value="cod">
             </label>
@@ -111,7 +112,7 @@ export async function render() {
 
       <div>
         <div class="checkout-card" style="position:sticky;top:100px">
-          <h3>📦 خلاصه سفارش (${faNum(Cart.count())} کالا)</h3>
+          <h3>${ic('package', 18)} خلاصه سفارش (${faNum(Cart.count())} کالا)</h3>
           <div data-summary-items>
             ${Cart.items.map(it => `
               <div class="order-summary-item">
@@ -124,7 +125,7 @@ export async function render() {
             <div class="sum-row"><span>جمع کالاها</span><span class="val" data-sum-subtotal>${price(Cart.subtotal())} تومان</span></div>
             <div class="sum-row discount"><span>تخفیف</span><span class="val" data-sum-discount>—</span></div>
             <div class="sum-row"><span>هزینه ارسال</span><span class="val" data-sum-shipping>—</span></div>
-            <div class="sum-row free" data-free-line style="display:none"><span>🎉 ارسال رایگان شد!</span></div>
+            <div class="sum-row free" data-free-line style="display:none"><span>${ic('check', 14)} ارسال رایگان شد!</span></div>
             <div class="sum-row grand"><span>مبلغ قابل پرداخت</span><span class="val" data-sum-total>—</span></div>
           </div>
 
@@ -154,7 +155,7 @@ export function mount(el) {
     shippingCost = after >= shippingSettings.free_over ? 0 : shippingSettings.cost;
     const total = after + shippingCost;
     el.querySelector('[data-sum-discount]').textContent = discount ? `− ${price(discount)} تومان` : '—';
-    el.querySelector('[data-sum-shipping]').textContent = shippingCost === 0 ? 'رایگان 🎉' : price(shippingCost) + ' تومان';
+    el.querySelector('[data-sum-shipping]').textContent = shippingCost === 0 ? 'رایگان' : price(shippingCost) + ' تومان';
     el.querySelector('[data-sum-total]').textContent = price(total) + ' تومان';
     el.querySelector('[data-free-line]').style.display = shippingCost === 0 ? 'flex' : 'none';
   };
@@ -171,7 +172,7 @@ export function mount(el) {
         refreshTotals();
         el.querySelector('[data-coupon-box]').innerHTML = `
           <div class="coupon-applied">
-            <span>🎟 ${r.code} — ${faNum(r.discount).replace(/,/g, '٬')} تومان تخفیف</span>
+            <span>${ic('ticket', 14)} ${r.code} — ${faNum(r.discount).replace(/,/g, '٬')} تومان تخفیف</span>
             <button data-coupon-remove>حذف</button>
           </div>`;
         el.querySelector('[data-coupon-remove]').addEventListener('click', () => { coupon = null; el.querySelector('[data-coupon-box]').innerHTML = ''; refreshTotals(); });
@@ -260,9 +261,9 @@ async function renderSuccess(el, order, payment) {
   const root = el.querySelector('.container') || el;
   root.innerHTML = `
   <div class="success-box">
-    <div class="success-ic">🎉</div>
+    <div class="success-ic">${ic('check', 44)}</div>
     <h2 style="font-size:21px;font-weight:800">سفارش شما با موفقیت ثبت شد!</h2>
-    <p style="color:var(--muted);font-size:13.5px;margin-top:8px">از اعتماد شما به پت‌شاپ سپاسگزاریم 🐾</p>
+    <p style="color:var(--muted);font-size:13.5px;margin-top:8px">از اعتماد شما به پت‌شاپ سپاسگزاریم.</p>
     <div class="success-code">کد پیگیری: ${order.code}</div>
     ${extra}
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">

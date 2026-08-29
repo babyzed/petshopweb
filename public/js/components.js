@@ -1,12 +1,13 @@
 // components.js — کامپوننت‌های مشترک فروشگاه
 import { API, price, discountPct, currentPrice, faNum } from './api.js';
+import { ic } from './icons.js';
 import { Cart, Session } from './store.js';
 
 // ---------- ستاره‌ها ----------
 export function stars(rating, size = 13) {
   const r = Math.round(rating || 0);
   let s = '<span class="stars" style="font-size:' + size + 'px">';
-  for (let i = 1; i <= 5; i++) s += `<span class="star ${i <= r ? 'on' : ''}">★</span>`;
+  for (let i = 1; i <= 5; i++) s += `<span class="star ${i <= r ? 'on' : ''}">${ic('star', 13)}</span>`;
   return s + '</span>';
 }
 
@@ -15,7 +16,7 @@ export function productCard(p, opts = {}) {
   const off = discountPct(p);
   const inStock = p.stock > 0;
   const wished = Session.isWished(p.id) ? 'active' : '';
-  const special = p.is_special ? '<span class="p-badge sp">✨ ویژه</span>' : '';
+  const special = p.is_special ? '<span class="p-badge sp">${ic(\'sparkles\', 12)} ویژه</span>' : '';
   return `
   <article class="p-card" data-slug="${p.slug}">
     <div class="p-media">
@@ -27,7 +28,7 @@ export function productCard(p, opts = {}) {
         ${special}
       </div>
       <button class="p-wish ${wished}" data-wish="${p.id}" aria-label="علاقه‌مندی">
-        <span class="${wished ? 'heart-fill' : ''}">${wished ? '❤️' : '🤍'}</span>
+        <span class="${wished ? 'heart-fill' : ''}">${ic('heart', 17)}</span>
       </button>
     </div>
     <div class="p-body">
@@ -41,7 +42,7 @@ export function productCard(p, opts = {}) {
         </div>
         <div class="p-actions">
           ${inStock
-            ? `<button class="p-add" data-add="${p.id}" aria-label="افزودن به سبد"><span class="pa-ic">+</span><span class="pa-txt">افزودن</span></button>`
+            ? `<button class="p-add" data-add="${p.id}" aria-label="افزودن به سبد"><span class="pa-ic">${ic('plus', 16)}</span><span class="pa-txt">افزودن</span></button>`
             : `<span class="p-stock out">ناموجود</span>`}
         </div>
       </div>
@@ -59,7 +60,7 @@ export function productCardH(p) {
     <div class="p-media">
       <a href="#/product/${p.slug}"><img src="${p.image || '/assets/img/placeholder.jpg'}" alt="${p.name}" loading="lazy" onerror="this.src='/assets/img/placeholder.jpg'"></a>
       ${off ? `<span class="p-badge off">٪${faNum(off)}</span>` : ''}
-      <button class="p-wish ${wished}" data-wish="${p.id}" aria-label="علاقه‌مندی"><span>${wished ? '❤️' : '🤍'}</span></button>
+      <button class="p-wish ${wished}" data-wish="${p.id}" aria-label="علاقه‌مندی"><span class="${wished ? 'heart-fill' : ''}">${ic('heart', 15)}</span></button>
     </div>
     <div class="p-body">
       <div class="p-brand">${p.brand_name || ''}</div>
@@ -71,7 +72,7 @@ export function productCardH(p) {
           ${off ? `<div class="p-price-old">${price(p.price)}</div>` : ''}
         </div>
         ${inStock
-          ? `<button class="p-add" data-add="${p.id}" aria-label="افزودن به سبد"><span class="pa-ic">+</span></button>`
+          ? `<button class="p-add" data-add="${p.id}" aria-label="افزودن به سبد"><span class="pa-ic">${ic('plus', 16)}</span></button>`
           : `<span class="p-stock out">ناموجود</span>`}
       </div>
     </div>
@@ -106,28 +107,28 @@ export async function renderHeader() {
   // ساخت منوی دسته با مگامنو (همه دسته‌های ریشه در ستون‌ها)
   const megaItems = cats.map(c => `
     <div>
-      <a href="#/category/${c.slug}" class="mega-sub">${c.icon || '🐾'} ${c.name}</a>
-      ${c.children.map(ch => `<a href="#/category/${ch.slug}"><span class="mi">${ch.icon || '·'}</span>${ch.name}</a>`).join('')}
+      <a href="#/category/${c.slug}" class="mega-sub">${c.icon || ic('paw', 14)} ${c.name}</a>
+      ${c.children.map(ch => `<a href="#/category/${ch.slug}"><span class="mi">${ch.icon || ic('paw', 12)}</span>${ch.name}</a>`).join('')}
     </div>`).join('');
 
   el.innerHTML = `
   <div class="top-bar">
     <div class="container">
       <div style="display:flex;gap:18px;align-items:center">
-        <span>📞 ${contact.phone || ''}</span>
-        <span>🕘 ${contact.work_hours || ''}</span>
+        <span>${ic('phone', 14)} ${contact.phone || ''}</span>
+        <span>${ic('clock', 14)} ${contact.work_hours || ''}</span>
       </div>
       <div class="socials">
-        ${socials.instagram ? `<a href="https://instagram.com/${socials.instagram}" target="_blank" rel="noopener">📷 اینستاگرام</a>` : ''}
-        ${socials.telegram ? `<a href="https://t.me/${socials.telegram}" target="_blank" rel="noopener">✈️ تلگرام</a>` : ''}
-        ${socials.whatsapp ? `<a href="https://wa.me/${socials.whatsapp.replace(/\D/g, '')}" target="_blank" rel="noopener">💬 واتساپ</a>` : ''}
+        ${socials.instagram ? `<a href="https://instagram.com/${socials.instagram}" target="_blank" rel="noopener">${ic('instagram', 15)} اینستاگرام</a>` : ''}
+        ${socials.telegram ? `<a href="https://t.me/${socials.telegram}" target="_blank" rel="noopener">${ic('telegram', 15)} تلگرام</a>` : ''}
+        ${socials.whatsapp ? `<a href="https://wa.me/${socials.whatsapp.replace(/\D/g, '')}" target="_blank" rel="noopener">${ic('whatsapp', 15)} واتساپ</a>` : ''}
       </div>
     </div>
   </div>
   <div class="main-header" id="main-header">
     <div class="container header-main">
       <a class="logo" href="#/">
-        <span class="logo-icon">🐾</span>
+        <span class="logo-icon">${ic('paw', 21)}</span>
         <span class="logo-text">پت‌شاپ<small>دنیای شادی برای پت شما</small></span>
       </a>
       <div class="search-box">
@@ -144,7 +145,7 @@ export async function renderHeader() {
       <div class="container">
         <ul class="main-nav">
           <li>
-            <a href="#" class="nav-cat-btn" data-mega-toggle>☰ دسته‌بندی محصولات</a>
+            <a href="#" class="nav-cat-btn" data-mega-toggle>${ic('menu', 17)} دسته‌بندی محصولات</a>
             <div class="mega-panel" data-mega-panel>${megaItems}</div>
           </li>
           <li><a href="#/">خانه</a></li>
@@ -201,7 +202,7 @@ export function renderMobileHeader() {
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
     <a class="logo" href="#/">
-      <span class="logo-icon">🐾</span>
+      <span class="logo-icon">${ic('paw', 21)}</span>
       <span class="logo-text">پت‌شاپ</span>
     </a>
     <button class="icon-btn" data-search-open aria-label="جستجو" style="background:var(--bg)">
@@ -226,26 +227,26 @@ function openDrawer(categories) {
     <div class="dm-backdrop"></div>
     <div class="dm-panel">
       <div class="dm-head">
-        <span class="logo-text">🐾 پت‌شاپ</span>
+        <span class="logo-text">پت‌شاپ</span>
         <button style="color:#fff;font-size:18px" data-dm-close>✕</button>
       </div>
       <div class="dm-list">
         ${categories.map(c => `
           <div>
             <a class="dm-cat" href="#/category/${c.slug}" data-dm-close>
-              <span class="mi">${c.icon || '🐾'}</span> ${c.name}
+              <span class="mi">${c.icon || ic('paw', 15)}</span> ${c.name}
               <span class="cnt">${faNum(c.count)}</span>
               ${c.children.length ? '<span class="chev">◀</span>' : ''}
             </a>
-            ${c.children.length ? `<div class="dm-sub">${c.children.map(ch => `<a href="#/category/${ch.slug}" data-dm-close>${ch.icon} ${ch.name}</a>`).join('')}</div>` : ''}
+            ${c.children.length ? `<div class="dm-sub">${c.children.map(ch => `<a href="#/category/${ch.slug}" data-dm-close>${ch.icon || ''} ${ch.name}</a>`).join('')}</div>` : ''}
           </div>`).join('')}
       </div>
       <div class="dm-links">
-        <a href="#/shop" data-dm-close>🛍️ فروشگاه</a>
-        <a href="#/blog" data-dm-close>📰 مجله پت</a>
-        <a href="#/page/about" data-dm-close>ℹ️ درباره ما</a>
-        <a href="#/page/contact" data-dm-close>📞 تماس با ما</a>
-        <a href="#/page/faq" data-dm-close>❓ سوالات متداول</a>
+        <a href="#/shop" data-dm-close>${ic('bag', 16)} فروشگاه</a>
+        <a href="#/blog" data-dm-close>${ic('newspaper', 16)} مجله پت</a>
+        <a href="#/page/about" data-dm-close>${ic('file', 16)} درباره ما</a>
+        <a href="#/page/contact" data-dm-close>${ic('phone', 16)} تماس با ما</a>
+        <a href="#/page/faq" data-dm-close>${ic('chat', 16)} سوالات متداول</a>
       </div>
     </div>`;
   document.body.appendChild(wrap);
@@ -259,11 +260,11 @@ export function renderBottomNav() {
   const el = document.getElementById('bottom-nav');
   el.innerHTML = `
   <div class="bn-grid">
-    <a class="bn-item" href="#/" data-route="" data-match="/"><span class="bn-ic">🏠</span>خانه</a>
-    <a class="bn-item" href="#/shop" data-route="shop" data-match="shop"><span class="bn-ic">🧺</span>فروشگاه</a>
-    <button class="bn-fab" data-open-cart aria-label="سبد خرید">🛒<span class="badge" data-cart-count></span></button>
-    <a class="bn-item" href="#/account" data-route="account" data-match="account"><span class="bn-ic">👤</span>حساب من</a>
-    <a class="bn-item" href="#/blog" data-route="blog" data-match="blog"><span class="bn-ic">📰</span>مجله پت</a>
+    <a class="bn-item" href="#/" data-route="" data-match="/"><span class="bn-ic">${ic('home', 20)}</span>خانه</a>
+    <a class="bn-item" href="#/shop" data-route="shop" data-match="shop"><span class="bn-ic">${ic('bag', 20)}</span>فروشگاه</a>
+    <button class="bn-fab" data-open-cart aria-label="سبد خرید">${ic('cart', 22)}<span class="badge" data-cart-count></span></button>
+    <a class="bn-item" href="#/account" data-route="account" data-match="account"><span class="bn-ic">${ic('user', 20)}</span>حساب من</a>
+    <a class="bn-item" href="#/blog" data-route="blog" data-match="blog"><span class="bn-ic">${ic('newspaper', 20)}</span>مجله پت</a>
   </div>`;
   el.querySelector('[data-open-cart]').addEventListener('click', () => openCart(true));
 }
@@ -280,14 +281,14 @@ export function openCart(mobileFull = false) {
       <div class="cd-backdrop" data-cart-close></div>
       <div class="cd-panel">
         <div class="cd-head">
-          <h3>🛒 سبد خرید <span style="color:var(--muted);font-size:12px;font-weight:500">(${faNum(count)} کالا)</span></h3>
+          <h3>${ic('cart', 18)} سبد خرید <span style="color:var(--muted);font-size:12px;font-weight:500">(${faNum(count)} کالا)</span></h3>
           <button class="cd-close" data-cart-close>✕</button>
         </div>
         <div class="cd-items">
           ${items.length === 0 ? `
             <div class="cd-empty">
-              <div class="ce-ic">🛒</div>
-              <p>سبد خرید شما خالی است!<br>بیایید برای پت‌تون چیزی خوشحال‌کننده پیدا کنیم 🐾</p>
+              <div class="ce-ic">${ic('cart', 30)}</div>
+              <p>سبد خرید شما خالی است!<br>بیایید برای پت‌تون چیزی خوشحال‌کننده پیدا کنیم.</p>
               <a class="btn btn-primary" href="#/shop" data-cart-close>مشاهده فروشگاه</a>
             </div>` : items.map(it => `
             <div class="cd-item">
@@ -301,7 +302,7 @@ export function openCart(mobileFull = false) {
                   <button data-qty="1" data-id="${it.product_id}">+</button>
                 </div>
               </div>
-              <button class="cd-remove" data-remove="${it.product_id}" aria-label="حذف">🗑</button>
+              <button class="cd-remove" data-remove="${it.product_id}" aria-label="حذف">${ic('trash', 16)}</button>
             </div>`).join('')}
         </div>
         ${items.length ? `
@@ -349,16 +350,16 @@ export function openSearch() {
       try {
         const r = await API.get('/search?q=' + encodeURIComponent(q));
         body.innerHTML = `
-          ${r.products.length ? `<div class="so-group"><h4>🛍️ محصولات</h4>${r.products.map(p => `
+          ${r.products.length ? `<div class="so-group"><h4>${ic('bag', 15)} محصولات</h4>${r.products.map(p => `
             <a class="so-item" href="#/product/${p.slug}" data-so-close>
               <img src="${p.image}" alt="" loading="lazy">
               <div style="flex:1"><div class="so-name">${p.name}</div><div class="so-price">${price(currentPrice(p))} تومان</div></div>
             </a>`).join('')}</div>` : ''}
-          ${r.categories.length ? `<div class="so-group"><h4>📂 دسته‌ها</h4>${r.categories.map(c => `
-            <a class="so-item" href="#/category/${c.slug}" data-so-close><span style="font-size:24px">${c.icon || '🐾'}</span><div class="so-name">${c.name}</div></a>`).join('')}</div>` : ''}
-          ${r.articles.length ? `<div class="so-group"><h4>📰 مقالات</h4>${r.articles.map(a => `
-            <a class="so-item" href="#/blog/${a.slug}" data-so-close><span style="font-size:20px">📄</span><div class="so-name">${a.title}</div></a>`).join('')}</div>` : ''}
-          ${!r.products.length && !r.categories.length && !r.articles.length ? '<p style="color:var(--muted);text-align:center;padding:30px;font-size:13.5px">نتیجه‌ای پیدا نشد 😿</p>' : ''}`;
+          ${r.categories.length ? `<div class="so-group"><h4>${ic('grid', 15)} دسته‌ها</h4>${r.categories.map(c => `
+            <a class="so-item" href="#/category/${c.slug}" data-so-close><span style="font-size:24px">${c.icon || ic('paw', 22)}</span><div class="so-name">${c.name}</div></a>`).join('')}</div>` : ''}
+          ${r.articles.length ? `<div class="so-group"><h4>${ic('book', 15)} مقالات</h4>${r.articles.map(a => `
+            <a class="so-item" href="#/blog/${a.slug}" data-so-close><span style="font-size:20px">${ic('file', 18)}</span><div class="so-name">${a.title}</div></a>`).join('')}</div>` : ''}
+          ${!r.products.length && !r.categories.length && !r.articles.length ? '<p style="color:var(--muted);text-align:center;padding:30px;font-size:13.5px">نتیجه‌ای پیدا نشد</p>' : ''}`;
         ov.querySelectorAll('[data-so-close]').forEach(b => b.addEventListener('click', closeSearch));
       } catch (e) { body.innerHTML = '<p style="color:var(--danger);text-align:center;padding:20px">خطا در جستجو</p>'; }
     }, 280);
@@ -378,7 +379,7 @@ export function toast(message, type = 'ok') {
   const root = document.getElementById('toast-root');
   const t = document.createElement('div');
   t.className = 'toast ' + (type === 'err' ? 'err' : type === 'info' ? '' : 'ok');
-  t.innerHTML = `${type === 'err' ? '⚠️' : type === 'info' ? '💡' : '✅'} ${message}`;
+  t.innerHTML = `${type === 'err' ? ic('alert', 15) : type === 'info' ? ic('info', 15) : ic('check', 15)} ${message}`;
   root.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 320); }, 2600);
 }
@@ -409,7 +410,7 @@ export async function renderFooter() {
       <div class="f-grid">
         <div>
           <div class="f-logo">
-            <span class="logo-icon">🐾</span>
+            <span class="logo-icon">${ic('paw', 21)}</span>
             <span class="logo-text" style="color:#fff">پت‌شاپ</span>
           </div>
           <p class="f-desc">${footer.description || 'پت‌شاپ؛ مرجع تخصصی محصولات حیوانات خانگی.'}</p>
@@ -436,22 +437,22 @@ export async function renderFooter() {
         <div class="f-col">
           <h4>اطلاعات تماس</h4>
           <ul class="f-contact">
-            <li><span class="fc-ic">📍</span><span>${contact.address || ''}</span></li>
-            <li><span class="fc-ic">📞</span><span dir="ltr">${contact.phone || ''}</span></li>
-            <li><span class="fc-ic">📱</span><span dir="ltr">${contact.mobile || ''}</span></li>
-            <li><span class="fc-ic">✉️</span><span dir="ltr">${contact.email || ''}</span></li>
-            <li><span class="fc-ic">🕘</span><span>${contact.work_hours || ''}</span></li>
+            <li><span class="fc-ic">${ic('pin', 15)}</span><span>${contact.address || ''}</span></li>
+            <li><span class="fc-ic">${ic('phone', 15)}</span><span dir="ltr">${contact.phone || ''}</span></li>
+            <li><span class="fc-ic">${ic('phone', 15)}</span><span dir="ltr">${contact.mobile || ''}</span></li>
+            <li><span class="fc-ic">${ic('mail', 15)}</span><span dir="ltr">${contact.email || ''}</span></li>
+            <li><span class="fc-ic">${ic('clock', 15)}</span><span>${contact.work_hours || ''}</span></li>
           </ul>
           <div class="f-socials">
-            ${socials.instagram ? `<a class="f-social" href="https://instagram.com/${socials.instagram}" target="_blank" rel="noopener" aria-label="اینستاگرام">📷</a>` : ''}
-            ${socials.telegram ? `<a class="f-social" href="https://t.me/${socials.telegram}" target="_blank" rel="noopener" aria-label="تلگرام">✈️</a>` : ''}
-            ${socials.whatsapp ? `<a class="f-social" href="https://wa.me/${socials.whatsapp.replace(/\D/g, '')}" target="_blank" rel="noopener" aria-label="واتساپ">💬</a>` : ''}
+            ${socials.instagram ? `<a class="f-social" href="https://instagram.com/${socials.instagram}" target="_blank" rel="noopener" aria-label="اینستاگرام">${ic('instagram', 17)}</a>` : ''}
+            ${socials.telegram ? `<a class="f-social" href="https://t.me/${socials.telegram}" target="_blank" rel="noopener" aria-label="تلگرام">${ic('telegram', 17)}</a>` : ''}
+            ${socials.whatsapp ? `<a class="f-social" href="https://wa.me/${socials.whatsapp.replace(/\D/g, '')}" target="_blank" rel="noopener" aria-label="واتساپ">${ic('whatsapp', 17)}</a>` : ''}
           </div>
         </div>
       </div>
       <div class="f-bottom">
         <span>© ۱۴۰۵ پت‌شاپ — تمامی حقوق محفوظ است.</span>
-        <span>ساخته شده با ❤️ برای دوست‌های کوچک شما 🐶🐱</span>
+        <span>ساخته شده با ${ic('heart', 12)} برای دوست‌های کوچک شما</span>
       </div>
     </div>
   </div>`;
@@ -476,7 +477,7 @@ export function bindGlobalEvents() {
       const slug = card?.dataset.slug;
       if (slug) {
         fetch('/api/products/' + slug).then(r => r.json()).then(({ product }) => {
-          if (product) { Cart.add(product, 1); updateCartBadges(); toast('به سبد خرید اضافه شد 🛒'); }
+          if (product) { Cart.add(product, 1); updateCartBadges(); toast('به سبد خرید اضافه شد'); }
         });
       }
       return;
@@ -486,7 +487,8 @@ export function bindGlobalEvents() {
       if (!Session.isLoggedIn) { toast('برای علاقه‌مندی ابتدا وارد شوید', 'info'); location.hash = '#/auth'; return; }
       Session.toggleWish(Number(wish.dataset.wish));
       wish.classList.toggle('active');
-      wish.querySelector('span').textContent = Session.isWished(Number(wish.dataset.wish)) ? '❤️' : '🤍';
+      const ws = wish.querySelector('span');
+      if (ws) ws.classList.toggle('heart-fill', Session.isWished(Number(wish.dataset.wish)));
       return;
     }
     const heart = e.target.closest('[data-wish-page]');
@@ -495,7 +497,10 @@ export function bindGlobalEvents() {
       const id = Number(heart.dataset.wishPage);
       Session.toggleWish(id);
       heart.classList.toggle('active');
-      heart.textContent = Session.isWished(id) ? '❤️' : '🤍';
+      const hf = heart.querySelector('.heart-fill, .pd-wish-ic');
+      if (hf) hf.classList.toggle('heart-fill', Session.isWished(id));
+      const hl = heart.querySelector('.pd-wish-label');
+      if (hl) hl.textContent = Session.isWished(id) ? 'در علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها';
     }
   });
 }

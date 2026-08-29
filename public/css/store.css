@@ -1266,3 +1266,48 @@ h1,h2,h3,h4 { line-height: 1.4; }
 .fc-price .unit { font-size: 12px; color: var(--muted); font-weight: 500; }
 .fc-cta { margin-top: 6px; }
 .bs-wrap .p-grid { grid-template-columns: repeat(5, 1fr); }
+
+/* ============================================================
+   آیکون‌های مینیمال SVG
+   ============================================================ */
+.section-title .st-ic {
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--brand-dark); flex-shrink: 0;
+}
+.hero-tag { display: inline-flex; align-items: center; gap: 7px; }
+.fc-badge svg { flex-shrink: 0; }
+.nav-cat-btn svg, .dm-links a svg, .dm-cat svg { vertical-align: -3px; }
+.p-wish svg { transition: transform .18s ease; }
+.p-wish.active svg, .p-wish .heart-fill svg { fill: currentColor; }
+.p-add .pa-ic { display: inline-flex; }
+.p-add .pa-ic svg { vertical-align: -2px; }
+.bn-item .bn-ic { display: inline-flex; }
+.bn-fab svg { display: block; }
+.f-social svg { display: block; }
+.fc-ic { display: inline-flex; }
+.cd-head h3 svg { flex-shrink: 0; }
+.page-hero .ph-ic { display: inline-flex; }
+.pay-method .pm-ic { display: inline-flex; }
+
+/* ============================================================
+   هم‌ترازی آیکون‌های SVG
+   ============================================================ */
+.stars .star { display: inline-flex; }
+.stars .star.on svg { fill: currentColor; }
+.rating-input button svg { display: block; }
+.rating-input button.on svg, .rating-input button:hover svg { fill: currentColor; }
+.es-ic svg, .ce-ic svg, .pe-ic svg, .af-ic svg, .an-ic svg, .ci-ic svg, .cd-remove svg,
+.so-group h4 svg, .so-item svg, .at-badge svg, .nl-title svg, .a-meta svg, .sf-title svg,
+.fs-head h3 svg, .auth-bg-paw svg, .auth-pet svg, .pd-features h3 svg, .rev-form h4 svg,
+.rev-head h3 svg, .c-info h3 svg, .sum-head h3 svg, .cd-head h3 svg, .toast svg {
+  display: inline-block;
+  vertical-align: -3px;
+  flex-shrink: 0;
+}
+.toast { display: flex; align-items: center; gap: 8px; }
+.pd-wish { display: inline-flex; align-items: center; gap: 7px; }
+.pd-wish .pd-wish-ic { display: inline-flex; }
+.pd-wish.active svg { fill: currentColor; }
+.mega-sub svg, .dm-cat svg, .dm-links a svg { vertical-align: -3px; }
+.p-badge.sp { display: inline-flex; align-items: center; gap: 5px; }
+.f-bottom svg { display: inline-block; vertical-align: -2px; }

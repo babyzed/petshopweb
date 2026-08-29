@@ -2,6 +2,7 @@
 import { API } from '../api.js';
 import { Session } from '../store.js';
 import { toast } from '../components.js';
+import { ic } from '../icons.js';
 
 let mode = 'login'; // login | register | forgot
 
@@ -12,13 +13,13 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function render() {
   return `
   <div class="auth-page">
-    <span class="auth-bg-paw p1">🐾</span>
-    <span class="auth-bg-paw p2">🐾</span>
-    <span class="auth-bg-paw p3">🐶</span>
+    <span class="auth-bg-paw p1">${ic('paw', 90)}</span>
+    <span class="auth-bg-paw p2">${ic('paw', 64)}</span>
+    <span class="auth-bg-paw p3">${ic('paw', 76)}</span>
 
     <div class="auth-card" data-auth-card>
-      <div class="auth-pet" data-auth-pet>🐱</div>
-      <h1 class="auth-title" data-auth-title>${mode === 'login' ? 'خوش برگشتید! 👋' : mode === 'register' ? 'به خانواده پت‌شاپ بپیوندید 🎉' : 'بازیابی رمز عبور 🔑'}</h1>
+      <div class="auth-pet" data-auth-pet>${ic('paw', 56)}</div>
+      <h1 class="auth-title" data-auth-title>${mode === 'login' ? 'خوش برگشتید!' : mode === 'register' ? 'به خانواده پت‌شاپ بپیوندید' : 'بازیابی رمز عبور'}</h1>
       <p class="auth-sub" data-auth-sub>
         ${mode === 'login' ? 'برای ادامه، وارد حساب‌تان شوید' : mode === 'register' ? 'ثبت‌نام فقط ۳۰ ثانیه طول می‌کشد' : 'کد بازیابی را به ایمیل‌تان ارسال می‌کنیم'}
       </p>
@@ -38,7 +39,7 @@ export function render() {
       <div class="auth-alt" data-auth-alt></div>
 
       <div class="auth-note">
-        <span class="an-ic">🐾</span>
+        <span class="an-ic">${ic('paw', 14)}</span>
         <span>حساب دمو: <b>sara@gmail.com</b> — رمز: <b>123456</b> • مدیر: <b>admin@petshop.ir</b></span>
       </div>
     </div>
@@ -98,7 +99,7 @@ export function mount(el) {
 
   const setMode = (m) => {
     mode = m;
-    const title = { login: 'خوش برگشتید! 👋', register: 'به خانواده پت‌شاپ بپیوندید 🎉', forgot: 'بازیابی رمز عبور 🔑' }[m];
+    const title = { login: 'خوش برگشتید!', register: 'به خانواده پت‌شاپ بپیوندید', forgot: 'بازیابی رمز عبور' }[m];
     const sub = { login: 'برای ادامه، وارد حساب‌تان شوید', register: 'ثبت‌نام فقط ۳۰ ثانیه طول می‌کشد', forgot: 'کد بازیابی را به ایمیل‌تان ارسال می‌کنیم' }[m];
     card.querySelector('[data-auth-title]').textContent = title;
     card.querySelector('[data-auth-sub]').textContent = sub;
@@ -113,10 +114,10 @@ export function mount(el) {
   };
 
   const animatePet = () => {
-    const pets = ['🐱', '🐶', '🐰', '🐹', '🦜'];
+    const pets = ['paw', 'heart', 'star', 'sparkles', 'flame'];
     const pet = card.querySelector('[data-auth-pet]');
     petFlip = (petFlip + 1) % pets.length;
-    pet.textContent = pets[petFlip];
+    pet.innerHTML = ic(pets[petFlip], 56);
     pet.style.transform = 'scale(1.25) rotate(-8deg)';
     setTimeout(() => { pet.style.transform = ''; pet.style.transition = 'transform .3s'; }, 120);
   };
@@ -126,7 +127,7 @@ export function mount(el) {
   // چرخش پت با کلیک (Micro interaction)
   const pet = card.querySelector('[data-auth-pet]');
   pet.style.cursor = 'pointer';
-  pet.title = 'کلیک کن! 🐾';
+  pet.title = 'کلیک کن!';
   pet.addEventListener('click', animatePet);
 
   const form = card.querySelector('[data-auth-form]');
@@ -166,14 +167,14 @@ export function mount(el) {
         const r = await API.post('/auth/login', { email: body.email, password: body.password });
         API.setToken(r.token);
         Session.setUser(r.user);
-        toast('خوش آمدید! 🎉');
+        toast('خوش آمدید!');
         location.hash = r.user.is_admin ? '#/account' : '#/account';
         if (r.user.is_admin) setTimeout(() => { if (confirm('به پنل مدیریت بروید؟')) location.hash = '/admin/'; }, 600);
       } else if (mode === 'register') {
         const r = await API.post('/auth/register', body);
         API.setToken(r.token);
         Session.setUser(r.user);
-        toast('حساب شما ساخته شد؛ خوش آمدید! 🎉');
+        toast('حساب شما ساخته شد؛ خوش آمدید!');
         location.hash = '#/account';
       } else {
         const r = await API.post('/auth/forgot', { email: body.email });
@@ -197,7 +198,7 @@ export function mount(el) {
           if (pass.length < 6) { toast('رمز جدید حداقل ۶ کاراکتر باشد', 'err'); return; }
           try {
             await API.post('/auth/reset', { email: body.email, code, password: pass });
-            toast('رمز عبور با موفقیت تغییر کرد ✅');
+            toast('رمز عبور با موفقیت تغییر کرد');
             setMode('login');
           } catch (err) { toast(err.message, 'err'); }
         };

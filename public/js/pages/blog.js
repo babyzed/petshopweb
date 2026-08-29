@@ -1,5 +1,6 @@
 // pages/blog.js — مجله پت: لیست و جزئیات مقاله
 import { API, dateFa } from '../api.js';
+import { ic } from '../icons.js';
 
 export function title(params) {
   return params.slug ? 'مقاله | پت‌شاپ' : 'مجله پت';
@@ -17,7 +18,7 @@ export async function render(params) {
         <span class="as-cat">${article.category || 'پت‌شاپ'}</span>
         <h1>${article.title}</h1>
         <div class="as-meta">
-          <span>🗓 ${dateFa(article.created_at)}</span>
+          <span>${ic('calendar', 13)} ${dateFa(article.created_at)}</span>
           <span>⏱ ${faRead(article.content)} دقیقه مطالعه</span>
         </div>
         ${article.image ? `<div class="as-img"><img src="${article.image}" alt="${article.title}"></div>` : ''}
@@ -25,7 +26,7 @@ export async function render(params) {
       </article>
       ${related.length ? `
       <section class="section">
-        <div class="section-head"><h2 class="section-title"><span class="emoji">📚</span>مقالات مرتبط</h2></div>
+        <div class="section-head"><h2 class="section-title"><span class="st-ic">${ic('book', 22)}</span>مقالات مرتبط</h2></div>
         <div class="blog-grid">
           ${related.map(a => `
             <a class="article-card" href="#/blog/${a.slug}">
@@ -43,10 +44,10 @@ export async function render(params) {
     <nav class="breadcrumb"><a href="#/">خانه</a><span class="sep">/</span><span>مجله پت</span></nav>
     <div class="page-hero">
       <div>
-        <h1>📰 مجله پت</h1>
+        <h1>مجله پت</h1>
         <p>مقالات تخصصی برای سلامت، شادی و تربیت حیوانات خانگی</p>
       </div>
-      <div class="ph-ic">🦜</div>
+      <div class="ph-ic">${ic('book', 44)}</div>
     </div>
     <div class="blog-grid" style="margin-top:24px">
       ${articles.map(a => `
@@ -58,7 +59,7 @@ export async function render(params) {
           <div class="a-body">
             <h3 class="a-title">${a.title}</h3>
             <p class="a-excerpt">${a.excerpt || ''}</p>
-            <div class="a-meta"><span>🗓 ${dateFa(a.created_at)}</span><span>⏱ ${faRead(a.content)} دقیقه</span></div>
+            <div class="a-meta"><span>${ic('calendar', 13)} ${dateFa(a.created_at)}</span><span>${ic('clock', 13)} ${faRead(a.content)} دقیقه</span></div>
           </div>
         </a>`).join('')}
     </div>

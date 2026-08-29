@@ -57,7 +57,7 @@ async function bootstrap() {
 
   if (Session.isLoggedIn) Session.loadWishlist();
 
-  console.log('%c🐾 پت‌شاپ', 'font-size:18px;font-weight:bold;color:#F97316');
+  console.log('%cپت‌شاپ', 'font-size:18px;font-weight:bold;color:#F97316');
 }
 
 bootstrap().catch(e => console.error('bootstrap error', e));

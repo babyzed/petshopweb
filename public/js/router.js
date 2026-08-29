@@ -1,4 +1,6 @@
 // router.js — روتر Hash ساده با پشتیبانی از mount/cleanup
+import { ic } from './icons.js';
+
 const routes = [];
 let current = null;
 
@@ -38,7 +40,7 @@ export async function navigate() {
 
   const m = match(location.hash || '#/');
   if (!m.def) {
-    document.getElementById('view').innerHTML = '<div class="page-error"><div class="pe-ic">🐾</div><h2>صفحه پیدا نشد</h2><p>صفحه مورد نظر شما وجود ندارد.</p><a class="btn btn-primary" href="#/">بازگشت به خانه</a></div>';
+    document.getElementById('view').innerHTML = '<div class="page-error"><div class="pe-ic">${ic(\'paw\', 34)}</div><h2>صفحه پیدا نشد</h2><p>صفحه مورد نظر شما وجود ندارد.</p><a class="btn btn-primary" href="#/">بازگشت به خانه</a></div>';
     document.title = 'صفحه پیدا نشد | پت‌شاپ';
     return;
   }
@@ -62,7 +64,7 @@ export async function navigate() {
     }
   } catch (e) {
     console.error(e);
-    view.innerHTML = '<div class="page-error"><div class="pe-ic">😿</div><h2>خطا در بارگذاری</h2><p>' + (e.message || 'خطای ناشناخته') + '</p><button class="btn btn-primary" onclick="location.reload()">تلاش دوباره</button></div>';
+    view.innerHTML = '<div class="page-error"><div class="pe-ic">${ic(\'alert\', 34)}</div><h2>خطا در بارگذاری</h2><p>' + (e.message || 'خطای ناشناخته') + '</p><button class="btn btn-primary" onclick="location.reload()">تلاش دوباره</button></div>';
   }
   document.querySelectorAll('#bottom-nav .bn-item').forEach(el => {
     el.classList.toggle('active', el.dataset.route === (m.path || '/'));

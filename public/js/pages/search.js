@@ -1,6 +1,7 @@
 // pages/search.js — صفحه نتایج جستجو
 import { API, price, faNum, currentPrice } from '../api.js';
 import { productCard, productCardH } from '../components.js';
+import { ic } from '../icons.js';
 
 export function title(params) { return 'جستجو: ' + params.q + ' | پت‌شاپ'; }
 
@@ -10,7 +11,7 @@ export async function render(params, query) {
     API.get('/search?q=' + encodeURIComponent(q)),
     API.get('/products?q=' + encodeURIComponent(q) + '&per_page=24'),
   ]);
-  const isMobile = window.innerWidth <= 560;
+  const isMobile = window.innerWidth <= 900;
   const card = (p) => isMobile ? productCardH(p) : productCard(p);
 
   return `
@@ -18,19 +19,19 @@ export async function render(params, query) {
     <nav class="breadcrumb"><a href="#/">خانه</a><span class="sep">/</span><span>نتایج جستجو</span></nav>
     <div class="page-hero">
       <div>
-        <h1>🔍 نتایج جستجو برای «${q}»</h1>
+        <h1>نتایج جستجو برای «${q}»</h1>
         <p>${faNum(listRes.total)} محصول پیدا شد</p>
       </div>
-      <div class="ph-ic">🔎</div>
+      <div class="ph-ic">${ic('search', 40)}</div>
     </div>
 
     ${searchRes.categories.length ? `
     <section class="section" style="padding-top:16px">
-      <div class="section-head"><h2 class="section-title"><span class="emoji">🗂️</span>دسته‌های مرتبط</h2></div>
+      <div class="section-head"><h2 class="section-title"><span class="st-ic">${ic('grid', 22)}</span>دسته‌های مرتبط</h2></div>
       <div class="cat-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
         ${searchRes.categories.map(c => `
           <a class="cat-card" href="#/category/${c.slug}">
-            <span class="cat-emoji">${c.icon || '🐾'}</span>
+            <span class="cat-emoji">${c.icon || ic('paw', 30)}</span>
             <span class="cat-name">${c.name}</span>
             <span class="cat-count">${faNum(c.count)} محصول</span>
           </a>`).join('')}
@@ -39,7 +40,7 @@ export async function render(params, query) {
 
     ${searchRes.articles.length ? `
     <section class="section">
-      <div class="section-head"><h2 class="section-title"><span class="emoji">📰</span>مقالات مرتبط</h2></div>
+      <div class="section-head"><h2 class="section-title"><span class="st-ic">${ic('book', 22)}</span>مقالات مرتبط</h2></div>
       <div class="blog-grid">
         ${searchRes.articles.map(a => `
           <a class="article-card" href="#/blog/${a.slug}">
@@ -51,11 +52,11 @@ export async function render(params, query) {
 
     ${listRes.products.length ? `
     <section class="section">
-      <div class="section-head"><h2 class="section-title"><span class="emoji">🛍️</span>محصولات</h2></div>
+      <div class="section-head"><h2 class="section-title"><span class="st-ic">${ic('bag', 22)}</span>محصولات</h2></div>
       <div class="p-grid">${listRes.products.map(card).join('')}</div>
     </section>` : `
     <div class="empty-state" style="background:var(--card);border:1px solid var(--line);border-radius:24px;margin-top:20px">
-      <div class="es-ic">😿</div>
+      <div class="es-ic">${ic('search', 34)}</div>
       <h3>نتیجه‌ای برای «${q}» پیدا نشد</h3>
       <p>املای کلمه را بررسی کنید یا عبارت دیگری امتحان کنید.</p>
       <a class="btn btn-primary" href="#/shop" style="margin-top:14px">مشاهده همه محصولات</a>

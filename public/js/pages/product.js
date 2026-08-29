@@ -2,6 +2,7 @@
 import { API, price, faNum, currentPrice, discountPct, dateFa } from '../api.js';
 import { Cart, Session } from '../store.js';
 import { productCard, productCardH, stars, toast, initials } from '../components.js';
+import { ic } from '../icons.js';
 
 let slug = null;
 
@@ -14,7 +15,7 @@ export async function render(params) {
   const { product } = await API.get('/products/' + params.slug);
   const off = discountPct(product);
   const inStock = product.stock > 0;
-  const isMobile = window.innerWidth <= 560;
+  const isMobile = window.innerWidth <= 900;
   const wished = Session.isWished(product.id);
   const features = Object.entries(product.features || {});
   const mainImage = product.images?.[0]?.image || product.image || '/assets/img/placeholder.jpg';
@@ -22,17 +23,17 @@ export async function render(params) {
   const relatedHtml = product.related?.length ? `
     <section class="section">
       <div class="section-head">
-        <h2 class="section-title"><span class="emoji">🔗</span>محصولات مرتبط</h2>
+        <h2 class="section-title"><span class="st-ic">${ic('link', 22)}</span>محصولات مرتبط</h2>
       </div>
       <div class="p-grid ${isMobile ? 'rail' : ''}">${product.related.map(p => isMobile ? productCardH(p) : productCard(p)).join('')}</div>
     </section>` : '';
 
   const reviewForm = Session.isLoggedIn ? `
     <div class="rev-form">
-      <h4>✍️ ثبت نظر شما</h4>
+      <h4>${ic('pen', 16)} ثبت نظر شما</h4>
       <form data-review-form>
         <div class="rating-input" data-rating-input>
-          ${[1,2,3,4,5].map(i => `<button type="button" data-rate="${i}">★</button>`).join('')}
+          ${[1,2,3,4,5].map(i => `<button type="button" data-rate="${i}">${ic('star', 22)}</button>`).join('')}
         </div>
         <div class="form-grid">
           <div class="field"><label>عنوان نظر</label><input type="text" name="title" placeholder="مثلاً: کیفیت عالی" maxlength="60"></div>
@@ -96,26 +97,26 @@ export async function render(params) {
             <span id="pd-qty">1</span>
             <button data-qty="1">+</button>
           </div>
-          <button class="btn btn-primary btn-lg pd-buy-btn" data-add-cart>🛒 افزودن به سبد</button>
+          <button class="btn btn-primary btn-lg pd-buy-btn" data-add-cart>${ic('cart', 18)} افزودن به سبد</button>
           <button class="btn btn-dark btn-lg" data-buy-now>خرید فوری</button>` : `
           <button class="btn btn-ghost btn-lg pd-buy-btn" disabled>موجود نیست</button>`}
         </div>
         <div class="pd-extra">
-          <button class="btn btn-outline" data-wish-page="${product.id}" class="${wished ? 'active' : ''}">${wished ? '❤️ در علاقه‌مندی‌ها' : '🤍 افزودن به علاقه‌مندی‌ها'}</button>
-          <button class="btn btn-ghost" data-share>🔗 اشتراک‌گذاری</button>
+          <button class="btn btn-outline pd-wish" data-wish-page="${product.id}" class="${wished ? 'active' : ''}"><span class="pd-wish-ic ${wished ? 'heart-fill' : ''}">${ic('heart', 17)}</span><span class="pd-wish-label">${wished ? 'در علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها'}</span></button>
+          <button class="btn btn-ghost" data-share>${ic('link', 15)} اشتراک‌گذاری</button>
         </div>
       </div>
     </div>
 
     ${features.length ? `
     <div class="pd-features">
-      <h3>📋 ویژگی‌های محصول</h3>
+      <h3>${ic('list', 17)} ویژگی‌های محصول</h3>
       ${features.map(([k, v]) => `<div class="pd-feat-row"><span class="k">${k}</span><span>${v}</span></div>`).join('')}
     </div>` : ''}
 
     <div class="reviews-section">
       <div class="rev-head">
-        <h3>💬 نظرات کاربران (${faNum(product.review_count || 0)})</h3>
+        <h3>${ic('chat', 17)} نظرات کاربران (${faNum(product.review_count || 0)})</h3>
         <div class="rev-summary"><span class="rev-big">${product.rating ? faNum(product.rating) : '—'}</span>${stars(product.rating)}</div>
       </div>
       ${product.reviews?.length ? product.reviews.map(r => `
@@ -130,7 +131,7 @@ export async function render(params) {
           </div>
           ${r.title ? `<div class="rev-title">${r.title}</div>` : ''}
           <p class="rev-comment">${r.comment}</p>
-        </div>`).join('') : '<p style="color:var(--muted);font-size:13px">هنوز نظری ثبت نشده؛ اولین نفر باشید! 🐾</p>'}
+        </div>`).join('') : '<p style="color:var(--muted);font-size:13px">هنوز نظری ثبت نشده؛ اولین نفر باشید!</p>'}
       ${reviewForm}
     </div>
 
@@ -141,7 +142,7 @@ export async function render(params) {
         <div class="bb-price">${price(currentPrice(product))} <span class="unit" style="font-size:10px;color:var(--muted)">تومان</span></div>
         ${off ? `<span class="bb-price-old">${price(product.price)}</span>` : ''}
       </div>
-      ${inStock ? `<button class="btn btn-primary" data-add-cart>🛒 افزودن به سبد</button>` : '<button class="btn btn-ghost" disabled>ناموجود</button>'}
+      ${inStock ? `<button class="btn btn-primary" data-add-cart>${ic('cart', 17)} افزودن به سبد</button>` : '<button class="btn btn-ghost" disabled>ناموجود</button>'}
     </div>
   </div>`;
 }
@@ -171,7 +172,7 @@ export function mount(el) {
         if (product.stock < qty) { toast('موجودی کافی نیست', 'err'); return; }
         Cart.add(product, qty);
         updateBadges();
-        toast('به سبد خرید اضافه شد 🛒');
+        toast('به سبد خرید اضافه شد');
       }
     });
   };
@@ -186,7 +187,7 @@ export function mount(el) {
 
   el.querySelector('[data-share]')?.addEventListener('click', async () => {
     try { await navigator.share({ title: document.title, url: location.href }); }
-    catch { navigator.clipboard?.writeText(location.href).then(() => toast('لینک کپی شد 🔗')); }
+    catch { navigator.clipboard?.writeText(location.href).then(() => toast('لینک کپی شد')); }
   });
 
   // امتیازدهی
@@ -208,7 +209,7 @@ export function mount(el) {
       const title = form.querySelector('input[name="title"]').value.trim();
       try {
         await API.post('/products/' + productId + '/review', { rating, title, comment });
-        toast('نظر شما ثبت شد و پس از تایید نمایش داده می‌شود ✅');
+        toast('نظر شما ثبت شد و پس از تایید نمایش داده می‌شود');
         form.reset();
       } catch (err) { toast(err.message, 'err'); }
     });

@@ -45,7 +45,12 @@ app.get('/robots.txt', (req, res) => {
 
 // ---------- اپلیکیشن‌ها ----------
 app.use('/admin', express.static(path.join(__dirname, '..', 'admin')));
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// HTML/JS/CSS بدون کش (تا به‌روزرسانی‌ها فوراً دیده شوند)؛ تصاویر با کش بلند
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  setHeaders: (res, filePath) => {
+    if (/\.(html?|js|css|json)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
+  },
+}));
 
 // ---------- خطاها ----------
 app.use('/api', (req, res) => res.status(404).json({ error: 'مسیر یافت نشد.' }));
