@@ -154,6 +154,30 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   await sleep(700);
   log('تغییر وضعیت سفارش', admin.url().includes('/orders/'));
 
+  // کاربران — ساخت ادمین دلخواه توسط مدیر کل
+  await admin.goto(BASE + '/admin/#/users', { waitUntil: 'networkidle0' });
+  await sleep(800);
+  const hasNewBtn = await admin.$('[data-new-user]') !== null;
+  let created = false;
+  if (hasNewBtn) {
+    const uniqEmail = 'testadmin' + Date.now() + '@gmail.com';
+    await admin.$eval('[data-new-user]', el => el.click());
+    await sleep(500);
+    await admin.$eval('[data-n-name]', (el, t) => { el.value = t; el.dispatchEvent(new Event('input', { bubbles: true })); }, 'ادمین تستی');
+    await admin.$eval('[data-n-email]', (el, t) => { el.value = t; el.dispatchEvent(new Event('input', { bubbles: true })); }, uniqEmail);
+    await admin.$eval('[data-n-pass]', (el, t) => { el.value = t; el.dispatchEvent(new Event('input', { bubbles: true })); }, 'admin123');
+    await admin.$eval('[data-n-role]', el => { el.value = el.options[1].value; });
+    await admin.$eval('[data-save]', el => el.click());
+    await sleep(1600); // صبر برای ساخت + reload
+    created = await admin.evaluate(async (q) => {
+      const t = localStorage.getItem('ps_admin_token');
+      const r = await fetch('/api/admin/users?q=' + q + '&page=1', { headers: { Authorization: 'Bearer ' + t } });
+      const d = await r.json();
+      return (d.users || []).some(u => u.email === q && u.name === 'ادمین تستی');
+    }, uniqEmail);
+  }
+  log('ساخت ادمین دلخواه', hasNewBtn && created, created ? 'کاربر ساخته و در لیست است' : 'در لیست نیست');
+
   // نقش‌ها
   await admin.goto(BASE + '/admin/#/roles', { waitUntil: 'networkidle0' });
   await sleep(800);

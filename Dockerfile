@@ -20,10 +20,9 @@ RUN npm ci --omit=dev --no-audit --no-fund
 COPY server ./server
 COPY public ./public
 COPY admin ./admin
-COPY uploads ./uploads
 
 # دایرکتوری‌های قابل نوشتن (دیتابیس و آپلودها — در Docker Compose روی Volume)
-RUN mkdir -p data && chown -R node:node /app
+RUN mkdir -p data uploads && chown -R node:node /app
 
 USER node
 
