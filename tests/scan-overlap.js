@@ -21,13 +21,12 @@ const puppeteer = require('puppeteer');
           return false;
         };
         const isOverlay = (small, big) => {
-          // کوچک مطلق/فیکس است و داخل یک اجداد دارای position (همان big یا جد بزرگ‌تر) قرار دارد
-          const cs = getComputedStyle(small);
-          if (cs.position !== 'absolute' && cs.position !== 'fixed') return false;
-          let p = small.parentElement;
+          // کوچک (یا فرزندانش) داخل لایه‌ی absolute/fixed است که بیرون از big قرار دارد
+          // → پوشاندن طراحانه است (استیکر دسته، متن روی تصویر، پنجه تزئینی و...)
+          let p = small;
           while (p && p !== big) {
             const ps = getComputedStyle(p).position;
-            if (ps !== 'static') return true; // داخل یک لایه بالاتر از big → اوورلی طراحانه
+            if (ps === 'absolute' || ps === 'fixed') return true;
             p = p.parentElement;
           }
           return false;

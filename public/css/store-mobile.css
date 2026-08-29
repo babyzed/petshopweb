@@ -12,7 +12,7 @@
 
   /* ---------- هدر: فشرده، جستجو آیکونی ---------- */
   .mob-bar { padding: 8px 10px; gap: 6px; }
-  .mob-bar .logo-icon { width: 34px; height: 34px; border-radius: 11px; font-size: 17px; }
+  .mob-bar .logo-icon { width: 34px; height: 34px; border-radius: 11px; }
   .mob-bar .logo-text { font-size: 15.5px; }
   .mob-bar .icon-btn { width: 40px; height: 40px; border-radius: 13px; }
   .mob-search { display: none; } /* جستجو با آیکون باز می‌شود */
@@ -23,24 +23,24 @@
   .search-overlay .so-input { flex: 1; }
   .search-overlay .so-input input {
     width: 100%;
-    padding: 13px 16px;
-    border-radius: 14px;
+    padding: 13px 16px 13px 44px;
+    border-radius: var(--radius-pill);
     border: 2px solid var(--brand);
     font-size: 15px;
     background: #fff;
   }
   .search-overlay .so-body { padding: 4px 12px 40px; max-width: 100%; }
 
-  /* ---------- ناوبری پایین ---------- */
-  .bottom-nav { padding: 6px 6px calc(8px + env(safe-area-inset-bottom)); }
+  /* ---------- ناوبری پایین: داک شناور ---------- */
+  .bottom-nav { inset-inline: 10px; bottom: 8px; border-radius: 22px; }
   .bn-item { min-width: 52px; }
   .bn-item:active { transform: scale(.9); }
   .bn-item .bn-ic { font-size: 20px; }
   .bn-fab {
-    width: 52px; height: 52px; font-size: 24px;
+    width: 52px; height: 52px;
     box-shadow: 0 8px 20px rgba(249,115,22,.45);
   }
-  body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  body { padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
 
   /* ---------- کارت افقی: بزرگ، تمام‌عرض ---------- */
   .p-card.hz {
@@ -59,8 +59,9 @@
   .p-card.hz .p-price { font-size: 14.5px; }
   .p-card.hz .p-price-old { font-size: 10.5px; }
   .p-card.hz .p-add {
-    width: 36px; height: 36px; border-radius: 12px;
-    background: var(--brand); color: #fff;
+    width: 38px; height: 38px; border-radius: 13px;
+    background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff;
+    box-shadow: 0 5px 14px rgba(249,115,22,.35);
   }
 
   /* ---------- ریل اسکرول افقی (خانه و محصولات مرتبط) ---------- */
@@ -94,7 +95,7 @@
   .btn-lg { min-height: 48px; }
 
   /* ---------- هیرو ---------- */
-  .mobile-hero { margin: 8px 0 0; border-radius: 18px; }
+  .mobile-hero { margin: 8px 0 0; border-radius: 20px; }
   .mobile-hero img { height: 300px; }
   .mh-title { font-size: 19px; }
   .mh-sub { font-size: 12px; }
@@ -102,13 +103,13 @@
 
   /* ---------- برندها ---------- */
   .brands-row { gap: 10px; }
-  .brand-chip { padding: 10px 16px; font-size: 12.5px; }
+  .brand-chip { padding: 10px 18px; font-size: 12.5px; }
 
   /* ---------- سکشن‌ها ---------- */
   .section { padding: 22px 0; }
   .section-title { font-size: 16.5px; }
-  .section-title .emoji { font-size: 20px; }
-  .section-link { font-size: 11.5px; }
+  .section-title .st-ic { width: 38px; height: 38px; border-radius: 12px; }
+  .section-link { font-size: 11.5px; padding: 8px 14px; }
 
   /* ---------- فوتر ---------- */
   .site-footer { margin-top: 34px; padding-top: 34px; }
@@ -144,7 +145,7 @@
   .pd-info, .pd-features, .reviews-section { padding: 16px; border-radius: 18px; }
   .pd-title { font-size: 16.5px; }
   .pd-price-now { font-size: 20px; }
-  .pd-main-img { border-radius: 18px; }
+  .pd-main-img { border-radius: 20px; }
   .pd-thumbs { gap: 8px; }
   .pd-thumb { width: 62px; height: 62px; border-radius: 12px; }
   .pd-layout { gap: 18px; }
@@ -154,14 +155,15 @@
   /* ---------- نوار خرید چسبان ---------- */
   .mobile-buybar {
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
-    border-radius: 18px 18px 0 0;
+    border-radius: 20px 20px 0 0;
+    background: rgba(250,244,233,.97);
   }
   .mobile-buybar .btn { min-height: 46px; }
 
   /* ---------- دراپر سبد: تمام‌صفحه ---------- */
   .cart-drawer .cd-panel {
     width: 100%;
-    border-radius: 22px 22px 0 0;
+    border-radius: 24px 24px 0 0;
     transform: translateY(100%);
     transition: transform .28s ease;
   }
@@ -213,7 +215,7 @@
   .at-stat .v { font-size: 16px; }
 
   /* ---------- خبرنامه ---------- */
-  .newsletter { border-radius: 20px; }
+  .newsletter { border-radius: 22px; }
   .nl-title { font-size: 17px; }
   .nl-text { font-size: 12px; }
 
@@ -234,10 +236,13 @@
   .page-error .pe-ic { font-size: 56px; }
 
   /* ---------- کلیک‌های لمسی ---------- */
-  .p-wish { width: 34px; height: 34px; font-size: 15px; }
+  .p-wish { width: 34px; height: 34px; }
   .p-wish:active { transform: scale(.85); }
   .sf-cat { padding: 12px 10px; font-size: 14px; }
   .sort-select { min-height: 40px; }
+
+  /* ---------- استیکر آیکون دسته کوچک‌تر ---------- */
+  .cat-card .cat-emoji { width: 38px; height: 38px; border-radius: 12px; }
 
   /* ============================================================
      گوشی‌های کوچک (زیر 560px)
@@ -257,5 +262,13 @@
     .as-content { font-size: 13.5px; }
     .contact-card { padding: 18px; }
     .success-box { padding: 30px 18px; }
+    .newsletter { padding: 30px 22px; }
+    .newsletter::after { width: 92px; height: 92px; inset-inline-start: auto; inset-inline-end: 14px; top: 14px; transform: none; }
+    .nl-form { flex-direction: column; border-radius: 20px; }
+    .nl-form .btn { width: 100%; }
+    .featured-card { padding: 24px 18px; border-radius: 22px; }
+    .fc-name { font-size: 20px; }
+    .auth-page { padding: 26px 14px; }
+    .auth-page::after { display: none; }
   }
 }
