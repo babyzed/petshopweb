@@ -85,6 +85,7 @@ export async function navigate() {
   view.innerHTML = '<div class="loading-wrap"><div class="spinner"></div><div>در حال بارگذاری...</div></div>';
   try {
     view.innerHTML = await def.render(params);
+    wrapDataTables(view);
     if (def.after) def.after(params);
   } catch (e) {
     console.error(e);
@@ -92,6 +93,16 @@ export async function navigate() {
     view.innerHTML = '<div class="page-error" style="background:#fff;border-radius:20px;padding:50px"><h2>خطا</h2><p style="color:var(--muted)">' + e.message + '</p></div>';
   }
   renderActiveNav(raw);
+}
+
+function wrapDataTables(root) {
+  root.querySelectorAll('table.data-table').forEach(t => {
+    if (t.parentElement && t.parentElement.classList.contains('table-wrap')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'table-wrap';
+    t.parentNode.insertBefore(wrap, t);
+    wrap.appendChild(t);
+  });
 }
 
 function renderActiveNav(raw) {

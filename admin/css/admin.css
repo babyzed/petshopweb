@@ -150,6 +150,7 @@
 .mini-list-item b { font-weight: 700; color: #1C1917; font-size: 12.5px; line-height: 1.5; word-break: break-word; }
 
 /* ---------- Table ---------- */
+.table-wrap { max-width: 100%; }
 .data-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 16px; overflow: hidden; border: 1px solid #EFE9E2; }
 .data-table th {
   background: #FAF7F4; text-align: start; padding: 12px 16px; font-size: 12px; font-weight: 800;
@@ -340,11 +341,22 @@
   .at-burger { display: flex; }
   #admin-view { padding: 16px 14px 80px; }
   .form-grid, .form-grid.cols-3 { grid-template-columns: 1fr; }
-  .data-table { display: block; overflow-x: auto; }
+  /* جدول‌ها در موبایل: اسکرول افقی داخل وریپر تا ستون‌های هدر و بدنه هم‌تراز بمانند */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-wrap .data-table { width: max-content; min-width: 100%; }
+  .data-table th, .data-table td { padding: 10px 12px; }
+  .dash-card, .a-card { padding: 16px 14px; }
+  .mli-name { flex-basis: 90px; }
   #admin-topbar { padding: 12px 14px; gap: 10px; }
   .at-title { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42vw; }
 }
 @media (max-width: 560px) {
   .at-sub, .at-role { display: none; }
   .at-name { max-width: 30vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .toolbar h3 { max-width: 62vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dash-card h3 { font-size: 13.5px; }
+  .mini-list-item { gap: 8px; font-size: 12px; }
+  .mini-list-item b { font-size: 12px; }
+  .data-table { border-radius: 12px; }
+  .page-nav .btn { padding: 9px 14px; font-size: 12px; }
 }
