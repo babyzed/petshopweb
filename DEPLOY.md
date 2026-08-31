@@ -66,7 +66,7 @@ docker compose up -d --build
 
 # بررسی وضعیت
 docker ps
-curl http://localhost:3001/
+curl http://localhost:3000/
 ```
 
 ## ۵. تنظیم Nginx (Reverse Proxy + SSL)
@@ -106,14 +106,14 @@ server {
 
     # کش فایل‌های استاتیک
     location ~* \.(jpg|jpeg|png|gif|webp|svg|css|js|ico|woff|woff2)$ {
-        proxy_pass http://127.0.0.1:3001;
+        proxy_pass http://127.0.0.1:3000;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
 
     # API و صفحات
     location / {
-        proxy_pass http://127.0.0.1:3001;
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -201,7 +201,7 @@ docker logs -f petshop
 
 # بررسی وضعیت
 docker ps
-curl -s http://localhost:3001/api/settings/public | head -100
+curl -s http://localhost:3000/api/settings/public | head -100
 ```
 
 ## ۱۰. آپدیت سایت
@@ -227,7 +227,7 @@ docker logs -f petshop
 ```bash
 docker ps
 docker logs petshop
-curl http://localhost:3001/
+curl http://localhost:3000/
 ```
 
 ### خطای 502 در Nginx
@@ -235,8 +235,8 @@ curl http://localhost:3001/
 # آیا Docker اجراست؟
 docker ps
 
-# آیا پورت 3001 درست است؟
-curl http://localhost:3001/
+# آیا پورت 3000 درست است؟
+curl http://localhost:3000/
 
 # لاگ Nginx
 sudo tail -f /var/log/nginx/error.log
@@ -245,7 +245,7 @@ sudo tail -f /var/log/nginx/error.log
 ### خطای پرداخت
 ```bash
 # تست اتصال درگاه
-curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3001/api/payments/test
+curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/api/payments/test
 
 # بررسی SAMAN_TERMINAL_ID در .env
 cat /opt/petshop/.env | grep SAMAN

@@ -320,8 +320,10 @@ router.post('/payments/create', (req, res) => {
 // ============================================================
 router.get('/payments/callback', (req, res) => {
   const { order, RefNum, RRN, Status } = req.query;
+  // Sepehr REST از RRN استفاده می‌کند؛ RefNum برای سازگاری با SOAP قدیمی نگه داشته می‌شود
+  const rrn = (RRN || RefNum || '').trim();
 
-  if (!order || !RefNum) {
+  if (!order || !rrn) {
     return res.redirect('/#/payment-result?status=error&message=اطلاعات پرداخت ناقص است');
   }
 
@@ -332,7 +334,7 @@ router.get('/payments/callback', (req, res) => {
 
   // === IDEMPOTENCY: اگر قبلاً پرداخت شده، دوباره پردازش نکن ===
   if (dbOrder.payment_status === 'paid') {
-    return res.redirect(`/#/payment-result?status=success&order=${order}&RRN=${RRN}&message=پرداخت قبلاً تایید شده`);
+    return res.redirect(`/#/payment-result?status=success&order=${order}&RRN=${rrn}&message=پرداخت قبلاً تایید شده`);
   }
 
   // بررسی وضعیت پرداخت از بانک
@@ -340,12 +342,12 @@ router.get('/payments/callback', (req, res) => {
     const errorMsg = getErrorMessage(String(Status));
     // ثبت رکورد پرداخت ناموفق
     db.prepare('INSERT INTO payments (order_id, user_id, amount, gateway, authority, status, raw_response) VALUES (?,?,?,?,?,?,?)')
-      .run(dbOrder.id, dbOrder.user_id, dbOrder.total, 'saman', RefNum || '', 'failed', JSON.stringify({ Status, error: errorMsg }));
+      .run(dbOrder.id, dbOrder.user_id, dbOrder.total, 'saman', rrn, 'failed', JSON.stringify({ Status, error: errorMsg }));
     return res.redirect(`/#/payment-result?status=failed&message=${encodeURIComponent(errorMsg)}&order=${order}`);
   }
 
   // تایید پرداخت با بانک
-  verifyPayment({ token: RefNum, RRN: RRN || RefNum }).then(result => {
+  verifyPayment({ RRN: rrn }).then(result => {
     if (result.ok) {
       // === TRANSACTION: به‌روزرسانی اتمیک وضعیت ===
       db.transaction(() => {
@@ -359,7 +361,7 @@ router.get('/payments/callback', (req, res) => {
 
         // به‌روزرسانی رکورد پرداخت
         db.prepare("UPDATE payments SET status = 'paid', transaction_id = ?, verified_at = datetime('now') WHERE order_id = ? AND status = 'pending'")
-          .run(RRN || result.RRN || '', dbOrder.id);
+          .run(rrn || result.RRN || '', dbOrder.id);
 
         // تاریخچه وضعیت
         addOrderHistory(dbOrder.id, dbOrder.status, 'paid', dbOrder.user_id, 'پرداخت موفق بانکی');
@@ -371,7 +373,7 @@ router.get('/payments/callback', (req, res) => {
         sendOrderSMS(updatedOrder, 'paid').catch(() => {});
       });
 
-      res.redirect(`/#/payment-result?status=success&order=${order}&RRN=${RRN}`);
+      res.redirect(`/#/payment-result?status=success&order=${order}&RRN=${rrn}`);
     } else {
       res.redirect(`/#/payment-result?status=failed&message=${encodeURIComponent(result.error || 'تایید پرداخت ناموفق')}&order=${order}`);
     }
@@ -385,7 +387,7 @@ router.get('/payments/callback', (req, res) => {
 // تایید پرداخت (API) — Idempotent
 // ============================================================
 router.post('/payments/verify', authRequired, (req, res) => {
-  const { orderCode, RRN, token } = req.body || {};
+  const { orderCode, RRN } = req.body || {};
   if (!orderCode || !RRN) return res.status(400).json({ error: 'اطلاعات ناقص است.' });
 
   const order = db.prepare("SELECT * FROM orders WHERE code = ?").get(orderCode);
@@ -401,7 +403,7 @@ router.post('/payments/verify', authRequired, (req, res) => {
     return res.json({ ok: true, message: 'پرداخت قبلاً تایید شده.' });
   }
 
-  verifyPayment({ token: token || RRN, RRN }).then(result => {
+  verifyPayment({ RRN }).then(result => {
     if (result.ok) {
       db.transaction(() => {
         db.prepare("UPDATE orders SET payment_status = 'paid', status = 'paid', updated_at = datetime('now') WHERE id = ? AND payment_status = 'unpaid'")

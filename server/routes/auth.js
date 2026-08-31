@@ -66,7 +66,9 @@ function validatePassword(password) {
 
 function publicUser(user) {
   const u = withRole(user);
-  const { password_hash, permissions, ...rest } = u;
+  const { password_hash, ...rest } = u;
+  // permissions فقط برای کاربران مدیریتی افشا می‌شود (مشتری عادی نیازی ندارد)
+  if (!rest.is_admin) delete rest.permissions;
   return rest;
 }
 
@@ -128,9 +130,7 @@ router.post('/login', (req, res) => {
 
     recordLoginAttempt(cleanEmail, true);
 
-    const pub = publicUser(user);
-    if (pub.is_admin) pub.permissions = withRole(user).permissions;
-    res.json({ token: signToken(user), user: pub });
+    res.json({ token: signToken(user), user: publicUser(user) });
   } catch (err) {
     console.error('[Auth] Login error:', err.message);
     res.status(500).json({ error: 'خطا در ورود.' });

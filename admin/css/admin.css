@@ -315,6 +315,9 @@
 @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
+/* ---------- Backdrop سایدبار موبایل ---------- */
+.admin-sidebar-backdrop { display: none; }
+
 /* Responsive admin */
 @media (max-width: 1100px) {
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
@@ -327,10 +330,21 @@
   }
   [dir="rtl"] #admin-sidebar { transform: translateX(100%); }
   #admin-sidebar.open { transform: translateX(0); }
+  .admin-sidebar-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 85;
+    background: rgba(28,25,23,.55); opacity: 0; pointer-events: none;
+    transition: opacity .3s ease;
+  }
+  .admin-sidebar-backdrop.open { opacity: 1; pointer-events: auto; }
+  body.no-scroll { overflow: hidden; }
   .at-burger { display: flex; }
   #admin-view { padding: 16px 14px 80px; }
   .form-grid, .form-grid.cols-3 { grid-template-columns: 1fr; }
   .data-table { display: block; overflow-x: auto; }
-  #admin-topbar { padding: 12px 14px; }
-  .at-title { font-size: 14px; }
+  #admin-topbar { padding: 12px 14px; gap: 10px; }
+  .at-title { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42vw; }
+}
+@media (max-width: 560px) {
+  .at-sub, .at-role { display: none; }
+  .at-name { max-width: 30vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }

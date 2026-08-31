@@ -119,6 +119,28 @@ export function renderSidebar() {
     </div>`;
 }
 
+// ---------- سایدبار موبایل ----------
+let sidebarBackdrop = null;
+function ensureSidebarBackdrop() {
+  if (!sidebarBackdrop) {
+    sidebarBackdrop = document.createElement('div');
+    sidebarBackdrop.id = 'admin-sidebar-backdrop';
+    sidebarBackdrop.className = 'admin-sidebar-backdrop';
+    document.body.appendChild(sidebarBackdrop);
+  }
+  return sidebarBackdrop;
+}
+export function openSidebar() {
+  document.getElementById('admin-sidebar').classList.add('open');
+  ensureSidebarBackdrop().classList.add('open');
+  document.body.classList.add('no-scroll');
+}
+export function closeSidebar() {
+  document.getElementById('admin-sidebar').classList.remove('open');
+  if (sidebarBackdrop) sidebarBackdrop.classList.remove('open');
+  document.body.classList.remove('no-scroll');
+}
+
 export function renderTopbar() {
   const el = document.getElementById('admin-topbar');
   const u = AdminAPI.user;
@@ -138,6 +160,8 @@ export function renderTopbar() {
       <span class="at-avatar">${initials(u?.name)}</span>
     </div>`;
   el.querySelector('[data-burger]').addEventListener('click', () => {
-    document.getElementById('admin-sidebar').classList.toggle('open');
+    const sidebar = document.getElementById('admin-sidebar');
+    if (sidebar.classList.contains('open')) closeSidebar(); else openSidebar();
   });
+  ensureSidebarBackdrop().addEventListener('click', closeSidebar);
 }

@@ -121,10 +121,15 @@ async function createPayment({ amount, orderId, orderCode, description, mobile, 
 }
 
 // ---------- تایید پرداخت ----------
-async function verifyPayment({ token, RRN }) {
+// نکته: توکن دسترسی (access token) باید از سمت سرور و از endpoint «/token»
+// گرفته شود؛ نباید از مقدار RRN/RefNum برگشتی بانک به‌عنوان توکن استفاده کرد.
+async function verifyPayment({ RRN }) {
   if (!SAMAN_TERMINAL_ID) {
     throw new Error('SAMAN_TERMINAL_ID تنظیم نشده است.');
   }
+
+  // دریافت توکن دسترسی معتبر (سرور به سرور)
+  const token = await getToken();
 
   const res = await httpRequest(`${BASE_URL}/payments/${RRN}/verify`, 'POST', {
     terminalId: SAMAN_TERMINAL_ID,
