@@ -57,7 +57,7 @@ export async function render(params) {
     <div class="pd-layout">
       <div class="pd-gallery">
         <div class="pd-main-img">
-          <img src="${mainImage}" alt="${product.name}" id="pd-main-img" onerror="this.src='/assets/img/placeholder.jpg'">
+          <img src="${mainImage}" alt="${product.name}" id="pd-main-img">
         </div>
         ${product.images?.length > 1 ? `
         <div class="pd-thumbs">
@@ -102,7 +102,7 @@ export async function render(params) {
           <button class="btn btn-ghost btn-lg pd-buy-btn" disabled>موجود نیست</button>`}
         </div>
         <div class="pd-extra">
-          <button class="btn btn-outline pd-wish" data-wish-page="${product.id}" class="${wished ? 'active' : ''}"><span class="pd-wish-ic ${wished ? 'heart-fill' : ''}">${ic('heart', 17)}</span><span class="pd-wish-label">${wished ? 'در علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها'}</span></button>
+          <button class="btn btn-outline pd-wish ${wished ? 'active' : ''}" data-wish-page="${product.id}"><span class="pd-wish-ic ${wished ? 'heart-fill' : ''}">${ic('heart', 17)}</span><span class="pd-wish-label">${wished ? 'در علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها'}</span></button>
           <button class="btn btn-ghost" data-share>${ic('link', 15)} اشتراک‌گذاری</button>
         </div>
       </div>

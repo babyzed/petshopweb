@@ -25,13 +25,13 @@ npm start        # سرور روی http://localhost:3000
 | پنل مدیریت | `http://localhost:3000/admin/` |
 
 ## 🔑 حساب‌ها
+در اولین اجرا فقط یک مدیر کل ساخته می‌شود (بقیه‌ی ادمین‌ها و مشتریان از پنل مدیریت ساخته شوند):
+
 | نقش | ایمیل | رمز |
 |---|---|---|
-| مدیر کل (Super Admin) | admin@petshop.ir | admin123 |
-| مدیر فروشگاه (Admin) | manager@petshop.ir | admin123 |
-| مدیر محتوا (Content) | content@petshop.ir | admin123 |
-| پشتیبانی (Support) | support@petshop.ir | admin123 |
-| مشتری نمونه | sara@gmail.com | 123456 |
+| مدیر کل (Super Admin) | admin@petshop.ir | admin1234 |
+
+> ⚠️ بعد از اولین ورود، رمز را از **پروفایل** تغییر دهید.
 
 کدهای تخفیف نمونه: `WELCOME10` (۱۰٪) و `SALE200` (۲۰۰ هزار تومان)
 

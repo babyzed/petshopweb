@@ -6,6 +6,14 @@ const { hasPermission } = require('./permissions');
 const JWT_SECRET = process.env.JWT_SECRET || 'petshop-secret-key-1405';
 const TOKEN_EXPIRY = '7d';
 
+// در production با secret پیش‌فرض، توکن‌ها قابل جعل‌اند — جلوی بالا آمدن سرور گرفته شود
+if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'petshop-secret-key-1405') {
+  throw new Error(
+    'JWT_SECRET تنظیم نشده است. در محیط production باید یک مقدار تصادفی در .env قرار دهید:\n' +
+    'node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"'
+  );
+}
+
 function signToken(user) {
   return jwt.sign(
     { id: user.id, role: user.role_name, role_id: user.role_id, name: user.name, email: user.email },
@@ -64,4 +72,22 @@ function requirePerm(perm) {
   };
 }
 
-module.exports = { signToken, authRequired, requirePerm, withRole, getRolePerms };
+// میدل‌ور اختیاری: اگر توکن معتبر باشد کاربر را متصل می‌کند، در غیر این صورت ادامه می‌دهد
+// (کاربرد: ثبت سفارش مهمان — پردازش بدون لاگین مجاز است)
+function optionalAuth(req, res, next) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) return next();
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.id);
+    if (user && user.status === 'active') {
+      req.user = withRole(user);
+    }
+  } catch {
+    // توکن نامعتبر/منقضی — کاربر مهمان در نظر گرفته می‌شود
+  }
+  next();
+}
+
+module.exports = { signToken, authRequired, requirePerm, optionalAuth, withRole, getRolePerms };

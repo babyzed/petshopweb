@@ -37,11 +37,6 @@ export function render() {
       </form>
 
       <div class="auth-alt" data-auth-alt></div>
-
-      <div class="auth-note">
-        <span class="an-ic">${ic('paw', 14)}</span>
-        <span>حساب دمو: <b>sara@gmail.com</b> — رمز: <b>123456</b> • مدیر: <b>admin@petshop.ir</b></span>
-      </div>
     </div>
   </div>`;
 }
@@ -203,7 +198,7 @@ export function mount(el) {
           } catch (err) { toast(err.message, 'err'); }
         };
         form.onsubmit = (e) => { e.preventDefault(); resetSubmit(); };
-        toast(`کد بازیابی (دمو): ${r.demo_code}`, 'info');
+        if (r.demo_code) { toast('کد بازیابی ایمیل شد', 'info'); }
       }
     } catch (err) {
       toast(err.message, 'err');

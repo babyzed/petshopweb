@@ -1,6 +1,7 @@
 // admin/pages/products.js — مدیریت کامل محصولات
 import { AdminAPI, price, faNum, uploadImage } from '../api.js';
 import { toast, confirmModal, openModal } from '../components.js';
+import { ic } from '../icons.js';
 
 let listState = { page: 1, q: '', category: '', status: 'all' };
 
@@ -15,7 +16,7 @@ export async function render() {
 
   return `
   <div class="toolbar">
-    <input class="search-inp" placeholder="🔍 جستجو در نام یا کد محصول..." value="${listState.q}" data-search>
+    <input class="search-inp" placeholder="جستجو در نام یا کد محصول..." value="${listState.q}" data-search>
     <select data-cat-filter style="padding:10px 14px;border:1.5px solid #E7E0D8;border-radius:12px;font-size:13px;background:#fff">
       <option value="">همه دسته‌ها</option>
       ${cats.map(c => `<option value="${c.id}" ${listState.category == c.id ? 'selected' : ''}>${'—'.repeat(c.parent_id ? 1 : 0)} ${c.name}</option>`).join('')}
@@ -26,7 +27,7 @@ export async function render() {
       <option value="inactive" ${listState.status === 'inactive' ? 'selected' : ''}>غیرفعال</option>
       <option value="draft" ${listState.status === 'draft' ? 'selected' : ''}>پیش‌نویس</option>
     </select>
-    <a class="btn btn-primary" href="#/products/new" style="padding:10px 22px;font-size:13px">+ محصول جدید</a>
+    <a class="btn btn-primary" href="#/products/new" style="padding:10px 22px;font-size:13px">${ic('plus', 16)} محصول جدید</a>
   </div>
 
   <table class="data-table">
@@ -38,7 +39,7 @@ export async function render() {
         <tr>
           <td>
             <div style="display:flex;align-items:center;gap:10px">
-              ${p.image ? `<img class="t-img" src="${p.image}" alt="">` : '<span style="font-size:26px">🐾</span>'}
+              ${p.image ? `<img class="t-img" src="${p.image}" alt="">` : `<span style="font-size:22px;color:var(--brand)">${ic('package', 26)}</span>`}
               <div>
                 <div class="t-name" style="max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</div>
                 <div class="t-sub" dir="ltr">${p.sku || p.slug}</div>
@@ -50,11 +51,11 @@ export async function render() {
           <td>${price(p.price)}</td>
           <td>${p.sale_price ? price(p.sale_price) : '—'}</td>
           <td><span class="s-badge ${p.stock === 0 ? 's-cancelled' : p.stock <= 10 ? 's-pending' : 's-approved'}">${faNum(p.stock)}</span></td>
-          <td>${p.is_special ? '✨' : '—'}</td>
+          <td>${p.is_special ? ic('sparkles', 16) : '—'}</td>
           <td>${p.status === 'active' ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">غیرفعال</span>'}</td>
           <td style="white-space:nowrap">
-            <a class="btn btn-ghost" href="#/products/${p.id}" style="padding:7px 12px;font-size:11.5px">ویرایش</a>
-            <button class="btn btn-ghost" data-del="${p.id}" data-name="${p.name}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">حذف</button>
+            <a class="btn btn-ghost" href="#/products/${p.id}" style="padding:7px 12px;font-size:11.5px">${ic('edit', 14)} ویرایش</a>
+            <button class="btn btn-ghost" data-del="${p.id}" data-name="${p.name}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">${ic('trash', 14)} حذف</button>
           </td>
         </tr>`).join('')}
     </tbody>
@@ -96,11 +97,11 @@ export async function formRender(params) {
   if (id) p = (await AdminAPI.get('/admin/products/' + id)).product;
 
   const featRows = Object.entries(p.features || {}).map(([k, v]) =>
-    `<div class="feat-row"><input placeholder="نام ویژگی (مثلاً: وزن)" value="${k}" data-fk><input placeholder="مقدار (مثلاً: ۲ کیلوگرم)" value="${v}" data-fv><button class="btn btn-ghost" data-feat-del style="color:var(--danger)">✕</button></div>`).join('');
+    `<div class="feat-row"><input placeholder="نام ویژگی (مثلاً: وزن)" value="${k}" data-fk><input placeholder="مقدار (مثلاً: ۲ کیلوگرم)" value="${v}" data-fv><button class="btn btn-ghost" data-feat-del style="color:var(--danger)">${ic('x', 14)}</button></div>`).join('');
 
   return `
   <div class="a-card">
-    <h3>📦 ${id ? 'ویرایش محصول' : 'افزودن محصول جدید'}</h3>
+    <h3>${ic('package', 18)} ${id ? 'ویرایش محصول' : 'افزودن محصول جدید'}</h3>
     <div class="form-grid">
       <div class="field full"><label>نام محصول *</label><input data-f-name value="${p.name || ''}" placeholder="مثلاً: غذای خشک گربه بالغ"></div>
       <div class="field"><label>SKU</label><input data-f-sku value="${p.sku || ''}" placeholder="مثلاً: CF-1001" dir="ltr"></div>
@@ -129,14 +130,14 @@ export async function formRender(params) {
         </select>
       </div>
       <div class="field"><label>محصول ویژه (نمایش در بخش پیشنهاد پت‌شاپ)</label>
-        <div class="toggle-row"><button class="toggle ${p.is_special ? 'on' : ''}" data-f-special></button><span style="font-size:12px;color:var(--muted)">✨ نمایش در صفحه اصلی</span></div>
+        <div class="toggle-row"><button class="toggle ${p.is_special ? 'on' : ''}" data-f-special></button><span style="font-size:12px;color:var(--muted)">${ic('sparkles', 14)} نمایش در صفحه اصلی</span></div>
       </div>
       <div class="field full"><label>توضیحات کامل</label><textarea data-f-desc rows="4">${p.description || ''}</textarea></div>
     </div>
   </div>
 
   <div class="a-card">
-    <h3>🖼️ تصاویر محصول</h3>
+    <h3>${ic('image', 18)} تصاویر محصول</h3>
     <div class="img-uploader" data-img-uploader>
       ${(p.images || []).map(im => `
         <div class="iu-item"><img src="${im.image}" alt=""><button class="iu-del" data-img-del="${im.id}">✕</button></div>`).join('')}
@@ -146,13 +147,13 @@ export async function formRender(params) {
   </div>
 
   <div class="a-card">
-    <h3>📋 ویژگی‌ها (برای فیلتر محصولات)</h3>
+    <h3>${ic('list', 18)} ویژگی‌ها (برای فیلتر محصولات)</h3>
     <div data-feat-list>${featRows || ''}</div>
-    <button class="btn btn-ghost" data-feat-add style="margin-top:8px">+ افزودن ویژگی</button>
+    <button class="btn btn-ghost" data-feat-add style="margin-top:8px">${ic('plus', 14)} افزودن ویژگی</button>
   </div>
 
   <div style="display:flex;gap:10px">
-    <button class="btn btn-primary btn-lg" data-save style="flex:1">💾 ${id ? 'ذخیره تغییرات' : 'ثبت محصول'}</button>
+    <button class="btn btn-primary btn-lg" data-save style="flex:1">${ic('settings', 16)} ${id ? 'ذخیره تغییرات' : 'ثبت محصول'}</button>
     <a class="btn btn-ghost btn-lg" href="#/products">انصراف</a>
   </div>`;
 }
@@ -168,7 +169,7 @@ export function formAfter(params) {
   document.querySelector('[data-feat-add]').addEventListener('click', () => {
     const row = document.createElement('div');
     row.className = 'feat-row';
-    row.innerHTML = '<input placeholder="نام ویژگی" data-fk><input placeholder="مقدار" data-fv><button class="btn btn-ghost" data-feat-del style="color:var(--danger)">✕</button>';
+    row.innerHTML = `<input placeholder="نام ویژگی" data-fk><input placeholder="مقدار" data-fv><button class="btn btn-ghost" data-feat-del style="color:var(--danger)">${ic('x', 14)}</button>`;
     document.querySelector('[data-feat-list]').appendChild(row);
     row.querySelector('[data-feat-del]').addEventListener('click', () => row.remove());
   });

@@ -19,22 +19,15 @@ function seed() {
     .run('customer', 'مشتری', '[]').lastInsertRowid;
 
   const hash = p => bcrypt.hashSync(p, 10);
-  const addUser = (name, email, phone, pass, roleId) =>
-    db.prepare('INSERT INTO users (name, email, phone, password_hash, role_id) VALUES (?,?,?,?,?)')
-      .run(name, email, phone, hash(pass), roleId).lastInsertRowid;
+  const addUser = (name, email, phone, pass, roleId, isDemo = 0) =>
+    db.prepare('INSERT INTO users (name, email, phone, password_hash, role_id, is_demo) VALUES (?,?,?,?,?,?)')
+      .run(name, email, phone, hash(pass), roleId, isDemo).lastInsertRowid;
 
   // ---------- کاربران ----------
-  const uAdmin = addUser('مدیر سیستم', 'admin@petshop.ir', '09120000001', 'admin123', roleIds.super_admin);
-  const uManager = addUser('مدیر فروشگاه', 'manager@petshop.ir', '09120000002', 'admin123', roleIds.admin);
-  const uContent = addUser('مدیر محتوا', 'content@petshop.ir', '09120000003', 'admin123', roleIds.content);
-  const uSupport = addUser('پشتیبانی', 'support@petshop.ir', '09120000004', 'admin123', roleIds.support);
-  const u1 = addUser('سارا محمدی', 'sara@gmail.com', '09121111111', '123456', roleIds.customer);
-  const u2 = addUser('علی رضایی', 'ali@gmail.com', '09122222222', '123456', roleIds.customer);
-  const u3 = addUser('نگار کریمی', 'negar@gmail.com', '09123333333', '123456', roleIds.customer);
-  const u4 = addUser('امیر حسینی', 'amir@gmail.com', '09124444444', '123456', roleIds.customer);
-  const u5 = addUser('مینا احمدی', 'mina@gmail.com', '09125555555', '123456', roleIds.customer);
-  const u6 = addUser('حسین قاسمی', 'hossein@gmail.com', '09126666666', '123456', roleIds.customer);
-  const u7 = addUser('لیلا مرادی', 'leila@gmail.com', '09127777777', '123456', roleIds.customer);
+  // فقط مدیر اصلی — بقیه حساب‌ها توسط مشتریان ساخته می‌شوند
+  const uAdmin = addUser('مدیر فروشگاه', 'admin@petshop.ir', '', 'admin1234', roleIds.super_admin, 0);
+
+  // (هیچ کاربر نمونه‌ای ساخته نمی‌شود)
 
   // ---------- دسته‌بندی‌ها ----------
   const cat = (name, slug, image, icon, parent = null, sort = 0) =>
@@ -72,8 +65,8 @@ function seed() {
   const img = p => `/assets/img/products/${p}`;
   const catImg = c => c;
   const product = (name, slug, sku, category_id, brand_id, price, sale_price, stock, weight, description, features, is_special, status = 'active') =>
-    db.prepare(`INSERT INTO products (name, slug, sku, category_id, brand_id, price, sale_price, stock, weight, description, features, is_special, status)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    db.prepare(`INSERT INTO products (name, slug, sku, category_id, brand_id, price, sale_price, stock, weight, description, features, is_special, status, is_demo)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)`)
       .run(name, slug, sku, category_id, brand_id, price, sale_price, stock, weight, description, JSON.stringify(features), is_special ? 1 : 0, status).lastInsertRowid;
 
   const gallery = (pid, ...imgs) => imgs.forEach((im, i) =>
@@ -239,18 +232,7 @@ function seed() {
   gallery(pid, img('p27.jpg'));
 
   // ---------- نظرات محصولات ----------
-  const review = (productId, userId, rating, title, comment, status) =>
-    db.prepare('INSERT INTO product_reviews (product_id, user_id, rating, title, comment, status) VALUES (?,?,?,?,?,?)')
-      .run(productId, userId, rating, title, comment, status);
-
-  review(1, u1, 5, 'عالی بود', 'کیفیت غذا عالیه، گربه‌م عاشقشه. بسته‌بندی هم خیلی تمیز بود.', 'approved');
-  review(1, u3, 4, 'خوب', 'غذای خوبیه ولی کاش بسته بزرگ‌تر بود. کیفیت راضی‌کننده است.', 'approved');
-  review(1, u5, 5, 'پیشنهاد می‌کنم', 'بعد از دو هفته موی گربه‌م براق‌تر شده. مرسی از پت‌شاپ.', 'approved');
-  review(4, u2, 5, 'سگم عاشقشه', 'حیف که زود تموم می‌شه! بهترین غذا برای سگ ژرمن من بود.', 'approved');
-  review(4, u6, 4, 'راضی هستم', 'قیمت نسبت به کیفیت مناسبه. ارسال هم سریع بود.', 'approved');
-  review(10, u4, 5, 'سرگرم‌کننده', 'توپ پازلی خیلی خوبیه، سگم یک ساعت باهاش سرگرم می‌شه.', 'approved');
-  review(14, u7, 3, 'متوسط', 'بند مقاومه ولی کمی سفت بود. بقیه‌اش خوبه.', 'pending');
-  review(17, u1, 5, 'جای خواب عالی', 'خیلی نرم و باکیفیت، گربه‌م شب‌ها فقط اونجا می‌خوابه!', 'approved');
+  // (هیچ نظر نمونه‌ای ساخته نمی‌شود)
 
   // ---------- کدهای تخفیف ----------
   const coupon = (code, type, value, min, max, expires) =>
@@ -308,71 +290,10 @@ function seed() {
   faq('کد تخفیف را چطور استفاده کنم؟', 'در صفحه تسویه حساب، کد تخفیف را در فیلد مربوطه وارد کنید؛ تخفیف به‌صورت خودکار از مبلغ کل کم می‌شود.', 8);
 
   // ---------- نظرات مشتریان ----------
-  const testimonial = (name, role, text, rating) =>
-    db.prepare('INSERT INTO testimonials (name, role, text, rating, is_active) VALUES (?,?,?,?,1)').run(name, role, text, rating);
-  testimonial('سارا محمدی', 'صاحب گربه پرشین', 'کیفیت غذای گربه‌م واقعاً عالی بود و خیلی سریع به دستم رسید. بسته‌بندی هم خیلی شیک و بهداشتی بود. از خریدم کاملاً راضی‌ام!', 5);
-  testimonial('علی رضایی', 'صاحب ژرمن شپرد', 'توپ پازلی که خریدم معجزه کرد؛ سگم دیگر اسباب‌بازی‌های خانه را نمی‌جود! مشاوره‌شان هم خیلی کمکم کرد.', 5);
-  testimonial('نگار کریمی', 'صاحب دو گربه', 'برای دومین بار خرید کردم و باز هم عالی بود. ارسال رایگان بالای ۲ میلیون خیلی بهصرفه است.', 4);
-  testimonial('امیر حسینی', 'صاحب طوطی', 'اسباب‌بازی چوبی طوطی‌م را حسابی سرگرم کرده. جنسش هم واقعاً باکیفیت و مقاومه.', 5);
-  testimonial('مینا احمدی', 'صاحب همستر', 'غذای همستر هم تنوع خوبی داره هم بوی تازگی می‌ده. همستر کوچولوم عاشقشه. مرسی از تیم پت‌شاپ 🌟', 5);
+  // (هیچ نظر نمونه‌ای ساخته نمی‌شود)
 
   // ---------- سفارش‌ها ----------
-  const dayAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); d.setHours(10 + (n % 8), 20, 0, 0); return d.toISOString(); };
-  const order = (userId, customer, status, subtotal, discount, shipping, payment, items, daysAgo, note = '') => {
-    const total = subtotal - discount + shipping;
-    const code = 'PS-' + String(100000 + Math.floor(Math.random() * 899999));
-    const oid = db.prepare(`
-      INSERT INTO orders (code, user_id, customer_json, status, subtotal, discount, shipping, total, coupon_code, payment_method, payment_status, note, created_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-    `).run(code, userId, JSON.stringify(customer), status, subtotal, discount, shipping, total,
-      '', payment, payment === 'cod' ? 'unpaid' : 'paid', note, dayAgo(daysAgo)).lastInsertRowid;
-    items.forEach(it => db.prepare('INSERT INTO order_items (order_id, product_id, name, image, price, quantity, total) VALUES (?,?,?,?,?,?,?)')
-      .run(oid, it.pid, it.name, it.image, it.price, it.qty, it.price * it.qty));
-    return oid;
-  };
-
-  const cust = (name, phone) => ({ full_name: name, phone, address: 'تهران، خیابان ولیعصر' });
-  order(u1, cust('سارا محمدی', '09121111111'), 'delivered', 1050000 + 250000, 0, 75000, 'online', [
-    { pid: 1, name: 'غذای خشک گربه بالغ با طعم مرغ', image: img('p28.jpg'), price: 1050000, qty: 1 },
-    { pid: 4, name: 'تشویقی استخوانی سگ با طعم مرغ', image: img('p04.jpg'), price: 250000, qty: 1 },
-  ], 2);
-  order(u2, cust('علی رضایی', '09122222222'), 'delivered', 1650000, 0, 75000, 'online', [
-    { pid: 4, name: 'غذای خشک سگ نژاد بزرگ با گوشت گوساله', image: img('p02.jpg'), price: 1650000, qty: 1 },
-  ], 4);
-  order(u3, cust('نگار کریمی', '09123333333'), 'delivered', 590000 + 280000, 87000, 0, 'online', [
-    { pid: 10, name: 'توپ هوشمند تشویقی سگ (پازل)', image: img('p10.jpg'), price: 590000, qty: 1 },
-    { pid: 5, name: 'تشویقی استخوانی سگ با طعم مرغ', image: img('p04.jpg'), price: 280000, qty: 1 },
-  ], 7);
-  order(u4, cust('امیر حسینی', '09124444444'), 'delivered', 620000 + 415000, 0, 75000, 'cod', [
-    { pid: 20, name: 'روغن سالمون امگا ۳ سگ و گربه', image: img('p20.jpg'), price: 620000, qty: 1 },
-    { pid: 22, name: 'خمیر مولتی‌ویتامین گربه', image: img('p22.webp'), price: 415000, qty: 1 },
-  ], 9);
-  order(u5, cust('مینا احمدی', '09125555555'), 'shipped', 150000 + 290000 + 950000, 0, 75000, 'online', [
-    { pid: 24, name: 'غذای مخلوط همستر', image: img('p24.jpg'), price: 150000, qty: 1 },
-    { pid: 25, name: 'غذای پولکی ماهیان گرمسیری', image: img('p25.jpg'), price: 290000, qty: 1 },
-    { pid: 16, name: 'جای خواب گرد مخملی سگ و گربه کوچک', image: img('p16.jpg'), price: 950000, qty: 1 },
-  ], 12);
-  order(u6, cust('حسین قاسمی', '09126666666'), 'paid', 460000 + 320000, 0, 75000, 'online', [
-    { pid: 11, name: 'توپ لاستیکی کندخوری سگ', image: img('p11.jpg'), price: 460000, qty: 1 },
-    { pid: 19, name: 'بطری آب سفر سگ و گربه', image: img('p19.jpg'), price: 320000, qty: 1 },
-  ], 15);
-  order(u7, cust('لیلا مرادی', '09127777777'), 'pending', 740000, 74000, 75000, 'cod', [
-    { pid: 3, name: 'غذای مرطوب گربه تن ماهی', image: img('p03.webp'), price: 740000, qty: 1 },
-  ], 1);
-  order(u1, cust('سارا محمدی', '09121111111'), 'cancelled', 380000, 0, 75000, 'cod', [
-    { pid: 8, name: 'برس خودتمیزکننده موی سگ و گربه', image: img('p08.jpg'), price: 380000, qty: 1 },
-  ], 6, 'انصراف مشتری');
-  order(u2, cust('علی رضایی', '09122222222'), 'delivered', 499000 + 250000, 0, 0, 'online', [
-    { pid: 13, name: 'قلاده چرمی سگ متوسط و بزرگ', image: img('p13.webp'), price: 499000, qty: 1 },
-    { pid: 15, name: 'بند نایلونی با قلاب چرخان', image: img('p15.jpg'), price: 250000, qty: 1 },
-  ], 18);
-  order(u3, cust('نگار کریمی', '09123333333'), 'shipped', 420000 + 1050000, 0, 75000, 'online', [
-    { pid: 26, name: 'اسباب‌بازی چوبی طوطی با زنگوله', image: img('p26.jpg'), price: 420000, qty: 1 },
-    { pid: 1, name: 'غذای خشک گربه بالغ با طعم مرغ', image: img('p28.jpg'), price: 1050000, qty: 1 },
-  ], 3);
-  order(u4, cust('امیر حسینی', '09124444444'), 'paid', 280000, 0, 75000, 'online', [
-    { pid: 27, name: 'گیاه مصنوعی آکواریوم (ست ۱۱ تایی)', image: img('p27.jpg'), price: 280000, qty: 1 },
-  ], 0, 'تحویل عجله‌ای');
+  // (هیچ سفارش نمونه‌ای ساخته نمی‌شود — همه سفارش‌ها واقعی هستند)
 
   // ---------- تنظیمات ----------
   setSetting('site', { name: 'پت‌شاپ', slogan: 'دنیای شادی برای پت شما' });

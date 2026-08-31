@@ -21,19 +21,9 @@ const PERMISSION_CATALOG = [
 ];
 
 // نقش‌های سیستمی پیش‌فرض
+// فقط مدیر کل و مشتری — بقیه نقش‌ها توسط مدیر کل ساخته می‌شوند
 const DEFAULT_ROLES = [
-  { name: 'super_admin', title: 'مدیر کل',        is_system: 1, permissions: ['*'] },
-  { name: 'admin',       title: 'مدیر فروشگاه',  is_system: 0, permissions: [
-      'dashboard.view','products.manage','categories.manage','brands.manage',
-      'orders.manage','users.manage','reviews.manage','coupons.manage',
-  ]},
-  { name: 'content',     title: 'مدیر محتوا',    is_system: 0, permissions: [
-      'dashboard.view','banners.manage','articles.manage','home.manage',
-      'faq.manage','testimonials.manage','pages.manage',
-  ]},
-  { name: 'support',     title: 'پشتیبانی',      is_system: 0, permissions: [
-      'dashboard.view','orders.manage','users.manage',
-  ]},
+  { name: 'super_admin', title: 'مدیر کل', is_system: 1, permissions: ['*'] },
 ];
 
 function hasPermission(perms, required) {

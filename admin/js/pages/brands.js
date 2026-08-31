@@ -1,13 +1,14 @@
 // admin/pages/brands.js — مدیریت برندها
-import { AdminAPI } from '../api.js';
+import { AdminAPI, faNum } from '../api.js';
 import { toast, confirmModal, openModal } from '../components.js';
+import { ic } from '../icons.js';
 
 export async function render() {
   const { brands } = await AdminAPI.get('/admin/brands');
   return `
   <div class="toolbar">
-    <h3 style="font-size:15px;font-weight:800">🏷️ مدیریت برندها</h3>
-    <button class="btn btn-primary" data-new style="padding:10px 22px;font-size:13px">+ برند جدید</button>
+    <h3 style="font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px">${ic('tag', 18)} مدیریت برندها</h3>
+    <button class="btn btn-primary" data-new style="padding:10px 22px;font-size:13px">${ic('plus', 16)} برند جدید</button>
   </div>
   <table class="data-table">
     <thead><tr><th>برند</th><th>وضعیت</th><th>عملیات</th></tr></thead>
@@ -17,8 +18,8 @@ export async function render() {
           <td><b>${b.name}</b> <span class="t-sub" dir="ltr">(${b.slug})</span></td>
           <td>${b.is_active ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">غیرفعال</span>'}</td>
           <td style="white-space:nowrap">
-            <button class="btn btn-ghost" data-edit='${JSON.stringify(b)}' style="padding:7px 12px;font-size:11.5px">ویرایش</button>
-            <button class="btn btn-ghost" data-del="${b.id}" data-name="${b.name}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">حذف</button>
+            <button class="btn btn-ghost" data-edit='${JSON.stringify(b)}' style="padding:7px 12px;font-size:11.5px">${ic('edit', 14)} ویرایش</button>
+            <button class="btn btn-ghost" data-del="${b.id}" data-name="${b.name}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">${ic('trash', 14)} حذف</button>
           </td>
         </tr>`).join('')}
     </tbody>
@@ -38,7 +39,7 @@ export function after() {
 
 function openForm(brand) {
   const { close, body } = openModal(`
-    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px">${brand ? '✏️ ویرایش برند' : '➕ برند جدید'}</h3>
+    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${brand ? ic('edit', 18) + ' ویرایش برند' : ic('plus', 18) + ' برند جدید'}</h3>
     <div class="form-grid">
       <div class="field full"><label>نام برند *</label><input data-name value="${brand?.name || ''}"></div>
       <div class="field full"><label>وضعیت</label><button class="toggle ${brand?.is_active === false ? '' : 'on'}" data-active></button></div>

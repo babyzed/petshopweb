@@ -1,6 +1,7 @@
 // admin/pages/users.js — مدیریت کاربران
 import { AdminAPI, price, faNum, faDate } from '../api.js';
 import { toast, statusBadge, openModal, initials } from '../components.js';
+import { ic } from '../icons.js';
 
 let state = { page: 1, q: '' };
 
@@ -9,8 +10,8 @@ export async function render() {
   const d = await AdminAPI.get('/admin/users?' + q);
   return `
   <div class="toolbar">
-    <input class="search-inp" placeholder="🔍 جستجو با نام، ایمیل یا موبایل..." value="${state.q}" data-search>
-    ${AdminAPI.isSuper() ? '<button class="btn btn-primary" data-new-user style="margin-inline-start:auto;padding:9px 16px;font-size:12.5px">＋ کاربر جدید</button>' : ''}
+    <input class="search-inp" placeholder="جستجو با نام، ایمیل یا موبایل..." value="${state.q}" data-search>
+    ${AdminAPI.isSuper() ? `<button class="btn btn-primary" data-new-user style="margin-inline-start:auto;padding:9px 16px;font-size:12.5px">${ic('plus', 14)} کاربر جدید</button>` : ''}
   </div>
   <table class="data-table">
     <thead><tr><th>کاربر</th><th>نقش</th><th>سفارش‌ها</th><th>تاریخ عضویت</th><th>وضعیت</th><th>عملیات</th></tr></thead>
@@ -31,8 +32,8 @@ export async function render() {
           <td style="font-size:11px">${faDate(u.created_at)}</td>
           <td>${u.status === 'active' ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">غیرفعال</span>'}</td>
           <td style="white-space:nowrap">
-            <a class="btn btn-ghost" href="#/users/${u.id}" style="padding:7px 12px;font-size:11.5px">مشاهده</a>
-            <button class="btn btn-ghost" data-edit='${JSON.stringify({ id: u.id, name: u.name, role_id: u.role_id, role_title: u.role_title })}' style="padding:7px 12px;font-size:11.5px">ویرایش</button>
+            <a class="btn btn-ghost" href="#/users/${u.id}" style="padding:7px 12px;font-size:11.5px">${ic('eye', 14)} مشاهده</a>
+            <button class="btn btn-ghost" data-edit='${JSON.stringify({ id: u.id, name: u.name, role_id: u.role_id, role_title: u.role_title })}' style="padding:7px 12px;font-size:11.5px">${ic('edit', 14)} ویرایش</button>
           </td>
         </tr>`).join('')}
     </tbody>
@@ -62,7 +63,7 @@ const roleOptions = (roles, selectedId) => roles
 async function openNew() {
   const { roles } = await AdminAPI.get('/admin/roles');
   const { close, body } = openModal(`
-    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px">👤 ساخت کاربر جدید</h3>
+    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${ic('user', 18)} ساخت کاربر جدید</h3>
     <div class="form-grid">
       <div class="field full"><label>نام و نام خانوادگی *</label><input data-n-name placeholder="مثلاً: رضا محمدی"></div>
       <div class="field full"><label>ایمیل *</label><input dir="ltr" data-n-email placeholder="name@example.com"></div>
@@ -100,7 +101,7 @@ async function openEdit(u) {
   const { roles } = await AdminAPI.get('/admin/roles');
   const isSuper = AdminAPI.isSuper();
   const { close, body } = openModal(`
-    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px">✏️ ویرایش کاربر ${u.name}</h3>
+    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${ic('edit', 18)} ویرایش کاربر ${u.name}</h3>
     <div class="form-grid">
       <div class="field full"><label>وضعیت حساب</label>
         <select data-status>
@@ -140,19 +141,19 @@ export async function detailRender(params) {
   const { user } = await AdminAPI.get('/admin/users/' + params);
   return `
   <div class="toolbar">
-    <a class="btn btn-ghost" href="#/users" style="padding:9px 16px;font-size:12.5px">→ بازگشت</a>
-    <h3 style="font-size:16px;font-weight:800">👤 ${user.name}</h3>
+    <a class="btn btn-ghost" href="#/users" style="padding:9px 16px;font-size:12.5px">${ic('arrowLeft', 16)} بازگشت</a>
+    <h3 style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px">${ic('user', 18)} ${user.name}</h3>
     <span style="margin-inline-start:auto">${user.status === 'active' ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">غیرفعال</span>'}</span>
   </div>
   <div class="dash-grid">
     <div>
       <div class="dash-card">
-        <h3>🧾 سفارش‌های کاربر (${faNum(user.orders?.length || 0)})</h3>
+        <h3>${ic('receipt', 18)} سفارش‌های کاربر (${faNum(user.orders?.length || 0)})</h3>
         <table class="data-table">
           <thead><tr><th>کد</th><th>تاریخ</th><th>مبلغ</th><th>وضعیت</th></tr></thead>
           <tbody>
             ${user.orders?.length ? user.orders.map(o => `
-              <tr style="cursor:pointer" onclick="location.hash='#/orders/${o.id}'">
+              <tr style="cursor:pointer" data-href="#/orders/${o.id}"">
                 <td><b style="color:var(--brand-dark)">${o.code}</b></td>
                 <td style="font-size:11px">${faDate(o.created_at)}</td>
                 <td>${price(o.total)} تومان</td>
@@ -162,22 +163,22 @@ export async function detailRender(params) {
         </table>
       </div>
       <div class="dash-card">
-        <h3>📍 آدرس‌ها</h3>
+        <h3>${ic('home', 18)} آدرس‌ها</h3>
         ${user.addresses?.length ? user.addresses.map(a => `
           <div class="mini-list-item">
-            <span>📍</span>
+            ${ic('pin', 16)}
             <div style="flex:1"><b>${a.full_name}</b> <span class="t-sub">${a.province} ${a.city} — ${a.address} — ${a.postal_code}</span></div>
             ${a.is_default ? '<span class="s-badge s-active">پیش‌فرض</span>' : ''}
           </div>`).join('') : '<p class="hint">آدرسی ثبت نشده است.</p>'}
       </div>
     </div>
     <div class="dash-card" style="align-self:start">
-      <h3>ℹ️ اطلاعات حساب</h3>
-      <div class="mini-list-item"><span>👤</span><span class="mli-name">نام</span><b>${user.name}</b></div>
-      <div class="mini-list-item"><span>✉️</span><span class="mli-name">ایمیل</span><b dir="ltr">${user.email}</b></div>
-      <div class="mini-list-item"><span>📱</span><span class="mli-name">موبایل</span><b dir="ltr">${user.phone || '—'}</b></div>
-      <div class="mini-list-item"><span>🛡️</span><span class="mli-name">نقش</span><b>${user.role_title || '—'}</b></div>
-      <div class="mini-list-item"><span>🕐</span><span class="mli-name">عضویت</span><b>${faDate(user.created_at)}</b></div>
+      <h3>${ic('home', 18)} اطلاعات حساب</h3>
+      <div class="mini-list-item">${ic('user', 16)}<span class="mli-name">نام</span><b>${user.name}</b></div>
+      <div class="mini-list-item">${ic('mail', 16)}<span class="mli-name">ایمیل</span><b dir="ltr">${user.email}</b></div>
+      <div class="mini-list-item">${ic('phone', 16)}<span class="mli-name">موبایل</span><b dir="ltr">${user.phone || '—'}</b></div>
+      <div class="mini-list-item">${ic('shield', 16)}<span class="mli-name">نقش</span><b>${user.role_title || '—'}</b></div>
+      <div class="mini-list-item">${ic('clock', 16)}<span class="mli-name">عضویت</span><b>${faDate(user.created_at)}</b></div>
     </div>
   </div>`;
 }

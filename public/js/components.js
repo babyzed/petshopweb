@@ -16,12 +16,12 @@ export function productCard(p, opts = {}) {
   const off = discountPct(p);
   const inStock = p.stock > 0;
   const wished = Session.isWished(p.id) ? 'active' : '';
-  const special = p.is_special ? '<span class="p-badge sp">${ic(\'sparkles\', 12)} ویژه</span>' : '';
+  const special = p.is_special ? `<span class="p-badge sp">${ic('sparkles', 12)} ویژه</span>` : '';
   return `
   <article class="p-card" data-slug="${p.slug}">
     <div class="p-media">
       <a href="#/product/${p.slug}">
-        <img src="${p.image || '/assets/img/placeholder.jpg'}" alt="${p.name}" loading="lazy" onerror="this.src='/assets/img/placeholder.jpg'">
+        <img src="${p.image || '/assets/img/placeholder.jpg'}" alt="${p.name}" loading="lazy">
       </a>
       <div class="p-badges">
         ${off ? `<span class="p-badge off">٪${faNum(off)} تخفیف</span>` : ''}
@@ -58,7 +58,7 @@ export function productCardH(p) {
   return `
   <article class="p-card hz" data-slug="${p.slug}">
     <div class="p-media">
-      <a href="#/product/${p.slug}"><img src="${p.image || '/assets/img/placeholder.jpg'}" alt="${p.name}" loading="lazy" onerror="this.src='/assets/img/placeholder.jpg'"></a>
+      <a href="#/product/${p.slug}"><img src="${p.image || '/assets/img/placeholder.jpg'}" alt="${p.name}" loading="lazy"></a>
       ${off ? `<span class="p-badge off">٪${faNum(off)}</span>` : ''}
       <button class="p-wish ${wished}" data-wish="${p.id}" aria-label="علاقه‌مندی"><span class="${wished ? 'heart-fill' : ''}">${ic('heart', 15)}</span></button>
     </div>
@@ -198,17 +198,21 @@ export function renderMobileHeader() {
   const mh = document.getElementById('mobile-header');
   mh.innerHTML = `
   <div class="mob-bar">
-    <button class="icon-btn" data-mob-menu aria-label="منو" style="background:var(--bg)">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-    </button>
-    <a class="logo" href="#/">
-      <span class="logo-icon">${ic('paw', 21)}</span>
-      <span class="logo-text">پت‌شاپ</span>
-    </a>
-    <button class="icon-btn" data-search-open aria-label="جستجو" style="background:var(--bg)">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-    </button>
-    ${cartIcon(true)}
+    <div class="mob-left">
+      <button class="icon-btn" data-mob-menu aria-label="منو" style="background:var(--bg)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <a class="logo" href="#/">
+        <span class="logo-icon">${ic('paw', 21)}</span>
+        <span class="logo-text">پت‌شاپ</span>
+      </a>
+    </div>
+    <div class="mob-right">
+      <button class="icon-btn" data-search-open aria-label="جستجو" style="background:var(--bg)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      </button>
+      ${cartIcon(true)}
+    </div>
   </div>
   <div id="mob-drawer"></div>`;
   mh.querySelector('[data-mob-menu]').addEventListener('click', async () => {
@@ -250,9 +254,9 @@ function openDrawer(categories) {
       </div>
     </div>`;
   document.body.appendChild(wrap);
-  const close = () => { wrap.classList.remove('open'); setTimeout(() => wrap.remove(), 300); };
+  const close = () => { wrap.classList.remove('open'); setTimeout(() => wrap.remove(), 380); };
   wrap.querySelector('.dm-backdrop').addEventListener('click', close);
-  wrap.querySelector('[data-dm-close]').addEventListener('click', close);
+  wrap.querySelectorAll('[data-dm-close]').forEach(el => el.addEventListener('click', close));
 }
 
 // ---------- ناوبری پایین موبایل ----------
@@ -292,7 +296,7 @@ export function openCart(mobileFull = false) {
               <a class="btn btn-primary" href="#/shop" data-cart-close>مشاهده فروشگاه</a>
             </div>` : items.map(it => `
             <div class="cd-item">
-              <img src="${it.image}" alt="${it.name}" loading="lazy" onerror="this.src='/assets/img/placeholder.jpg'">
+              <img src="${it.image}" alt="${it.name}" loading="lazy">
               <div class="cd-info">
                 <div class="cd-name">${it.name}</div>
                 <div class="cd-price">${price(it.price)} تومان</div>
@@ -313,7 +317,7 @@ export function openCart(mobileFull = false) {
         </div>` : ''}
       </div>`;
     drawer.querySelectorAll('[data-cart-close]').forEach(b => b.addEventListener('click', closeCart));
-    drawer.querySelectorAll('[data-qty]').forEach(b => b.addEventListener('click', () => { Cart.setQty(Number(b.dataset.id), Number(b.dataset.qty)); render(); }));
+    drawer.querySelectorAll('[data-qty]').forEach(b => b.addEventListener('click', () => { const id = Number(b.dataset.id); const item = Cart.find(id); if (item) Cart.setQty(id, item.quantity + Number(b.dataset.qty)); render(); }));
     drawer.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => { Cart.remove(Number(b.dataset.remove)); render(); }));
   };
   drawer.hidden = false;
@@ -458,13 +462,64 @@ export async function renderFooter() {
   </div>`;
 }
 
-// ---------- شمارنده سبد ----------
+// ---------- شمارنده سبد + انیمیشن ----------
+let prevCount = 0;
 export function updateCartBadges() {
   const count = Cart.count();
   document.querySelectorAll('[data-cart-count]').forEach(b => {
     b.textContent = faNum(count);
     b.style.display = count ? 'flex' : 'none';
   });
+  // انیمیشن bounce روی FAB ناوبری پایین هنگام اضافه شدن آیتم
+  if (count > prevCount && window.innerWidth <= 900) {
+    const fab = document.querySelector('.bn-fab');
+    if (fab) {
+      fab.classList.remove('bounce');
+      void fab.offsetWidth; // force reflow
+      fab.classList.add('bounce');
+      fab.addEventListener('animationend', () => fab.classList.remove('bounce'), { once: true });
+    }
+  }
+  prevCount = count;
+}
+
+// ---------- Scroll-based hide/show ناوبری پایین ----------
+let lastScrollY = 0;
+let scrollTimer = null;
+let bnHidden = false;
+function setupBottomNavScroll() {
+  if (window.innerWidth > 900) return;
+  const bn = document.getElementById('bottom-nav');
+  if (!bn) return;
+  const show = () => {
+    if (!bnHidden) return;
+    bnHidden = false;
+    bn.style.transform = 'translateY(0)';
+    bn.style.opacity = '1';
+  };
+  const hide = () => {
+    if (bnHidden) return;
+    bnHidden = true;
+    bn.style.transform = 'translateY(calc(100% + 20px)) scale(.92)';
+    bn.style.opacity = '0';
+  };
+  window.addEventListener('scroll', () => {
+    const y = window.scrollY;
+    const diff = y - lastScrollY;
+    if (diff > 25) {
+      hide();
+    } else if (diff < -12) {
+      show();
+    }
+    lastScrollY = y;
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(show, 2500);
+  }, { passive: true });
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', setupBottomNavScroll);
+} else {
+  setupBottomNavScroll();
 }
 
 // ---------- واگذاری رویدادهای سراسری کارت محصول ----------

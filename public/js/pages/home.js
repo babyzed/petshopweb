@@ -55,7 +55,7 @@ export async function render() {
     </div>` : '';
 
   const promoHtml = (data.promo || []).filter(b => b.image).length ? `
-    <section class="section" style="padding-top:0">
+    <section class="section">
       <div class="container promo-grid">
         ${data.promo.filter(b => b.image).map(b => `
           <a class="promo-card" href="${b.link || '#/shop'}">
@@ -80,7 +80,7 @@ export async function render() {
           ${data.categories.map(c => `
             <a class="cat-card" href="#/category/${c.slug}">
               <span class="cat-emoji">${catIcon(c, 30)}</span>
-              ${c.image ? `<img class="cat-img" src="${c.image}" alt="${c.name}" loading="lazy">` : '<span style="font-size:44px">${catIcon(c, 40)}</span>'}
+              ${c.image ? `<img class="cat-img" src="${c.image}" alt="${c.name}" loading="lazy">` : `<span style="font-size:44px">${catIcon(c, 40)}</span>`}
               <span class="cat-name">${c.name}</span>
               <span class="cat-count">${faNum(c.count)} محصول</span>
             </a>`).join('')}
@@ -102,7 +102,7 @@ export async function render() {
   // کارت قهرمان دسکتاپ: اولین محصول سکشن پرفروش‌ها با نمایش بزرگ
   const heroCard = (p) => isMobile ? '' : `
     <a class="featured-card" href="#/product/${p.slug}">
-      <div class="fc-media"><img src="${p.image || '/assets/img/placeholder.jpg'}" alt="${p.name}" loading="lazy" onerror="this.src='/assets/img/placeholder.jpg'"></div>
+      <div class="fc-media"><img src="${p.image || '/assets/img/placeholder.jpg'}" alt="${p.name}" loading="lazy"></div>
       <div class="fc-body">
         <span class="fc-badge">${ic('star', 13)} پرفروش هفته</span>
         <h3 class="fc-name">${p.name}</h3>
@@ -153,7 +153,7 @@ export async function render() {
           </div>
           <div class="at-media">
             ${data.about_teaser.image ? `<img src="${data.about_teaser.image}" alt="درباره پت‌شاپ" loading="lazy">` : ''}
-            <div class="at-float"><span class="af-ic">${ic('paw', 22)}</span><span>مورد اعتماد بیش از ۱۵ هزار خانواده</span></div>
+            <div class="at-float"><span class="af-ic">${ic('paw', 22)}</span><span>پت‌شاپ، انتخاب خانواده‌های هوشمند</span></div>
           </div>
         </div>
       </div>
@@ -238,15 +238,13 @@ export async function render() {
     </section>` : '';
 
   return `
-    <div class="container" style="padding-top:0">
+    <div class="container">
       ${heroHtml}
       ${promoHtml}
     </div>
     ${catHtml}
-    <div class="container">
-      ${bestsellersHtml}
-      ${sectionBlock('new', secTitle('new', 'جدیدترین محصولات'), 'sparkles', data.new, '#/shop?sort=newest')}
-    </div>
+    ${bestsellersHtml}
+    ${sectionBlock('new', secTitle('new', 'جدیدترین محصولات'), 'sparkles', data.new, '#/shop?sort=newest')}
     <div class="container">
       ${sectionBlock('sales', secTitle('sales', 'تخفیف‌های ویژه'), 'percent', data.sales, '#/shop?on_sale=1')}
     </div>
@@ -303,7 +301,7 @@ export function mount(el) {
     nl.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = nl.querySelector('input').value;
-      nl.innerHTML = '<p style="color:#fff;font-weight:700">عضویت شما با موفقیت ثبت شد! به خانواده پت‌شاپ خوش آمدید.</p>';
+      nl.innerHTML = '<p style="color:var(--text);font-weight:700;text-align:center;padding:10px 0">✔ عضویت شما با موفقیت ثبت شد! به خانواده پت‌شاپ خوش آمدید.</p>';
     });
   }
 }

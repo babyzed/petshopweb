@@ -2,8 +2,43 @@
 const express = require('express');
 const { db, getSetting } = require('../db');
 const { authRequired } = require('../auth');
+const { sanitizeHtml, sanitizeText } = require('../sanitize');
+const { SAMAN_TERMINAL_ID } = require('../payment');
 
 const router = express.Router();
+
+// ---------- Rate Limiting ساده برای نظرات ----------
+const reviewLimiter = new Map();
+function checkReviewLimit(userId) {
+  const entry = reviewLimiter.get(userId);
+  if (!entry) return false;
+  if (Date.now() - entry < 60000) return true; // ۱ نظر در دقیقه
+  reviewLimiter.delete(userId);
+  return false;
+}
+
+// ---------- جلوگیری از شمارش مضاعف بازدید ----------
+// هر IP برای هر محصول حداکثر یک بازدید در ساعت ثبت می‌کند
+const viewDedupe = new Map(); // key: ip:productId → timestamp
+const VIEW_DEDUPE_TTL = 60 * 60 * 1000;
+
+function shouldCountView(ip, productId) {
+  const key = `${ip}:${productId}`;
+  const now = Date.now();
+  const last = viewDedupe.get(key) || 0;
+  if (now - last < VIEW_DEDUPE_TTL) return false;
+
+  // پاکسازی دوره‌ای entryهای منقضی (جلوی رشد بی‌حد حافظه)
+  if (viewDedupe.size > 5000) {
+    for (const [k, t] of viewDedupe) {
+      if (now - t > VIEW_DEDUPE_TTL) viewDedupe.delete(k);
+    }
+    if (viewDedupe.size > 10000) viewDedupe.clear();
+  }
+
+  viewDedupe.set(key, now);
+  return true;
+}
 
 // ---------- ابزار مشترک ----------
 function productBaseQuery(withImages = false) {
@@ -72,7 +107,47 @@ router.get('/home', (req, res) => {
   const sales = db.prepare(productBaseQuery() + ' AND p.sale_price IS NOT NULL AND p.sale_price < p.price ORDER BY (p.price - p.sale_price) DESC LIMIT 8').all();
   const special = db.prepare(productBaseQuery() + ' AND p.is_special = 1 ORDER BY p.id DESC LIMIT 8').all();
   const articles = db.prepare("SELECT id, title, slug, excerpt, image, category, created_at FROM articles WHERE status = 'active' ORDER BY created_at DESC LIMIT 3").all();
-  const testimonials = db.prepare("SELECT * FROM testimonials WHERE is_active = 1 ORDER BY id DESC LIMIT 6").all();
+  const testimonials = db.prepare("SELECT * FROM testimonials WHERE is_active = 1 AND is_demo = 0 ORDER BY id DESC LIMIT 6").all();
+
+  // ---------- آمار واقعی (فقط سفارش‌های غیرنمایشی) ----------
+  const totalOrders = db.prepare("SELECT COUNT(*) AS c FROM orders WHERE is_demo = 0").get().c;
+  const totalCustomers = db.prepare("SELECT COUNT(DISTINCT user_id) AS c FROM orders WHERE is_demo = 0 AND user_id IS NOT NULL").get().c;
+  const guestCustomers = db.prepare("SELECT COUNT(DISTINCT customer_json) AS c FROM orders WHERE is_demo = 0 AND user_id IS NULL").get().c;
+  const uniqueCustomers = totalCustomers + guestCustomers;
+  const totalProducts = db.prepare("SELECT COUNT(*) AS c FROM products WHERE status = 'active'").get().c;
+  const totalReviews = db.prepare("SELECT COUNT(*) AS c FROM product_reviews WHERE status = 'approved' AND is_demo = 0").get().c;
+  const avgRating = db.prepare("SELECT ROUND(AVG(rating),1) AS avg FROM product_reviews WHERE status = 'approved' AND is_demo = 0").get().avg || 0;
+  const satisfaction = totalReviews > 0 ? Math.round((avgRating / 5) * 100) : 0;
+
+  // آمار اولیه (تنظیم شده توسط مدیر)
+  const initialStats = getSetting('initial_stats', { years: 0, customers: 0, satisfaction: 0, founded_year: new Date().getFullYear() });
+
+  // سال تجربه = آمار اولیه + سال‌های از اولین سفارش
+  const firstOrder = db.prepare("SELECT MIN(created_at) AS first FROM orders WHERE is_demo = 0").get().first;
+  let yearsFromOrders = 0;
+  if (firstOrder) {
+    const firstDate = new Date(firstOrder);
+    const now = new Date();
+    yearsFromOrders = Math.floor((now - firstDate) / (365.25 * 24 * 60 * 60 * 1000));
+  }
+  const totalYears = Math.max(initialStats.years, yearsFromOrders);
+
+  // مشتریان = آمار اولیه + مشتریان واقعی
+  const totalCustomersAll = initialStats.customers + uniqueCustomers;
+
+  // رضایت = آمار اولیه یا واقعی
+  const totalSatisfaction = initialStats.satisfaction > 0 ? initialStats.satisfaction : satisfaction;
+
+  // آمار داینامیک about_teaser
+  const aboutTeaser = getSetting('about_teaser', null);
+  if (aboutTeaser && aboutTeaser.stats) {
+    aboutTeaser.stats = [
+      { value: totalYears > 0 ? `${totalYears.toLocaleString('fa-IR')}+` : '—', label: 'سال تجربه' },
+      { value: totalCustomersAll > 0 ? `${totalCustomersAll.toLocaleString('fa-IR')}+` : '—', label: 'مشتری راضی' },
+      { value: totalProducts > 0 ? `${totalProducts.toLocaleString('fa-IR')}+` : '—', label: 'محصول متنوع' },
+      { value: totalSatisfaction > 0 ? `${String(totalSatisfaction).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d])}٪` : '—', label: 'رضایت مشتری' },
+    ];
+  }
 
   res.json({
     hero,
@@ -86,7 +161,7 @@ router.get('/home', (req, res) => {
     articles,
     testimonials,
     features: getSetting('features', []),
-    about_teaser: getSetting('about_teaser', null),
+    about_teaser: aboutTeaser,
     home_settings: home,
   });
 });
@@ -99,6 +174,12 @@ router.get('/settings/public', (req, res) => {
     footer: getSetting('footer', {}),
     shipping: getSetting('shipping', { cost: 75000, free_over: 2000000 }),
     site: getSetting('site', { name: 'پت‌شاپ' }),
+    payment: (() => {
+      const pay = getSetting('payment', { online_enabled: true, cod_enabled: true });
+      // اگر درگاه سامان تنظیم نشده، پرداخت آنلاین غیرفعال باشه
+      if (!SAMAN_TERMINAL_ID) pay.online_enabled = false;
+      return pay;
+    })(),
   });
 });
 
@@ -177,7 +258,9 @@ router.get('/products', (req, res) => {
 router.get('/products/:slug', (req, res) => {
   const product = getProductBySlug(req.params.slug);
   if (!product) return res.status(404).json({ error: 'محصول یافت نشد.' });
-  db.prepare('UPDATE products SET views = views + 1 WHERE id = ?').run(product.id);
+  if (shouldCountView(req.ip || '', product.id)) {
+    db.prepare('UPDATE products SET views = views + 1 WHERE id = ?').run(product.id);
+  }
   product.features = (() => { try { return JSON.parse(product.features); } catch { return {}; } })();
   product.images = db.prepare('SELECT id, image FROM product_images WHERE product_id = ? ORDER BY sort_order ASC, id ASC').all(product.id);
   if (!product.image) product.image = product.images?.[0]?.image || '/assets/img/placeholder.jpg';
@@ -192,18 +275,55 @@ router.get('/products/:slug', (req, res) => {
   res.json({ product });
 });
 
+// ---------- جزئیات محصول بر اساس ID (برای علاقه‌مندی‌ها) ----------
+// توجه: این مسیر باید قبل از `/products/:slug` تعریف شود تا روت‌های
+// بدون پارامتر slug با ID اشتباه گرفته نشوند.
+router.get('/products/by-id/:id', (req, res) => {
+  const productId = Number(req.params.id);
+  if (!productId || productId < 1) return res.status(400).json({ error: 'شناسه محصول نامعتبر است.' });
+  const product = db.prepare(`
+    SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name, b.slug AS brand_slug,
+      (SELECT ROUND(AVG(rating), 1) FROM product_reviews r WHERE r.product_id = p.id AND r.status = 'approved') AS rating,
+      (SELECT COUNT(*) FROM product_reviews r WHERE r.product_id = p.id AND r.status = 'approved') AS review_count
+    FROM products p
+    LEFT JOIN categories c ON c.id = p.category_id
+    LEFT JOIN brands b ON b.id = p.brand_id
+    WHERE p.id = ? AND p.status = 'active'
+  `).get(productId);
+  if (!product) return res.status(404).json({ error: 'محصول یافت نشد.' });
+  product.features = (() => { try { return JSON.parse(product.features); } catch { return {}; } })();
+  product.images = db.prepare('SELECT id, image FROM product_images WHERE product_id = ? ORDER BY sort_order ASC, id ASC').all(product.id);
+  if (!product.image) product.image = product.images?.[0]?.image || '/assets/img/placeholder.jpg';
+  res.json({ product });
+});
+
 // ---------- ثبت نظر برای محصول ----------
 router.post('/products/:id/review', authRequired, (req, res) => {
-  const pid = Number(req.params.id);
-  const p = db.prepare('SELECT id FROM products WHERE id = ?').get(pid);
-  if (!p) return res.status(404).json({ error: 'محصول یافت نشد.' });
-  const { rating, title, comment } = req.body || {};
-  const r = Number(rating);
-  if (!r || r < 1 || r > 5) return res.status(400).json({ error: 'امتیاز باید بین ۱ تا ۵ باشد.' });
-  if (!comment || comment.trim().length < 5) return res.status(400).json({ error: 'متن نظر حداقل ۵ کاراکتر باشد.' });
-  db.prepare('INSERT INTO product_reviews (product_id, user_id, rating, title, comment) VALUES (?,?,?,?,?)')
-    .run(pid, req.user.id, r, (title || '').trim(), comment.trim());
-  res.json({ ok: true, message: 'نظر شما ثبت شد و پس از تایید مدیریت نمایش داده می‌شود.' });
+  try {
+    const pid = Number(req.params.id);
+    if (!pid || pid < 1) return res.status(400).json({ error: 'شناسه محصول نامعتبر است.' });
+    // Rate limit
+    if (checkReviewLimit(req.user.id)) {
+      return res.status(429).json({ error: 'لطفاً بین نظرات فاصله بگذارید.' });
+    }
+    const p = db.prepare('SELECT id FROM products WHERE id = ?').get(pid);
+    if (!p) return res.status(404).json({ error: 'محصول یافت نشد.' });
+    // بررسی تکراری نبودن نظر
+    const existing = db.prepare('SELECT id FROM product_reviews WHERE product_id = ? AND user_id = ? AND created_at > datetime(\'now\', \'-1 day\')').get(pid, req.user.id);
+    if (existing) return res.status(429).json({ error: 'شما در ۲۴ ساعت اخیر برای این محصول نظر داده‌اید.' });
+    const { rating, title, comment } = req.body || {};
+    const r = Number(rating);
+    if (!r || r < 1 || r > 5) return res.status(400).json({ error: 'امتیاز باید بین ۱ تا ۵ باشد.' });
+    if (!comment || String(comment).trim().length < 5) return res.status(400).json({ error: 'متن نظر حداقل ۵ کاراکتر باشد.' });
+    if (String(comment).length > 2000) return res.status(400).json({ error: 'متن نظر حداکثر ۲۰۰۰ کاراکتر باشد.' });
+    db.prepare('INSERT INTO product_reviews (product_id, user_id, rating, title, comment) VALUES (?,?,?,?,?)')
+      .run(pid, req.user.id, r, sanitizeText(String(title || ''), 100), sanitizeText(String(comment), 2000));
+    reviewLimiter.set(req.user.id, Date.now());
+    res.json({ ok: true, message: 'نظر شما ثبت شد و پس از تایید مدیریت نمایش داده می‌شود.' });
+  } catch (err) {
+    console.error('[Review] Error:', err.message);
+    res.status(500).json({ error: 'خطا در ثبت نظر.' });
+  }
 });
 
 // ---------- مقالات ----------
@@ -214,6 +334,9 @@ router.get('/articles', (req, res) => {
 router.get('/articles/:slug', (req, res) => {
   const article = db.prepare("SELECT * FROM articles WHERE slug = ? AND status = 'active'").get(req.params.slug);
   if (!article) return res.status(404).json({ error: 'مقاله یافت نشد.' });
+  // پاکسازی محتوای HTML
+  if (article.content) article.content = sanitizeHtml(article.content);
+  if (article.excerpt) article.excerpt = sanitizeText(article.excerpt, 500);
   const related = db.prepare("SELECT id, title, slug, image FROM articles WHERE status = 'active' AND id != ? ORDER BY created_at DESC LIMIT 3").all(article.id);
   res.json({ article, related });
 });

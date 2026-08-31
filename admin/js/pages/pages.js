@@ -1,13 +1,14 @@
 // admin/pages/pages.js — ویرایش صفحات درباره ما و قوانین
 import { AdminAPI, uploadImage } from '../api.js';
 import { toast } from '../components.js';
+import { ic } from '../icons.js';
 
 export async function render() {
   const about = (await AdminAPI.get('/admin/pages/about_page')).page;
   const rules = (await AdminAPI.get('/admin/pages/rules_page')).page;
   return `
   <div class="a-card">
-    <h3>🐾 صفحه «درباره ما»</h3>
+    <h3>${ic('paw', 18)} صفحه «درباره ما»</h3>
     <div class="form-grid">
       <div class="field full"><label>عنوان صفحه</label><input data-about-title value="${about.title || ''}"></div>
       <div class="field full"><label>تصویر</label>
@@ -21,18 +22,18 @@ export async function render() {
         <span class="hint">می‌توانید از تگ‌های p ،h3 ،ul ،li استفاده کنید.</span>
       </div>
     </div>
-    <button class="btn btn-primary" data-save-about style="margin-top:14px">💾 ذخیره درباره ما</button>
+    <button class="btn btn-primary" data-save-about style="margin-top:14px">${ic('settings', 16)} ذخیره درباره ما</button>
   </div>
 
   <div class="a-card">
-    <h3>📜 صفحه «قوانین و مقررات»</h3>
+    <h3>${ic('file', 18)} صفحه «قوانین و مقررات»</h3>
     <div class="form-grid">
       <div class="field full"><label>عنوان صفحه</label><input data-rules-title value="${rules.title || ''}"></div>
       <div class="field full"><label>محتوا (HTML)</label>
         <textarea data-rules-content rows="12">${rules.content || ''}</textarea>
       </div>
     </div>
-    <button class="btn btn-primary" data-save-rules style="margin-top:14px">💾 ذخیره قوانین</button>
+    <button class="btn btn-primary" data-save-rules style="margin-top:14px">${ic('settings', 16)} ذخیره قوانین</button>
   </div>`;
 }
 

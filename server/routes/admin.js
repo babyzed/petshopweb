@@ -5,9 +5,29 @@ const { db, getSetting, setSetting } = require('../db');
 const { authRequired, requirePerm, withRole } = require('../auth');
 const { PERMISSION_CATALOG, hasPermission } = require('../permissions');
 const { upload } = require('../upload');
+const { sendOrderSMS } = require('../sms');
+const { sanitizeHtml } = require('../sanitize');
 
 const router = express.Router();
 router.use(authRequired);
+
+// ---------- لاگ امنیتی ----------
+function auditLog(userId, action, entityType, entityId, req) {
+  const ip = req ? (req.ip || req.connection?.remoteAddress || '') : '';
+  const ua = req ? (req.headers['user-agent'] || '') : '';
+  try {
+    db.prepare('INSERT INTO audit_log (user_id, action, entity_type, entity_id, ip, user_agent) VALUES (?,?,?,?,?,?)')
+      .run(userId, action, entityType, entityId || null, ip, ua);
+  } catch {}
+}
+
+// ثبت تاریخچه وضعیت سفارش
+function addOrderHistory(orderId, oldStatus, newStatus, userId, note = '') {
+  try {
+    db.prepare('INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note) VALUES (?,?,?,?,?)')
+      .run(orderId, oldStatus || '', newStatus, userId || null, note);
+  } catch {}
+}
 
 // ============================================================
 // داشبورد
@@ -16,19 +36,22 @@ router.get('/dashboard', requirePerm('dashboard.view'), (req, res) => {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const daysAgo = n => { const d = new Date(today); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
 
-  const revenue = db.prepare("SELECT COALESCE(SUM(total),0) AS s FROM orders WHERE status NOT IN ('cancelled')").get().s;
-  const paidRevenue = db.prepare("SELECT COALESCE(SUM(total),0) AS s FROM orders WHERE status IN ('paid','shipped','delivered')").get().s;
-  const orderCount = db.prepare("SELECT COUNT(*) AS c FROM orders WHERE status NOT IN ('cancelled')").get().c;
-  const userCount = db.prepare("SELECT COUNT(*) AS c FROM users WHERE role_id NOT IN (SELECT id FROM roles WHERE name IN ('super_admin','admin','content','support'))").get().c;
-  const newUsers = db.prepare('SELECT COUNT(*) AS c FROM users WHERE date(created_at) >= ?').get(daysAgo(6)).c;
-  const todayOrders = db.prepare('SELECT COUNT(*) AS c FROM orders WHERE date(created_at) = ?').get(daysAgo(0)).c;
-  const todayRevenue = db.prepare("SELECT COALESCE(SUM(total),0) AS s FROM orders WHERE date(created_at) = ? AND status NOT IN ('cancelled')").get(daysAgo(0)).s;
+  // فیلتر داده‌های واقعی (حذف demo)
+  const real = 'is_demo = 0';
 
-  // نمودار ۳۰ روز اخیر
+  const revenue = db.prepare(`SELECT COALESCE(SUM(total),0) AS s FROM orders WHERE status NOT IN ('cancelled') AND ${real}`).get().s;
+  const paidRevenue = db.prepare(`SELECT COALESCE(SUM(total),0) AS s FROM orders WHERE status IN ('paid','shipped','delivered') AND ${real}`).get().s;
+  const orderCount = db.prepare(`SELECT COUNT(*) AS c FROM orders WHERE status NOT IN ('cancelled') AND ${real}`).get().c;
+  const userCount = db.prepare("SELECT COUNT(*) AS c FROM users WHERE is_demo = 0 AND role_id NOT IN (SELECT id FROM roles WHERE name IN ('super_admin','admin','content','support'))").get().c;
+  const newUsers = db.prepare('SELECT COUNT(*) AS c FROM users WHERE is_demo = 0 AND date(created_at) >= ?').get(daysAgo(6)).c;
+  const todayOrders = db.prepare(`SELECT COUNT(*) AS c FROM orders WHERE date(created_at) = ? AND ${real}`).get(daysAgo(0)).c;
+  const todayRevenue = db.prepare(`SELECT COALESCE(SUM(total),0) AS s FROM orders WHERE date(created_at) = ? AND status NOT IN ('cancelled') AND ${real}`).get(daysAgo(0)).s;
+
+  // نمودار ۳۰ روز اخیر (فقط داده واقعی)
   const chart = [];
   for (let i = 29; i >= 0; i--) {
     const day = daysAgo(i);
-    const row = db.prepare("SELECT COALESCE(SUM(total),0) AS s, COUNT(*) AS c FROM orders WHERE date(created_at) = ? AND status NOT IN ('cancelled')").get(day);
+    const row = db.prepare(`SELECT COALESCE(SUM(total),0) AS s, COUNT(*) AS c FROM orders WHERE date(created_at) = ? AND status NOT IN ('cancelled') AND ${real}`).get(day);
     chart.push({ day, revenue: row.s, orders: row.c });
   }
 
@@ -37,24 +60,24 @@ router.get('/dashboard', requirePerm('dashboard.view'), (req, res) => {
       COALESCE((SELECT image FROM product_images WHERE product_id = p.id ORDER BY sort_order ASC, id ASC LIMIT 1),'') AS image,
       SUM(oi.quantity) AS sold, SUM(oi.total) AS total
     FROM order_items oi JOIN products p ON p.id = oi.product_id
-    JOIN orders o ON o.id = oi.order_id AND o.status NOT IN ('cancelled')
+    JOIN orders o ON o.id = oi.order_id AND o.status NOT IN ('cancelled') AND o.is_demo = 0
     GROUP BY oi.product_id ORDER BY sold DESC LIMIT 5
   `).all();
 
-  const recent = db.prepare("SELECT * FROM orders ORDER BY created_at DESC, id DESC LIMIT 8").all();
+  const recent = db.prepare(`SELECT * FROM orders WHERE ${real} ORDER BY created_at DESC, id DESC LIMIT 8`).all();
   const lowStock = db.prepare(`
     SELECT p.id, p.name, p.stock,
       COALESCE((SELECT image FROM product_images WHERE product_id = p.id ORDER BY sort_order ASC, id ASC LIMIT 1),'') AS image
     FROM products p WHERE p.status = 'active' AND p.stock <= 10 ORDER BY p.stock ASC LIMIT 8
   `).all();
 
-  // وضعیت سفارش‌ها برای دایره
-  const statusDist = db.prepare('SELECT status, COUNT(*) AS c FROM orders GROUP BY status').all();
+  // وضعیت سفارش‌ها برای دایره (فقط واقعی)
+  const statusDist = db.prepare(`SELECT status, COUNT(*) AS c FROM orders WHERE ${real} GROUP BY status`).all();
 
-  // فروش به تفکیک دسته
+  // فروش به تفکیک دسته (فقط واقعی)
   const catSales = db.prepare(`
     SELECT c.name, SUM(oi.total) AS total FROM order_items oi
-    JOIN orders o ON o.id = oi.order_id AND o.status NOT IN ('cancelled')
+    JOIN orders o ON o.id = oi.order_id AND o.status NOT IN ('cancelled') AND o.is_demo = 0
     JOIN products p ON p.id = oi.product_id LEFT JOIN categories c ON c.id = p.category_id
     GROUP BY c.id ORDER BY total DESC LIMIT 6
   `).all();
@@ -138,8 +161,22 @@ router.put('/products/:id', requirePerm('products.manage'), (req, res) => {
 });
 
 router.delete('/products/:id', requirePerm('products.manage'), (req, res) => {
-  db.prepare('DELETE FROM product_images WHERE product_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id);
+  const pid = Number(req.params.id);
+  if (!pid || pid < 1) return res.status(400).json({ error: 'شناسه محصول نامعتبر است.' });
+  const product = db.prepare('SELECT * FROM products WHERE id = ?').get(pid);
+  if (!product) return res.status(404).json({ error: 'محصول یافت نشد.' });
+  // بررسی وجود سفارش‌های فعال
+  const hasOrders = db.prepare('SELECT COUNT(*) AS c FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.product_id = ? AND o.status NOT IN (\'cancelled\')').get(pid).c;
+  if (hasOrders > 0) {
+    // بجای حذف، غیرفعال کن
+    db.prepare('UPDATE products SET status = \'inactive\' WHERE id = ?').run(pid);
+    return res.json({ ok: true, message: `محصول دارای ${hasOrders} سفارش فعال است. بجای حذف غیرفعال شد.` });
+  }
+  db.transaction(() => {
+    db.prepare('DELETE FROM product_images WHERE product_id = ?').run(pid);
+    db.prepare('DELETE FROM products WHERE id = ?').run(pid);
+  })();
+  auditLog(req.user.id, 'product.deleted', 'product', pid, req);
   res.json({ ok: true });
 });
 
@@ -236,7 +273,7 @@ router.get('/orders', requirePerm('orders.manage'), (req, res) => {
     SELECT o.*, (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS item_count
     FROM orders o WHERE ${where.join(' AND ')} ORDER BY o.id DESC LIMIT ? OFFSET ?
   `).all(...params, size, (pageNum - 1) * size);
-  res.json({ orders: rows, total, page: pageNum, pages: Math.ceil(total / size) });
+  res.json({ orders: rows, total, page: pageNum, pages: Math.ceil(total / size), demoCount: db.prepare('SELECT COUNT(*) AS c FROM orders WHERE is_demo = 1').get().c });
 });
 
 router.get('/orders/:id', requirePerm('orders.manage'), (req, res) => {
@@ -244,22 +281,45 @@ router.get('/orders/:id', requirePerm('orders.manage'), (req, res) => {
   if (!order) return res.status(404).json({ error: 'سفارش یافت نشد.' });
   order.items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(order.id);
   order.customer = JSON.parse(order.customer_json || '{}');
+  order.payments = db.prepare("SELECT id, amount, gateway, authority, transaction_id, status, created_at, verified_at FROM payments WHERE order_id = ? ORDER BY id DESC").all(order.id);
+  const latestPay = order.payments[0];
+  order.transaction_id = latestPay?.transaction_id || '';
   const user = order.user_id ? db.prepare('SELECT id, name, email, phone FROM users WHERE id = ?').get(order.user_id) : null;
   res.json({ order, user });
 });
 
 router.put('/orders/:id/status', requirePerm('orders.manage'), (req, res) => {
-  const { status } = req.body || {};
-  const valid = ['pending', 'paid', 'shipped', 'delivered', 'cancelled'];
-  if (!valid.includes(status)) return res.status(400).json({ error: 'وضعیت نامعتبر است.' });
-  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
-  if (!order) return res.status(404).json({ error: 'سفارش یافت نشد.' });
-  db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, order.id);
-  if (status === 'cancelled' && order.status !== 'cancelled') {
-    db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(order.id)
-      .forEach(oi => db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(oi.quantity, oi.product_id));
+  try {
+    const { status, note } = req.body || {};
+    const valid = ['pending', 'paid', 'shipped', 'delivered', 'cancelled'];
+    if (!valid.includes(status)) return res.status(400).json({ error: 'وضعیت نامعتبر است.' });
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
+    if (!order) return res.status(404).json({ error: 'سفارش یافت نشد.' });
+    // جلوگیری از تغییر وضعیت سفارش‌های لغو/تحویل شده
+    if (['cancelled', 'delivered'].includes(order.status) && status !== order.status) {
+      return res.status(400).json({ error: `سفارش ${order.status === 'cancelled' ? 'لغو' : 'تحویل'} شده و قابل تغییر نیست.` });
+    }
+    db.transaction(() => {
+      db.prepare("UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, order.id);
+      // تاریخچه وضعیت
+      addOrderHistory(order.id, order.status, status, req.user.id, note || '');
+      // برگرداندن موجودی در صورت لغو
+      if (status === 'cancelled' && order.status !== 'cancelled') {
+        db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(order.id)
+          .forEach(oi => db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(oi.quantity, oi.product_id));
+      }
+    })();
+    // لاگ امنیتی
+    auditLog(req.user.id, 'order.status_changed', 'order', order.id, req);
+    // ارسال پیامک اطلاع‌رسانی
+    if (['shipped', 'delivered', 'cancelled'].includes(status)) {
+      sendOrderSMS(order, status).catch(err => console.error('[SMS] Status change error:', err.message));
+    }
+    res.json({ ok: true, message: 'وضعیت سفارش به‌روزرسانی شد.' });
+  } catch (err) {
+    console.error('[Admin] Order status error:', err.message);
+    res.status(500).json({ error: 'خطا در بروزرسانی وضعیت.' });
   }
-  res.json({ ok: true, message: 'وضعیت سفارش به‌روزرسانی شد.' });
 });
 
 // ============================================================
@@ -267,7 +327,7 @@ router.put('/orders/:id/status', requirePerm('orders.manage'), (req, res) => {
 // ============================================================
 router.get('/users', requirePerm('users.manage'), (req, res) => {
   const { q, page = 1, per_page = 15 } = req.query;
-  const where = ['1=1']; const params = [];
+  const where = ['u.is_demo = 0']; const params = [];
   if (q) { where.push('(u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)'); params.push(`%${q}%`, `%${q}%`, `%${q}%`); }
   const pageNum = Math.max(1, Number(page) || 1);
   const size = Math.min(100, Number(per_page) || 15);
@@ -483,6 +543,21 @@ router.put('/home', requirePerm('home.manage'), (req, res) => {
   if (b.about_teaser !== undefined) setSetting('about_teaser', b.about_teaser);
   res.json({ ok: true, message: 'محتوای صفحه اصلی ذخیره شد.' });
 });
+
+// آمار اولیه سایت (برای سایت جدید)
+router.get('/initial-stats', requirePerm('settings.manage'), (req, res) => {
+  res.json({ stats: getSetting('initial_stats', { years: 0, customers: 0, satisfaction: 0, founded_year: new Date().getFullYear() }) });
+});
+router.put('/initial-stats', requirePerm('settings.manage'), (req, res) => {
+  const b = req.body || {};
+  setSetting('initial_stats', {
+    years: Number(b.years) || 0,
+    customers: Number(b.customers) || 0,
+    satisfaction: Number(b.satisfaction) || 0,
+    founded_year: Number(b.founded_year) || new Date().getFullYear(),
+  });
+  res.json({ ok: true, message: 'آمار اولیه ذخیره شد.' });
+});
 // آپلود تصویر عمومی (مثلاً برای بخش معرفی)
 router.post('/upload', requirePerm('home.manage'), upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'فایلی دریافت نشد.' });
@@ -566,11 +641,20 @@ router.get('/settings', requirePerm('settings.manage'), (req, res) => {
     footer: getSetting('footer', {}),
     shipping: getSetting('shipping', {}),
     site: getSetting('site', {}),
+    payment: (() => {
+      const pay = getSetting('payment', { online_enabled: true, cod_enabled: true });
+      const { SAMAN_TERMINAL_ID } = require('../payment');
+      pay.saman_configured = !!SAMAN_TERMINAL_ID;
+      if (!SAMAN_TERMINAL_ID) pay.online_enabled = false;
+      return pay;
+    })(),
+    initialStats: getSetting('initial_stats', { years: 0, customers: 0, satisfaction: 0, founded_year: 1402 }),
   });
 });
 router.put('/settings', requirePerm('settings.manage'), (req, res) => {
   const b = req.body || {};
   ['contact', 'socials', 'footer', 'shipping', 'site'].forEach(k => { if (b[k] !== undefined) setSetting(k, b[k]); });
+  if (b.payment !== undefined) setSetting('payment', b.payment);
   res.json({ ok: true, message: 'تنظیمات ذخیره شد.' });
 });
 
@@ -625,6 +709,50 @@ router.put('/profile/password', (req, res) => {
   if (!password || password.length < 6) return res.status(400).json({ error: 'رمز جدید حداقل ۶ کاراکتر باشد.' });
   db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(String(password), 10), req.user.id);
   res.json({ ok: true, message: 'رمز عبور تغییر کرد.' });
+});
+
+// ============================================================
+// پاکسازی داده‌های تست (فقط super_admin)
+// ============================================================
+router.delete('/cleanup-test-data', requirePerm('users.manage'), (req, res) => {
+  try {
+    // فقط مدیر کل مجاز به اجراست
+    if (!hasPermission(req.user.permissions, '*')) {
+      return res.status(403).json({ error: 'فقط مدیر کل مجاز است.' });
+    }
+
+    db.transaction(() => {
+      // برگرداندن موجودی فقط برای سفارش‌هایی که موجودی‌شان هنوز بلوکه است؛
+      // سفارش‌های لغوشده موجودی‌شان هنگام لغو برگشته و نباید دوباره اضافه شود
+      const items = db.prepare(`
+        SELECT oi.product_id, oi.quantity FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id WHERE o.status NOT IN ('cancelled')
+      `).all();
+      items.forEach(i => {
+        db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(i.quantity, i.product_id);
+      });
+
+      // حذف همه سفارش‌ها، نظرات، و داده‌های مرتبط
+      db.prepare('DELETE FROM order_status_history').run();
+      db.prepare('DELETE FROM payments').run();
+      db.prepare('DELETE FROM audit_log').run();
+      db.prepare('DELETE FROM order_items').run();
+      db.prepare('DELETE FROM orders').run();
+      db.prepare('DELETE FROM product_reviews').run();
+      // حذف کاربران به‌جز مدیران کل (حتی اگر ادمین اصلی id=1 نباشد)
+      db.prepare("DELETE FROM users WHERE role_id NOT IN (SELECT id FROM roles WHERE name = 'super_admin')").run();
+      db.prepare('DELETE FROM addresses').run();
+      db.prepare('DELETE FROM wishlist').run();
+      // ریست شمارنده کوپن‌ها
+      db.prepare('UPDATE coupons SET used_count = 0').run();
+    })();
+
+    auditLog(req.user.id, 'data.cleanup', 'system', null, req);
+    res.json({ ok: true, message: 'داده‌های تست پاکسازی شد.' });
+  } catch (err) {
+    console.error('[Admin] Cleanup error:', err.message);
+    res.status(500).json({ error: 'خطا در پاکسازی.' });
+  }
 });
 
 module.exports = router;

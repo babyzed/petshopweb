@@ -1,13 +1,14 @@
 // admin/pages/coupons.js — مدیریت کدهای تخفیف
 import { AdminAPI, faNum, faDate } from '../api.js';
 import { toast, confirmModal, openModal } from '../components.js';
+import { ic } from '../icons.js';
 
 export async function render() {
   const { coupons } = await AdminAPI.get('/admin/coupons');
   return `
   <div class="toolbar">
-    <h3 style="font-size:15px;font-weight:800">🎟️ کدهای تخفیف</h3>
-    <button class="btn btn-primary" data-new style="padding:10px 22px;font-size:13px">+ کد جدید</button>
+    <h3 style="font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px">${ic('percent', 18)} کدهای تخفیف</h3>
+    <button class="btn btn-primary" data-new style="padding:10px 22px;font-size:13px">${ic('plus', 16)} کد جدید</button>
   </div>
   <table class="data-table">
     <thead><tr><th>کد</th><th>نوع</th><th>مقدار</th><th>حداقل خرید</th><th>استفاده</th><th>انقضا</th><th>وضعیت</th><th>عملیات</th></tr></thead>
@@ -15,15 +16,15 @@ export async function render() {
       ${coupons.map(c => `
         <tr>
           <td><b style="color:var(--brand-dark)" dir="ltr">${c.code}</b></td>
-          <td>${c.type === 'percent' ? '٪ درصدی' : '💰 مبلغی'}</td>
+          <td>${c.type === 'percent' ? 'درصدی' : 'مبلغی'}</td>
           <td><b>${c.type === 'percent' ? faNum(c.value) + '٪' : faNum(c.value).replace(/,/g, '٬') + ' تومان'}</b></td>
           <td>${c.min_amount ? faNum(c.min_amount).replace(/,/g, '٬') + ' تومان' : '—'}</td>
           <td>${faNum(c.used_count)} / ${c.max_usage ? faNum(c.max_usage) : '∞'}</td>
           <td style="font-size:11px">${c.expires_at ? faDate(c.expires_at) : 'بدون انقضا'}</td>
           <td>${c.is_active ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">غیرفعال</span>'}</td>
           <td style="white-space:nowrap">
-            <button class="btn btn-ghost" data-edit='${JSON.stringify(c)}' style="padding:7px 12px;font-size:11.5px">ویرایش</button>
-            <button class="btn btn-ghost" data-del="${c.id}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">حذف</button>
+            <button class="btn btn-ghost" data-edit='${JSON.stringify(c)}' style="padding:7px 12px;font-size:11.5px">${ic('edit', 14)} ویرایش</button>
+            <button class="btn btn-ghost" data-del="${c.id}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">${ic('trash', 14)} حذف</button>
           </td>
         </tr>`).join('')}
     </tbody>
@@ -43,7 +44,7 @@ export function after() {
 
 function openForm(c) {
   const { close, body } = openModal(`
-    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px">${c ? '✏️ ویرایش کد' : '➕ کد تخفیف جدید'}</h3>
+    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${c ? ic('edit', 18) + ' ویرایش کد' : ic('plus', 18) + ' کد تخفیف جدید'}</h3>
     <div class="form-grid">
       <div class="field"><label>کد تخفیف *</label><input data-code value="${c?.code || ''}" dir="ltr" placeholder="SUMMER10"></div>
       <div class="field"><label>نوع</label>

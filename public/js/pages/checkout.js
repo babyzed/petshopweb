@@ -7,6 +7,7 @@ import { ic } from '../icons.js';
 let coupon = null;
 let shippingCost = 0;
 let shippingSettings = { cost: 75000, free_over: 2000000 };
+let paymentSettings = { online_enabled: true, cod_enabled: true };
 
 export function title() { return 'تسویه حساب | پت‌شاپ'; }
 
@@ -25,6 +26,7 @@ export async function render() {
 
   const pub = await (await import('../store.js')).Settings.get();
   shippingSettings = pub.shipping || shippingSettings;
+  paymentSettings = pub.payment || paymentSettings;
   const settings = pub;
 
   let addresses = [];
@@ -90,18 +92,22 @@ export async function render() {
 
         <div class="checkout-card">
           <h3><span class="cc-step">۳</span> روش پرداخت</h3>
+          ${paymentSettings.online_enabled || paymentSettings.cod_enabled ? `
           <div class="payment-methods">
-            <label class="pay-method selected">
+            ${paymentSettings.online_enabled ? `
+            <label class="pay-method ${!paymentSettings.cod_enabled ? 'selected' : ''}">
               <span class="pm-ic">${ic('card', 20)}</span>
-              <div><div class="pm-name">پرداخت آنلاین (نمایشی)</div><div class="pm-desc">اتصال امن به درگاه پرداخت</div></div>
-              <input type="radio" name="pay" value="online" checked>
-            </label>
-            <label class="pay-method">
+              <div><div class="pm-name">پرداخت آنلاین</div><div class="pm-desc">اتصال امن به درگاه پرداخت</div></div>
+              <input type="radio" name="pay" value="online" ${!paymentSettings.cod_enabled ? 'checked' : ''}>
+            </label>` : ''}
+            ${paymentSettings.cod_enabled ? `
+            <label class="pay-method ${!paymentSettings.online_enabled ? 'selected' : ''}">
               <span class="pm-ic">${ic('cash', 20)}</span>
               <div><div class="pm-name">پرداخت در محل</div><div class="pm-desc">مبلغ را هنگام تحویل بپردازید</div></div>
-              <input type="radio" name="pay" value="cod">
-            </label>
-          </div>
+              <input type="radio" name="pay" value="cod" ${!paymentSettings.online_enabled ? 'checked' : ''}>
+            </label>` : ''}
+          </div>` : `
+          <p style="color:var(--muted);text-align:center;padding:16px 0">روش پرداختی در حال حاضر فعال نیست.</p>`}
         </div>
 
         <div class="checkout-card">
@@ -116,7 +122,7 @@ export async function render() {
           <div data-summary-items>
             ${Cart.items.map(it => `
               <div class="order-summary-item">
-                <img src="${it.image}" alt="" onerror="this.src='/assets/img/placeholder.jpg'">
+                <img src="${it.image}" alt="">
                 <div style="flex:1"><div class="os-name">${it.name}</div><div class="os-qty">تعداد: ${faNum(it.quantity)}</div></div>
                 <span class="os-price">${price(it.price * it.quantity)}</span>
               </div>`).join('')}
@@ -146,6 +152,7 @@ export async function render() {
 }
 
 export function mount(el) {
+  if (!Cart.items.length) return; // empty cart — nothing to mount
   const subtotal = Cart.subtotal();
   coupon = null;
 
@@ -208,13 +215,18 @@ export function mount(el) {
 
     const selectedAddr = el.querySelector('.addr-item input:checked');
     let address = '';
+    let postalCode = '';
     if (selectedAddr) {
       const a = selectedAddr.closest('.addr-item');
       address = a.querySelector('div:nth-child(2) div:nth-child(2)')?.textContent || '';
+      // استخراج کد پستی از متن آدرس
+      const postalMatch = address.match(/کد پستی:\s*(\d+)/);
+      if (postalMatch) postalCode = postalMatch[1];
     } else {
       const raw = el.querySelector('[data-a-address]').value.trim();
       if (!raw) { toast('آدرس تحویل را وارد کنید', 'err'); return; }
-      address = `${el.querySelector('[data-a-province]').value.trim()} ${el.querySelector('[data-a-city]').value.trim()} — ${raw}`;
+      postalCode = el.querySelector('[data-a-postal]').value.trim();
+      address = `${el.querySelector('[data-a-province]').value.trim()} ${el.querySelector('[data-a-city]').value.trim()} — ${raw}${postalCode ? ' — کد پستی: ' + postalCode : ''}`;
       // ذخیره آدرس
       if (Session.isLoggedIn && el.querySelector('[data-a-save]')?.checked) {
         try {
@@ -235,7 +247,7 @@ export function mount(el) {
     btn.textContent = '⏳ در حال ثبت سفارش...';
     try {
       const r = await API.post('/orders', {
-        customer: { full_name: name, phone },
+        customer: { full_name: name, phone, postal_code: postalCode },
         address,
         items: Cart.items.map(i => ({ product_id: i.product_id, quantity: i.quantity, image: i.image })),
         coupon_code: coupon?.code,
@@ -243,6 +255,20 @@ export function mount(el) {
         payment_method: payment,
         note: el.querySelector('[data-c-note]').value.trim(),
       });
+
+      // پرداخت آنلاین
+      if (r.needsPayment) {
+        Cart.clear();
+        if (r.paymentUrl) {
+          window.location.href = r.paymentUrl;
+          return; // منتظر ریدایرکت بانک باش
+        }
+        // درگاه پرداخت فعال نیست — سفارش ثبت شده ولی پرداخت pending
+        renderSuccess(el, r.order, payment);
+        return;
+      }
+
+      // پرداخت در محل: ثبت سفارش موفق
       Cart.clear();
       renderSuccess(el, r.order, payment);
     } catch (err) {
@@ -256,7 +282,7 @@ export function mount(el) {
 async function renderSuccess(el, order, payment) {
   let extra = '';
   if (payment === 'online') {
-    extra = `<p style="font-size:13px;color:var(--muted);margin-bottom:14px">پرداخت آنلاین این نسخه نمایشی است و به‌صورت خودکار تایید شد.</p>`;
+    extra = `<p style="font-size:13px;color:#92400E;background:#FEF3C7;padding:10px 14px;border-radius:10px;margin-bottom:14px">⚠️ پرداخت آنلاین در حال حاضر فعال نیست. سفارش شما ثبت شده و در انتظار پرداخت است. لطفاً با پشتیبانی تماس بگیرید.</p>`;
   }
   const root = el.querySelector('.container') || el;
   root.innerHTML = `

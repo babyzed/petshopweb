@@ -1,6 +1,7 @@
 // admin/pages/categories.js — مدیریت دسته‌بندی‌ها (درختی)
 import { AdminAPI, faNum } from '../api.js';
 import { toast, confirmModal, openModal } from '../components.js';
+import { ic } from '../icons.js';
 
 export async function render() {
   const { categories } = await AdminAPI.get('/admin/categories');
@@ -9,7 +10,7 @@ export async function render() {
     <tr data-depth="${depth}">
       <td>
         <div style="display:flex;align-items:center;gap:8px;padding-inline-start:${depth * 26}px">
-          <span style="font-size:20px">${c.icon || '🐾'}</span>
+          <span style="color:var(--brand);display:flex">${ic('grid', 20)}</span>
           <b>${c.name}</b>
           ${c.children?.length ? `<span class="s-badge s-active" style="font-size:10px">${faNum(c.children.length)} زیردسته</span>` : ''}
         </div>
@@ -18,8 +19,8 @@ export async function render() {
       <td>${c.image ? '<img class="t-img" src="' + c.image + '" style="width:38px;height:38px">' : '—'}</td>
       <td>${c.is_active ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">غیرفعال</span>'}</td>
       <td style="white-space:nowrap">
-        <button class="btn btn-ghost" data-edit='${JSON.stringify({ id: c.id, name: c.name, icon: c.icon, parent_id: c.parent_id, sort_order: c.sort_order, is_active: c.is_active })}' style="padding:7px 12px;font-size:11.5px">ویرایش</button>
-        <button class="btn btn-ghost" data-del="${c.id}" data-name="${c.name}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">حذف</button>
+        <button class="btn btn-ghost" data-edit='${JSON.stringify({ id: c.id, name: c.name, icon: c.icon, parent_id: c.parent_id, sort_order: c.sort_order, is_active: c.is_active })}' style="padding:7px 12px;font-size:11.5px">${ic('edit', 14)} ویرایش</button>
+        <button class="btn btn-ghost" data-del="${c.id}" data-name="${c.name}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">${ic('trash', 14)} حذف</button>
       </td>
     </tr>
     ${c.children?.length ? treeHtml(c.children, depth + 1) : ''}`).join('');
@@ -28,8 +29,8 @@ export async function render() {
 
   return `
   <div class="toolbar">
-    <h3 style="font-size:15px;font-weight:800">🗂️ مدیریت دسته‌بندی‌ها</h3>
-    <button class="btn btn-primary" data-new style="padding:10px 22px;font-size:13px">+ دسته جدید</button>
+    <h3 style="font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px">${ic('grid', 18)} مدیریت دسته‌بندی‌ها</h3>
+    <button class="btn btn-primary" data-new style="padding:10px 22px;font-size:13px">${ic('plus', 16)} دسته جدید</button>
   </div>
   <table class="data-table">
     <thead><tr><th>نام دسته</th><th>تعداد محصول</th><th>تصویر</th><th>وضعیت</th><th>عملیات</th></tr></thead>
@@ -58,7 +59,7 @@ export function after() {
 
 function openForm(cat, cats) {
   const { close, body } = openModal(`
-    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px">${cat ? '✏️ ویرایش دسته' : '➕ دسته جدید'}</h3>
+    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${cat ? ic('edit', 18) + ' ویرایش دسته' : ic('plus', 18) + ' دسته جدید'}</h3>
     <div class="form-grid">
       <div class="field"><label>نام دسته *</label><input data-name value="${cat?.name || ''}"></div>
       <div class="field"><label>آیکون (ایموجی)</label><input data-icon value="${cat?.icon || '🐾'}" maxlength="4"></div>

@@ -41,7 +41,7 @@ export async function render(params, query) {
     let products = [];
     for (const id of ids) {
       try {
-        const { product } = await API.get('/products/' + id);
+        const { product } = await API.get('/products/by-id/' + id);
         if (product) products.push(product);
       } catch (e) {}
     }
@@ -64,11 +64,13 @@ export async function render(params, query) {
       </div>
       <button class="btn btn-primary" data-new-addr style="margin-top:10px">+ آدرس جدید</button>
       <div class="form-grid" id="addr-form" style="display:none;margin-top:14px">
+        <div class="field"><label>نام و نام خانوادگی *</label><input data-a-fullname placeholder="نام گیرنده"></div>
+        <div class="field"><label>شماره تلفن *</label><input data-a-phonenum dir="ltr" placeholder="09xxxxxxxxx"></div>
         <div class="field"><label>عنوان</label><input data-a-title placeholder="منزل"></div>
-        <div class="field"><label>کد پستی</label><input data-a-postal dir="ltr"></div>
-        <div class="field"><label>استان</label><input data-a-province></div>
-        <div class="field"><label>شهر</label><input data-a-city></div>
-        <div class="field full"><label>آدرس کامل *</label><textarea data-a-address rows="2"></textarea></div>
+        <div class="field"><label>کد پستی</label><input data-a-postal dir="ltr" placeholder="1234567890"></div>
+        <div class="field"><label>استان</label><input data-a-province placeholder="مثلاً: تهران"></div>
+        <div class="field"><label>شهر</label><input data-a-city placeholder="مثلاً: تهران"></div>
+        <div class="field full"><label>آدرس کامل *</label><textarea data-a-address rows="2" placeholder="خیابان، کوچه، پلاک..."></textarea></div>
         <div class="field full"><button class="btn btn-primary" data-save-addr>ذخیره آدرس</button></div>
       </div>`;
   } else if (tab === 'password') {
@@ -167,10 +169,16 @@ export function mount(el, params, query) {
       el.querySelector('#addr-form').style.display = 'grid';
     });
     el.querySelector('[data-save-addr]')?.addEventListener('click', async () => {
+      const full_name = el.querySelector('[data-a-fullname]').value.trim();
+      const phone = el.querySelector('[data-a-phonenum]').value.trim();
       const address = el.querySelector('[data-a-address]').value.trim();
+      if (!full_name) { toast('نام و نام خانوادگی را وارد کنید', 'err'); return; }
+      if (!phone) { toast('شماره تلفن را وارد کنید', 'err'); return; }
       if (!address) { toast('آدرس را وارد کنید', 'err'); return; }
       try {
         await API.post('/auth/addresses', {
+          full_name,
+          phone,
           title: el.querySelector('[data-a-title]').value.trim(),
           province: el.querySelector('[data-a-province]').value.trim(),
           city: el.querySelector('[data-a-city]').value.trim(),

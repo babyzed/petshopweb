@@ -1,6 +1,7 @@
 // admin/pages/dashboard.js — داشبورد آماری با نمودار SVG
 import { AdminAPI, price, faNum, faDate } from '../api.js';
 import { statCard, statusBadge } from '../components.js';
+import { ic } from '../icons.js';
 
 const STATUS_COLORS = { pending: '#F59E0B', paid: '#3B82F6', shipped: '#6366F1', delivered: '#10B981', cancelled: '#EF4444' };
 
@@ -36,16 +37,16 @@ export async function render() {
 
   return `
   <div class="stat-grid">
-    ${statCard('💰', 'o', price(d.revenue) + ' <small style="font-size:11px">تومان</small>', 'مجموع درآمد (بدون لغو)')}
-    ${statCard('🧾', 'b', faNum(d.orderCount), 'تعداد سفارش‌ها')}
-    ${statCard('👥', 'g', faNum(d.userCount), 'کاربران (جدید: ' + faNum(d.newUsers) + ')')}
-    ${statCard('📈', 'p', price(d.todayRevenue) + ' <small style="font-size:11px">تومان</small>', 'درآمد امروز (' + faNum(d.todayOrders) + ' سفارش)')}
+    ${statCard(ic('dollarSign', 22), 'o', price(d.revenue) + ' <small style="font-size:11px">تومان</small>', 'مجموع درآمد (بدون لغو)')}
+    ${statCard(ic('receipt', 22), 'b', faNum(d.orderCount), 'تعداد سفارش‌ها')}
+    ${statCard(ic('users', 22), 'g', faNum(d.userCount), 'کاربران (جدید: ' + faNum(d.newUsers) + ')')}
+    ${statCard(ic('trendUp', 22), 'p', price(d.todayRevenue) + ' <small style="font-size:11px">تومان</small>', 'درآمد امروز (' + faNum(d.todayOrders) + ' سفارش)')}
   </div>
 
   <div class="dash-grid">
     <div>
       <div class="dash-card">
-        <h3>📈 فروش ۳۰ روز اخیر</h3>
+        <h3>${ic('chartBar', 18)} فروش ۳۰ روز اخیر</h3>
         <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto" role="img" aria-label="نمودار فروش ۳۰ روز">
           ${gridLines}
           <polygon points="${area}" fill="rgba(249,115,22,.08)"/>
@@ -58,10 +59,10 @@ export async function render() {
       </div>
 
       <div class="dash-card">
-        <h3>🔥 پرفروش‌ترین محصولات</h3>
+        <h3>${ic('flame', 18)} پرفروش‌ترین محصولات</h3>
         ${d.bestsellers.length ? d.bestsellers.map(b => `
           <div class="mini-list-item">
-            ${b.image ? `<img src="${b.image}" alt="">` : '<span style="font-size:22px">🐾</span>'}
+            ${b.image ? `<img src="${b.image}" alt="">` : `<span style="font-size:18px;color:var(--brand)">${ic('package', 22)}</span>`}
             <span class="mli-name">${b.name}</span>
             <span style="color:var(--muted);font-size:11px">${faNum(b.sold)} فروش</span>
             <span class="mli-val">${price(b.total)}</span>
@@ -69,13 +70,13 @@ export async function render() {
       </div>
 
       <div class="dash-card">
-        <h3>🕐 سفارش‌های اخیر</h3>
+        <h3>${ic('clock', 18)} سفارش‌های اخیر</h3>
         <table class="data-table">
           <thead><tr><th>کد</th><th>مشتری</th><th>مبلغ</th><th>وضعیت</th><th>تاریخ</th></tr></thead>
           <tbody>
             ${d.recent.slice(0, 6).map(o => {
               const c = JSON.parse(o.customer_json || '{}');
-              return `<tr style="cursor:pointer" onclick="location.hash='#/orders/${o.id}'">
+              return `<tr style="cursor:pointer" data-href="#/orders/${o.id}"">
                 <td><b style="color:var(--brand-dark)">${o.code}</b></td>
                 <td class="t-name">${c.full_name || '—'}</td>
                 <td>${price(o.total)} تومان</td>
@@ -90,7 +91,7 @@ export async function render() {
 
     <div>
       <div class="dash-card">
-        <h3>🍩 وضعیت سفارش‌ها</h3>
+        <h3>${ic('grid', 18)} وضعیت سفارش‌ها</h3>
         <div class="donut-row">
           <svg viewBox="0 0 120 120" style="width:130px;height:130px" role="img" aria-label="نمودار وضعیت سفارش‌ها">
             ${donutSegs}
@@ -109,7 +110,7 @@ export async function render() {
       </div>
 
       <div class="dash-card">
-        <h3>🛒 فروش به تفکیک دسته</h3>
+        <h3>${ic('shoppingBag', 18)} فروش به تفکیک دسته</h3>
         ${d.catSales?.length ? d.catSales.map(c => {
           const max = Math.max(...d.catSales.map(x => x.total), 1);
           return `
@@ -125,10 +126,10 @@ export async function render() {
       </div>
 
       <div class="dash-card">
-        <h3>⚠️ محصولات کم‌موجودی</h3>
+        <h3>${ic('alertTriangle', 18)} محصولات کم‌موجودی</h3>
         ${d.lowStock.length ? d.lowStock.map(p => `
           <div class="mini-list-item">
-            ${p.image ? `<img src="${p.image}" alt="">` : '<span style="font-size:22px">🐾</span>'}
+            ${p.image ? `<img src="${p.image}" alt="">` : `<span style="font-size:18px;color:var(--brand)">${ic('package', 22)}</span>`}
             <span class="mli-name">${p.name}</span>
             <span class="s-badge ${p.stock === 0 ? 's-cancelled' : 's-pending'}" style="flex-shrink:0">${faNum(p.stock)} عدد</span>
           </div>`).join('') : '<p style="color:var(--muted);font-size:12.5px">همه محصولات موجودی کافی دارند ✅</p>'}

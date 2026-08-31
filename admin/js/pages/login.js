@@ -1,6 +1,7 @@
 // admin/pages/login.js — ورود مدیر
 import { AdminAPI } from '../api.js';
 import { toast } from '../components.js';
+import { ic } from '../icons.js';
 
 export function render() {
   return `
@@ -8,26 +9,20 @@ export function render() {
     <span class="al-paw p1">🐾</span>
     <span class="al-paw p2">🐾</span>
     <div class="admin-login-box">
-      <div class="logo-icon">🐾</div>
+      <div class="logo-icon">${ic('paw', 30)}</div>
       <h1>ورود به پنل مدیریت</h1>
       <p class="sub">پت‌شاپ — پنل مدیریت فروشگاه</p>
       <form data-login-form>
         <div class="field">
           <label>ایمیل</label>
-          <input type="email" name="email" dir="ltr" placeholder="admin@petshop.ir" required>
+          <input type="email" name="email" dir="ltr" placeholder="admin@petshop.ir" required value="admin@petshop.ir">
         </div>
         <div class="field">
           <label>رمز عبور</label>
           <input type="password" name="password" dir="ltr" placeholder="••••••••" required>
         </div>
-        <button class="btn btn-primary btn-block btn-lg" type="submit">ورود به پنل</button>
+        <button class="btn btn-primary btn-block btn-lg" type="submit">${ic('lock', 16)} ورود به پنل</button>
       </form>
-      <div class="demo-acc">
-        <b>حساب‌های دمو:</b><br>
-        مدیر کل: admin@petshop.ir / admin123<br>
-        مدیر فروشگاه: manager@petshop.ir / admin123<br>
-        مدیر محتوا: content@petshop.ir / admin123
-      </div>
     </div>
   </div>`;
 }

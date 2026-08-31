@@ -29,14 +29,14 @@ export async function render(params) {
           <div class="ot-label">${s.label}</div>
         </div>`).join('')}
     </div>
-    ${order.status === 'cancelled' ? '<p style="text-align:center;color:var(--danger);font-weight:700;margin-top:12px">${ic(\'alert\', 15)} این سفارش لغو شده است</p>' : ''}
+    ${order.status === 'cancelled' ? `<p style="text-align:center;color:var(--danger);font-weight:700;margin-top:12px">${ic('alert', 15)} این سفارش لغو شده است</p>` : ''}
 
     <div class="checkout-layout" style="margin-top:22px">
       <div class="checkout-card">
         <h3>${ic('package', 17)} محصولات سفارش</h3>
         ${order.items.map(it => `
           <div class="order-summary-item">
-            ${it.image ? `<img src="${it.image}" alt="" onerror="this.src='/assets/img/placeholder.jpg'">` : '<span style="font-size:30px">${ic(\'paw\', 26)}</span>'}
+            ${it.image ? `<img src="${it.image}" alt="">` : `<span style="font-size:30px">${ic('paw', 26)}</span>`}
             <div style="flex:1"><div class="os-name">${it.name}</div><div class="os-qty">تعداد: ${faNum(it.quantity)}</div></div>
             <span class="os-price">${price(it.total)} تومان</span>
           </div>`).join('')}
@@ -47,7 +47,9 @@ export async function render(params) {
           <div class="c-info-row"><span class="ci-ic">${ic('user', 17)}</span><div><span class="ci-l">نام</span><span class="ci-v">${order.customer.full_name}</span></div></div>
           <div class="c-info-row"><span class="ci-ic">${ic('phone', 16)}</span><div><span class="ci-l">موبایل</span><span class="ci-v" dir="ltr">${order.customer.phone}</span></div></div>
           <div class="c-info-row"><span class="ci-ic">${ic('pin', 16)}</span><div><span class="ci-l">آدرس</span><span class="ci-v">${order.customer.address || '—'}</span></div></div>
-          <div class="c-info-row"><span class="ci-ic">${ic('card', 16)}</span><div><span class="ci-l">پرداخت</span><span class="ci-v">${order.payment_method === 'online' ? 'آنلاین (پرداخت شده)' : 'در محل'}</span></div></div>
+          <div class="c-info-row"><span class="ci-ic">${ic('card', 16)}</span><div><span class="ci-l">پرداخت</span><span class="ci-v">${order.payment_method === 'online'
+            ? (order.payment_status === 'paid' ? 'آنلاین (پرداخت شده)' : order.payment_status === 'unpaid' ? 'آنلاین (در انتظار پرداخت)' : 'آنلاین (پرداخت ناموفق)')
+            : 'در محل'}</span></div></div>
           ${order.note ? `<div class="c-info-row"><span class="ci-ic">${ic('pen', 16)}</span><div><span class="ci-l">یادداشت</span><span class="ci-v">${order.note}</span></div></div>` : ''}
         </div>
         <div class="checkout-card">
@@ -66,8 +68,9 @@ export async function render(params) {
 }
 
 export function mount(el, params) {
-  el.querySelector('[data-cancel]')?.addEventListener('click', async (btn) => {
+  el.querySelector('[data-cancel]')?.addEventListener('click', async (e) => {
     if (!confirm('از لغو این سفارش مطمئن هستید؟')) return;
+    const btn = e.currentTarget;
     btn.disabled = true;
     try {
       await API.post('/orders/my/' + params.id + '/cancel');

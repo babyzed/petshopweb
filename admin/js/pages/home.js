@@ -1,6 +1,7 @@
 // admin/pages/home.js — ویرایشگر محتوای صفحه اصلی (بدون کد!)
 import { AdminAPI, uploadImage } from '../api.js';
 import { toast, openModal } from '../components.js';
+import { ic } from '../icons.js';
 
 export async function render() {
   const d = await AdminAPI.get('/admin/home');
@@ -12,7 +13,7 @@ export async function render() {
     const s = hs.sections?.[key] || {};
     return `
     <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px dashed #F1EDE7">
-      <span style="font-size:20px">${icon}</span>
+      <span style="color:var(--brand);display:flex">${icon}</span>
       <div style="flex:1">
         <b style="font-size:13px">${label}</b>
         <input class="sec-title-inp" data-sec-title="${key}" value="${s.title || ''}" placeholder="تیتر بخش (خالی = پیش‌فرض)" style="width:100%;margin-top:4px;padding:7px 10px;border:1.5px solid #E7E0D8;border-radius:9px;font-size:12px;outline:none">
@@ -23,38 +24,38 @@ export async function render() {
 
   return `
   <div class="a-card">
-    <h3>🏠 نمایش و تیتر بخش‌های صفحه اصلی</h3>
+    <h3>${ic('home', 18)} نمایش و تیتر بخش‌های صفحه اصلی</h3>
     <p class="hint" style="margin-bottom:10px">هر بخش را می‌توانید نمایش/عدم نمایش کنید و تیتر اختصاصی بدهید.</p>
-    ${sectionToggle('hero', 'اسلایدر Hero (بالای صفحه)', '🎠')}
-    ${sectionToggle('categories', 'دسته‌بندی محصولات', '🗂️')}
-    ${sectionToggle('bestsellers', 'پرفروش‌ترین‌ها', '🔥')}
-    ${sectionToggle('new', 'جدیدترین محصولات', '✨')}
-    ${sectionToggle('sales', 'تخفیف‌های ویژه', '💥')}
-    ${sectionToggle('special', 'پیشنهاد پت‌شاپ (محصولات ویژه)', '🌟')}
-    ${sectionToggle('brands', 'برندهای معتبر', '🏷️')}
-    ${sectionToggle('about', 'معرفی پت‌شاپ', '🏆')}
-    ${sectionToggle('features', 'مزایای خرید', '🎁')}
-    ${sectionToggle('blog', 'مجله پت', '📰')}
-    ${sectionToggle('testimonials', 'نظر مشتریان', '💬')}
-    ${sectionToggle('newsletter', 'خبرنامه', '✉️')}
+    ${sectionToggle('hero', 'اسلایدر Hero (بالای صفحه)', ic('image', 18))}
+    ${sectionToggle('categories', 'دسته‌بندی محصولات', ic('grid', 18))}
+    ${sectionToggle('bestsellers', 'پرفروش‌ترین‌ها', ic('flame', 18))}
+    ${sectionToggle('new', 'جدیدترین محصولات', ic('sparkles', 18))}
+    ${sectionToggle('sales', 'تخفیف‌های ویژه', ic('percent', 18))}
+    ${sectionToggle('special', 'پیشنهاد پت‌شاپ (محصولات ویژه)', ic('star', 18))}
+    ${sectionToggle('brands', 'برندهای معتبر', ic('tag', 18))}
+    ${sectionToggle('about', 'معرفی پت‌شاپ', ic('award', 18))}
+    ${sectionToggle('features', 'مزایای خرید', ic('gift', 18))}
+    ${sectionToggle('blog', 'مجله پت', ic('newspaper', 18))}
+    ${sectionToggle('testimonials', 'نظر مشتریان', ic('chat', 18))}
+    ${sectionToggle('newsletter', 'خبرنامه', ic('mail', 18))}
   </div>
 
   <div class="a-card">
-    <h3>🎁 مزایای خرید (۶ مورد)</h3>
+    <h3>${ic('award', 18)} مزایای خرید (۶ مورد)</h3>
     <div data-feats>
       ${feats.map((f, i) => `
         <div class="feat-row" data-feat-row>
           <input placeholder="آیکون (ایموجی)" data-fi value="${f.icon || ''}" style="width:70px">
           <input placeholder="عنوان (مثلاً: ارسال سریع)" data-ft value="${f.title || ''}">
-          <button class="btn btn-ghost" data-feat-del style="color:var(--danger)">✕</button>
+          <button class="btn btn-ghost" data-feat-del style="color:var(--danger)">${ic('x', 14)}</button>
           <input placeholder="توضیح کوتاه" data-fx value="${f.text || ''}" style="grid-column:1/-1">
         </div>`).join('')}
     </div>
-    <button class="btn btn-ghost" data-feat-add style="margin-top:8px">+ افزودن مزیت</button>
+    <button class="btn btn-ghost" data-feat-add style="margin-top:8px">${ic('plus', 14)} افزودن مزیت</button>
   </div>
 
   <div class="a-card">
-    <h3>🏆 بخش معرفی پت‌شاپ</h3>
+    <h3>${ic('award', 18)} بخش معرفی پت‌شاپ</h3>
     <div class="form-grid">
       <div class="field"><label>نشان (بج)</label><input data-at-badge value="${at.badge || ''}"></div>
       <div class="field"><label>عنوان</label><input data-at-title value="${at.title || ''}"></div>
@@ -72,15 +73,15 @@ export async function render() {
             <div class="feat-row">
               <input placeholder="مقدار (مثلاً: ۱۲+)" data-sv value="${s.value}" style="width:90px">
               <input placeholder="برچسب (مثلاً: سال تجربه)" data-sl value="${s.label}">
-              <button class="btn btn-ghost" data-stat-del style="color:var(--danger)">✕</button>
+              <button class="btn btn-ghost" data-stat-del style="color:var(--danger)">${ic('x', 14)}</button>
             </div>`).join('')}
         </div>
-        <button class="btn btn-ghost" data-stat-add style="margin-top:6px">+ آمار</button>
+        <button class="btn btn-ghost" data-stat-add style="margin-top:6px">${ic('plus', 14)} آمار</button>
       </div>
     </div>
   </div>
 
-  <button class="btn btn-primary btn-lg" data-save style="width:100%">💾 ذخیره همه تغییرات صفحه اصلی</button>`;
+  <button class="btn btn-primary btn-lg" data-save style="width:100%">${ic('settings', 16)} ذخیره همه تغییرات صفحه اصلی</button>`;
 }
 
 export function after() {
@@ -108,7 +109,7 @@ export function after() {
     row.innerHTML = `
       <input placeholder="آیکون" data-fi style="width:70px">
       <input placeholder="عنوان" data-ft>
-      <button class="btn btn-ghost" data-feat-del style="color:var(--danger)">✕</button>
+      <button class="btn btn-ghost" data-feat-del style="color:var(--danger)">${ic('x', 14)}</button>
       <input placeholder="توضیح" data-fx style="grid-column:1/-1">`;
     document.querySelector('[data-feats]').appendChild(row);
     row.querySelector('[data-feat-del]').addEventListener('click', () => row.remove());
@@ -121,9 +122,9 @@ export function after() {
     row.innerHTML = `
       <input placeholder="مقدار" data-sv style="width:90px">
       <input placeholder="برچسب" data-sl>
-      <button class="btn btn-ghost" data-stat-del style="color:var(--danger)">✕</button>`;
+      <button class="btn btn-ghost" data-stat-del style="color:var(--danger)">${ic('x', 14)}</button>`;
     document.querySelector('[data-at-stats]').appendChild(row);
-    row.querySelector('[data-stat-del]').addEventListener('click', () => row.remove());
+    row.querySelector('[data-stat-del]').addEventListener('click', () => row.closest('.feat-row').remove());
   });
   document.querySelectorAll('[data-stat-del]').forEach(b => b.addEventListener('click', () => b.closest('.feat-row').remove()));
 

@@ -1,6 +1,7 @@
 // admin/pages/banners.js — مدیریت بنرها
 import { AdminAPI, uploadImage } from '../api.js';
 import { toast, confirmModal, openModal } from '../components.js';
+import { ic } from '../icons.js';
 
 export async function render() {
   const { banners } = await AdminAPI.get('/admin/banners');
@@ -9,31 +10,31 @@ export async function render() {
   const card = (b) => `
     <div class="dash-card">
       <div style="display:flex;gap:14px;align-items:center">
-        ${b.image ? `<img src="${b.image}" style="width:130px;height:80px;border-radius:12px;object-fit:cover" alt="">` : '<div style="width:130px;height:80px;border-radius:12px;background:#FAF7F4;display:flex;align-items:center;justify-content:center;font-size:28px">🖼️</div>'}
+        ${b.image ? `<img src="${b.image}" style="width:130px;height:80px;border-radius:12px;object-fit:cover" alt="">` : `<div style="width:130px;height:80px;border-radius:12px;background:#FAF7F4;display:flex;align-items:center;justify-content:center">${ic('image', 28)}</div>`}
         <div style="flex:1;min-width:0">
           <div style="font-weight:800;font-size:13.5px">${b.title}</div>
           <div class="t-sub">${b.subtitle || ''}</div>
           <div style="margin-top:6px">${b.is_active ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">غیرفعال</span>'} <span class="s-badge s-paid" style="background:#F5F3FF;color:#6D28D9">ترتیب: ${b.sort_order}</span></div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          <button class="btn btn-ghost" data-edit='${JSON.stringify(b)}' style="padding:7px 14px;font-size:11.5px">ویرایش</button>
-          <button class="btn btn-ghost" data-del="${b.id}" style="padding:7px 14px;font-size:11.5px;color:var(--danger)">حذف</button>
+          <button class="btn btn-ghost" data-edit='${JSON.stringify(b)}' style="padding:7px 14px;font-size:11.5px">${ic('edit', 14)} ویرایش</button>
+          <button class="btn btn-ghost" data-del="${b.id}" style="padding:7px 14px;font-size:11.5px;color:var(--danger)">${ic('trash', 14)} حذف</button>
         </div>
       </div>
     </div>`;
 
   return `
   <div class="toolbar">
-    <h3 style="font-size:15px;font-weight:800">🖼️ مدیریت بنرها</h3>
-    <button class="btn btn-primary" data-new style="padding:10px 22px;font-size:13px">+ بنر جدید</button>
+    <h3 style="font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px">${ic('image', 18)} مدیریت بنرها</h3>
+    <button class="btn btn-primary" data-new style="padding:10px 22px;font-size:13px">${ic('plus', 16)} بنر جدید</button>
   </div>
   <div class="dash-card" style="background:#FFF7ED;border-color:#FED7AA">
-    <h3>🏠 اسلایدر Hero صفحه اصلی (${hero.length})</h3>
+    <h3>${ic('home', 18)} اسلایدر Hero صفحه اصلی (${hero.length})</h3>
     <p class="hint">تصاویر پیشنهادی: نسبت مربع (۱۰۲۴×۱۰۲۴) با فضای خالی سمت راست برای متن</p>
   </div>
   ${hero.map(card).join('')}
   <div class="dash-card" style="background:#F0FDF4;border-color:#BBF7D0">
-    <h3>🎯 بنرهای تبلیغاتی (${promo.length})</h3>
+    <h3>${ic('sparkles', 18)} بنرهای تبلیغاتی (${promo.length})</h3>
     <p class="hint">تصاویر پیشنهادی: عریض (۱۶۰۰×۶۰۰) با فضای متن سمت راست</p>
   </div>
   ${promo.map(card).join('')}`;
@@ -52,7 +53,7 @@ export function after() {
 
 function openForm(b) {
   const { close, body } = openModal(`
-    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px">${b ? '✏️ ویرایش بنر' : '➕ بنر جدید'}</h3>
+    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${b ? ic('edit', 18) + ' ویرایش بنر' : ic('plus', 18) + ' بنر جدید'}</h3>
     <div class="form-grid">
       <div class="field full"><label>عنوان بنر *</label><input data-title value="${b?.title || ''}"></div>
       <div class="field full"><label>زیرعنوان</label><input data-subtitle value="${b?.subtitle || ''}"></div>

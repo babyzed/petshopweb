@@ -1,6 +1,7 @@
 // admin/pages/roles.js — نقش‌ها و دسترسی‌ها (Role & Permission)
 import { AdminAPI, faNum } from '../api.js';
 import { toast, confirmModal, openModal } from '../components.js';
+import { ic } from '../icons.js';
 
 export async function render() {
   const { roles, stats, catalog } = await AdminAPI.get('/admin/roles');
@@ -9,8 +10,8 @@ export async function render() {
 
   return `
   <div class="toolbar">
-    <h3 style="font-size:15px;font-weight:800">🛡️ نقش‌ها و دسترسی‌ها</h3>
-    <button class="btn btn-primary" data-new style="padding:10px 22px;font-size:13px">+ نقش جدید</button>
+    <h3 style="font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px">${ic('shield', 18)} نقش‌ها و دسترسی‌ها</h3>
+    <button class="btn btn-primary" data-new style="padding:10px 22px;font-size:13px">${ic('plus', 16)} نقش جدید</button>
   </div>
   <div class="dash-card">
     <p class="hint" style="margin-bottom:14px">نقش جدید بسازید و هر ترکیبی از دسترسی‌ها را تعیین کنید. نقش‌های سیستمی قابل ویرایش/حذف نیستند.</p>
@@ -21,7 +22,7 @@ export async function render() {
           <tr>
             <td>
               <div style="display:flex;align-items:center;gap:10px">
-                <span class="stat-ic ${r.is_system ? 'o' : 'g'}" style="width:36px;height:36px;font-size:17px">${r.is_system ? '⭐' : '🎭'}</span>
+                <span class="stat-ic ${r.is_system ? 'o' : 'g'}" style="width:36px;height:36px">${r.is_system ? ic('star', 18) : ic('user', 18)}</span>
                 <div><b style="font-size:13px">${r.title}</b><div class="t-sub" dir="ltr">${r.name}</div></div>
               </div>
             </td>
@@ -30,8 +31,8 @@ export async function render() {
             <td>${r.is_system ? '<span class="s-badge s-paid" style="background:#FFF7ED;color:#9A3412">سیستمی</span>' : '<span class="s-badge s-approved">سفارشی</span>'}</td>
             <td style="white-space:nowrap">
               ${r.is_system ? '<span class="t-sub">غیرقابل ویرایش</span>' : `
-                <button class="btn btn-ghost" data-edit='${JSON.stringify(r)}' style="padding:7px 12px;font-size:11.5px">ویرایش دسترسی‌ها</button>
-                <button class="btn btn-ghost" data-del="${r.id}" data-name="${r.title}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">حذف</button>`}
+                <button class="btn btn-ghost" data-edit='${JSON.stringify(r)}' style="padding:7px 12px;font-size:11.5px">${ic('edit', 14)} ویرایش دسترسی‌ها</button>
+                <button class="btn btn-ghost" data-del="${r.id}" data-name="${r.title}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">${ic('trash', 14)} حذف</button>`}
             </td>
           </tr>`).join('')}
       </tbody>
@@ -39,7 +40,7 @@ export async function render() {
   </div>
 
   <div class="dash-card">
-    <h3>📋 کاتالوگ دسترسی‌های موجود</h3>
+    <h3>${ic('list', 18)} کاتالوگ دسترسی‌های موجود</h3>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
       ${catalog.map(p => `<span class="s-badge s-paid" style="background:#F5F3FF;color:#6D28D9;font-size:11px">${p.group}: ${p.label}</span>`).join('')}
     </div>
@@ -62,7 +63,7 @@ async function openForm(role) {
   const groups = [...new Set(catalog.map(p => p.group))];
   const current = role ? role.permissions : [];
   const { close, body } = openModal(`
-    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px">${role ? '✏️ ویرایش نقش ' + role.title : '➕ نقش جدید'}</h3>
+    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${role ? ic('edit', 18) + ' ویرایش نقش ' + role.title : ic('plus', 18) + ' نقش جدید'}</h3>
     <div class="form-grid">
       <div class="field"><label>نام انگلیسی (کلید) *</label><input data-name value="${role?.name || ''}" dir="ltr" placeholder="editor" ${role ? 'disabled' : ''}></div>
       <div class="field"><label>عنوان فارسی *</label><input data-title value="${role?.title || ''}" placeholder="مثلاً: ویرایشگر محتوا"></div>

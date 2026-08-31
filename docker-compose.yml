@@ -8,7 +8,9 @@ services:
     build: .
     container_name: petshop
     ports:
-      - "3000:3000"
+      - "3001:3000"
+    env_file:
+      - .env
     environment:
       - PORT=3000
       - TZ=Asia/Tehran
@@ -18,3 +20,10 @@ services:
       # تصاویر آپلودشده از پنل مدیریت
       - ./uploads:/app/uploads
     restart: unless-stopped
+    # محدودیت منابع (برای سرورهای کوچک)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M

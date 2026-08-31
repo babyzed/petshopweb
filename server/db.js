@@ -1,4 +1,4 @@
-// db.js — اتصال به SQLite و ساخت Schema
+// db.js — اتصال به SQLite و ساخت Schema (Production-Ready)
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
@@ -9,7 +9,11 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 const db = new Database(path.join(dataDir, 'petshop.db'));
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+db.pragma('busy_timeout = 5000');
 
+// ============================================================
+// Schema اصلی
+// ============================================================
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,7 +24,8 @@ CREATE TABLE IF NOT EXISTS users (
   role_id INTEGER NOT NULL,
   status TEXT DEFAULT 'active',
   avatar TEXT DEFAULT '',
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS roles (
@@ -63,11 +68,15 @@ CREATE TABLE IF NOT EXISTS products (
   stock INTEGER NOT NULL DEFAULT 0,
   weight TEXT DEFAULT '',
   description TEXT DEFAULT '',
+  short_description TEXT DEFAULT '',
   features TEXT DEFAULT '{}',
+  seo_title TEXT DEFAULT '',
+  seo_description TEXT DEFAULT '',
   status TEXT DEFAULT 'active',
   is_special INTEGER DEFAULT 0,
   views INTEGER DEFAULT 0,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS product_images (
@@ -85,6 +94,7 @@ CREATE TABLE IF NOT EXISTS product_reviews (
   title TEXT DEFAULT '',
   comment TEXT DEFAULT '',
   status TEXT DEFAULT 'pending',
+  is_demo INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -102,7 +112,9 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_method TEXT DEFAULT 'cod',
   payment_status TEXT DEFAULT 'unpaid',
   note TEXT DEFAULT '',
-  created_at TEXT DEFAULT (datetime('now'))
+  is_demo INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS order_items (
@@ -185,16 +197,127 @@ CREATE TABLE IF NOT EXISTS testimonials (
   role TEXT DEFAULT '',
   text TEXT NOT NULL,
   rating INTEGER DEFAULT 5,
-  is_active INTEGER DEFAULT 1
+  is_active INTEGER DEFAULT 1,
+  is_demo INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value_json TEXT NOT NULL
 );
+
+-- ============================================================
+-- جدول پرداخت‌ها (Audit Trail)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS payments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id INTEGER NOT NULL,
+  user_id INTEGER,
+  amount INTEGER NOT NULL DEFAULT 0,
+  gateway TEXT DEFAULT 'saman',
+  authority TEXT DEFAULT '',
+  transaction_id TEXT DEFAULT '',
+  status TEXT DEFAULT 'pending',
+  raw_response TEXT DEFAULT '',
+  verified_at TEXT DEFAULT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- ============================================================
+-- جدول تاریخچه وضعیت سفارش (Audit Trail)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS order_status_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id INTEGER NOT NULL,
+  old_status TEXT DEFAULT '',
+  new_status TEXT NOT NULL,
+  changed_by INTEGER,
+  note TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- ============================================================
+-- لاگ امنیتی (Audit Log برای عملیات حساس)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
+  action TEXT NOT NULL,
+  entity_type TEXT DEFAULT '',
+  entity_id INTEGER DEFAULT NULL,
+  metadata TEXT DEFAULT '{}',
+  ip TEXT DEFAULT '',
+  user_agent TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now'))
+);
 `);
 
-// ---------- Helper ها ----------
+// ============================================================
+// مایگریشن‌ها (اضافه کردن ستون‌های جدید بدون حذف داده)
+// ============================================================
+const migrations = [
+  "ALTER TABLE orders ADD COLUMN is_demo INTEGER DEFAULT 0",
+  "ALTER TABLE products ADD COLUMN is_demo INTEGER DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN is_demo INTEGER DEFAULT 0",
+  "ALTER TABLE product_reviews ADD COLUMN is_demo INTEGER DEFAULT 0",
+  "ALTER TABLE testimonials ADD COLUMN is_demo INTEGER DEFAULT 0",
+  "ALTER TABLE products ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))",
+  "ALTER TABLE products ADD COLUMN short_description TEXT DEFAULT ''",
+  "ALTER TABLE products ADD COLUMN seo_title TEXT DEFAULT ''",
+  "ALTER TABLE products ADD COLUMN seo_description TEXT DEFAULT ''",
+  "ALTER TABLE users ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))",
+  "ALTER TABLE orders ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))",
+];
+
+migrations.forEach(sql => {
+  try { db.exec(sql); } catch (e) { /* column already exists */ }
+});
+
+// ============================================================
+// ایندکس‌ها برای عملکرد Production
+// ============================================================
+const indexes = [
+  "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)",
+  "CREATE INDEX IF NOT EXISTS idx_users_role_id ON users(role_id)",
+  "CREATE INDEX IF NOT EXISTS idx_users_is_demo ON users(is_demo)",
+  "CREATE INDEX IF NOT EXISTS idx_products_slug ON products(slug)",
+  "CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id)",
+  "CREATE INDEX IF NOT EXISTS idx_products_brand_id ON products(brand_id)",
+  "CREATE INDEX IF NOT EXISTS idx_products_status ON products(status)",
+  "CREATE INDEX IF NOT EXISTS idx_products_is_demo ON products(is_demo)",
+  "CREATE INDEX IF NOT EXISTS idx_products_created_at ON products(created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_orders_code ON orders(code)",
+  "CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id)",
+  "CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)",
+  "CREATE INDEX IF NOT EXISTS idx_orders_is_demo ON orders(is_demo)",
+  "CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)",
+  "CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items(product_id)",
+  "CREATE INDEX IF NOT EXISTS idx_addresses_user_id ON addresses(user_id)",
+  "CREATE INDEX IF NOT EXISTS idx_wishlist_user_id ON wishlist(user_id)",
+  "CREATE INDEX IF NOT EXISTS idx_product_reviews_product_id ON product_reviews(product_id)",
+  "CREATE INDEX IF NOT EXISTS idx_product_reviews_user_id ON product_reviews(user_id)",
+  "CREATE INDEX IF NOT EXISTS idx_product_reviews_status ON product_reviews(status)",
+  "CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id)",
+  "CREATE INDEX IF NOT EXISTS idx_payments_authority ON payments(authority)",
+  "CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status)",
+  "CREATE INDEX IF NOT EXISTS idx_order_status_history_order_id ON order_status_history(order_id)",
+  "CREATE INDEX IF NOT EXISTS idx_audit_log_user_id ON audit_log(user_id)",
+  "CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action)",
+  "CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_product_images_product_id ON product_images(product_id)",
+  "CREATE INDEX IF NOT EXISTS idx_banners_position ON banners(position)",
+  "CREATE INDEX IF NOT EXISTS idx_articles_slug ON articles(slug)",
+  "CREATE INDEX IF NOT EXISTS idx_articles_status ON articles(status)",
+];
+
+indexes.forEach(sql => {
+  try { db.exec(sql); } catch (e) { /* index creation failed */ }
+});
+
+// ============================================================
+// Helper ها
+// ============================================================
 function getSetting(key, fallback = null) {
   const row = db.prepare('SELECT value_json FROM settings WHERE key = ?').get(key);
   if (!row) return fallback;

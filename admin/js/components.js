@@ -1,11 +1,12 @@
 // admin/js/components.js — کامپوننت‌های مشترک پنل مدیریت
 import { AdminAPI, faNum, faDate } from './api.js';
+import { ic } from './icons.js';
 
 export function toast(message, type = 'ok') {
   const root = document.getElementById('admin-toast-root');
   const t = document.createElement('div');
   t.className = 'a-toast ' + (type === 'err' ? 'err' : 'ok');
-  t.textContent = (type === 'err' ? '⚠️ ' : '✅ ') + message;
+  t.innerHTML = (type === 'err' ? ic('alertTriangle', 16) + ' ' : ic('check', 16) + ' ') + message;
   root.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 320); }, 2800);
 }
@@ -23,10 +24,10 @@ export function openModal(html, opts = {}) {
 
 export function confirmModal(title, text, onYes) {
   const { close, body } = openModal(`
-    <h3 style="font-size:16px;font-weight:800;margin-bottom:10px">${title}</h3>
+    <h3 style="font-size:16px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:8px">${ic('alertTriangle', 20)} ${title}</h3>
     <p style="font-size:13px;color:#57534E;margin-bottom:20px">${text}</p>
     <div style="display:flex;gap:10px;justify-content:flex-start">
-      <button class="btn btn-danger" data-yes style="background:var(--danger);color:#fff;border:none;padding:10px 24px;border-radius:12px;font-weight:700">بله، حذف کن</button>
+      <button class="btn btn-danger" data-yes style="background:var(--danger);color:#fff;border:none;padding:10px 24px;border-radius:12px;font-weight:700;display:flex;align-items:center;gap:6px">${ic('trash', 15)} بلی، حذف کن</button>
       <button class="btn btn-ghost" data-no style="padding:10px 24px;border-radius:12px;font-weight:700">انصراف</button>
     </div>`, { static: true });
   body.querySelector('[data-yes]').addEventListener('click', () => { close(); onYes(); });
@@ -44,11 +45,21 @@ export function statCard(icon, cls, value, label) {
 export function statusBadge(status) {
   const labels = {
     pending: 'در انتظار پرداخت', paid: 'پرداخت شده', shipped: 'ارسال شده',
-    delivered: 'تحویل شده', cancelled: 'لغو شده',
-    approved: 'تایید شده', rejected: 'رد شده', active: 'فعال', inactive: 'غیرفعال',
+    delivered: 'تحویل شده', cancelled: 'لغو شده', approved: 'تایید شده', rejected: 'رد شده', active: 'فعال', inactive: 'غیرفعال',
     draft: 'پیش‌نویس',
   };
   return `<span class="s-badge s-${status}">${labels[status] || status}</span>`;
+}
+
+// نشان پرداخت — وضعیت پرداخت آنلاین/در محل
+export function paymentBadge(paymentMethod, paymentStatus) {
+  if (paymentMethod === 'online') {
+    if (paymentStatus === 'paid') return `<span class="s-badge s-paid">پرداخت آنلاین (موفق)</span>`;
+    if (paymentStatus === 'unpaid') return `<span class="s-badge s-pending">پرداخت آنلاین (پرداخت نشده)</span>`;
+    if (paymentStatus === 'failed') return `<span class="s-badge s-cancelled">پرداخت ناموفق</span>`;
+    return `<span class="s-badge s-draft">پرداخت آنلاین</span>`;
+  }
+  return `<span class="s-badge s-inactive">در محل</span>`;
 }
 
 export function initials(name) {
@@ -66,31 +77,31 @@ export function renderSidebar() {
   const p = (perm) => AdminAPI.hasPerm(perm);
   const groups = [
     { label: 'مدیریت', items: [
-      { route: 'dashboard', match: 'dashboard', icon: '📊', label: 'داشبورد', perm: 'dashboard.view' },
-      { route: 'products', match: 'products', icon: '📦', label: 'محصولات', perm: 'products.manage' },
-      { route: 'categories', icon: '🗂️', label: 'دسته‌بندی‌ها', perm: 'categories.manage' },
-      { route: 'brands', icon: '🏷️', label: 'برندها', perm: 'brands.manage' },
-      { route: 'orders', match: 'orders', icon: '🧾', label: 'سفارش‌ها', perm: 'orders.manage' },
-      { route: 'users', match: 'users', icon: '👥', label: 'کاربران', perm: 'users.manage' },
-      { route: 'reviews', icon: '💬', label: 'نظرات محصولات', perm: 'reviews.manage' },
-      { route: 'coupons', icon: '🎟️', label: 'کدهای تخفیف', perm: 'coupons.manage' },
+      { route: 'dashboard', match: 'dashboard', icon: ic('barChart3', 18), label: 'داشبورد', perm: 'dashboard.view' },
+      { route: 'products', match: 'products', icon: ic('package', 18), label: 'محصولات', perm: 'products.manage' },
+      { route: 'categories', icon: ic('grid', 18), label: 'دسته‌بندی‌ها', perm: 'categories.manage' },
+      { route: 'brands', icon: ic('tag', 18), label: 'برندها', perm: 'brands.manage' },
+      { route: 'orders', match: 'orders', icon: ic('receipt', 18), label: 'سفارش‌ها', perm: 'orders.manage' },
+      { route: 'users', match: 'users', icon: ic('users', 18), label: 'کاربران', perm: 'users.manage' },
+      { route: 'reviews', icon: ic('star', 18), label: 'نظرات محصولات', perm: 'reviews.manage' },
+      { route: 'coupons', icon: ic('percent', 18), label: 'کدهای تخفیف', perm: 'coupons.manage' },
     ]},
     { label: 'محتوا', items: [
-      { route: 'home', icon: '🏠', label: 'صفحه اصلی', perm: 'home.manage' },
-      { route: 'banners', icon: '🖼️', label: 'بنرها', perm: 'banners.manage' },
-      { route: 'articles', match: 'articles', icon: '📰', label: 'مقالات', perm: 'articles.manage' },
-      { route: 'faq', icon: '❓', label: 'سوالات متداول', perm: 'faq.manage' },
-      { route: 'testimonials', icon: '💬', label: 'نظرات مشتریان', perm: 'testimonials.manage' },
-      { route: 'pages', icon: '📄', label: 'صفحات (درباره ما/قوانین)', perm: 'pages.manage' },
+      { route: 'home', icon: ic('home', 18), label: 'صفحه اصلی', perm: 'home.manage' },
+      { route: 'banners', icon: ic('image', 18), label: 'بنرها', perm: 'banners.manage' },
+      { route: 'articles', match: 'articles', icon: ic('newspaper', 18), label: 'مقالات', perm: 'articles.manage' },
+      { route: 'faq', icon: ic('helpCircle', 18), label: 'سوالات متداول', perm: 'faq.manage' },
+      { route: 'testimonials', icon: ic('chat', 18), label: 'نظرات مشتریان', perm: 'testimonials.manage' },
+      { route: 'pages', icon: ic('file', 18), label: 'صفحات (درباره ما/قوانین)', perm: 'pages.manage' },
     ]},
     { label: 'تنظیمات', items: [
-      { route: 'settings', icon: '⚙️', label: 'تنظیمات فروشگاه', perm: 'settings.manage' },
-      { route: 'roles', icon: '🛡️', label: 'نقش‌ها و دسترسی‌ها', perm: 'roles.manage' },
+      { route: 'settings', icon: ic('settings', 18), label: 'تنظیمات فروشگاه', perm: 'settings.manage' },
+      { route: 'roles', icon: ic('shield', 18), label: 'نقش‌ها و دسترسی‌ها', perm: 'roles.manage' },
     ]},
   ];
   el.innerHTML = `
     <div class="as-logo">
-      <span class="al-ic">🐾</span>
+      <span class="al-ic">${ic('paw', 22)}</span>
       <div><span class="al-t">پت‌شاپ</span><span class="al-s">پنل مدیریت</span></div>
     </div>
     <nav class="as-nav">
@@ -98,13 +109,13 @@ export function renderSidebar() {
         <div class="as-group-label">${g.label}</div>
         ${g.items.filter(i => i.perm ? p(i.perm) : true).map(i => `
           <a class="as-link" href="#/${i.route}" data-route="${i.route}" data-match="${i.match || ''}">
-            <span>${i.icon}</span> ${i.label}
+            <span class="as-link-icon">${i.icon}</span> ${i.label}
           </a>`).join('')}
       `).join('')}
     </nav>
     <div class="as-foot">
-      <a href="#/profile"><span>👤</span> ${u?.name || ''}</a>
-      <a href="/" target="_blank"><span>🌐</span> مشاهده فروشگاه</a>
+      <a href="#/profile"><span class="as-link-icon">${ic('user', 16)}</span> ${u?.name || ''}</a>
+      <a href="/" target="_blank"><span class="as-link-icon">${ic('externalLink', 16)}</span> مشاهده فروشگاه</a>
     </div>`;
 }
 
@@ -113,7 +124,7 @@ export function renderTopbar() {
   const u = AdminAPI.user;
   el.innerHTML = `
     <button class="icon-btn at-burger" data-burger aria-label="منو" style="background:var(--bg)">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      ${ic('menu', 20)}
     </button>
     <div>
       <div class="at-title">پنل مدیریت پت‌شاپ</div>

@@ -1,13 +1,14 @@
 // admin/pages/articles.js — مدیریت مقالات مجله پت
 import { AdminAPI, faDate, uploadImage } from '../api.js';
 import { toast, confirmModal } from '../components.js';
+import { ic } from '../icons.js';
 
 export async function render() {
   const { articles } = await AdminAPI.get('/admin/articles');
   return `
   <div class="toolbar">
-    <h3 style="font-size:15px;font-weight:800">📰 مقالات</h3>
-    <a class="btn btn-primary" href="#/articles/new" style="padding:10px 22px;font-size:13px">+ مقاله جدید</a>
+    <h3 style="font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px">${ic('newspaper', 18)} مقالات</h3>
+    <a class="btn btn-primary" href="#/articles/new" style="padding:10px 22px;font-size:13px">${ic('plus', 16)} مقاله جدید</a>
   </div>
   <table class="data-table">
     <thead><tr><th>مقاله</th><th>دسته</th><th>تاریخ</th><th>وضعیت</th><th>عملیات</th></tr></thead>
@@ -16,7 +17,7 @@ export async function render() {
         <tr>
           <td>
             <div style="display:flex;align-items:center;gap:10px">
-              ${a.image ? `<img class="t-img" src="${a.image}" style="width:52px;height:40px;border-radius:8px">` : '<span style="font-size:22px">📄</span>'}
+              ${a.image ? `<img class="t-img" src="${a.image}" style="width:52px;height:40px;border-radius:8px">` : `<span style="color:var(--brand)">${ic('file', 22)}</span>`}
               <div><div class="t-name">${a.title}</div><div class="t-sub" dir="ltr">/${a.slug}</div></div>
             </div>
           </td>
@@ -24,8 +25,8 @@ export async function render() {
           <td style="font-size:11px">${faDate(a.created_at)}</td>
           <td>${a.status === 'active' ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">پیش‌نویس</span>'}</td>
           <td style="white-space:nowrap">
-            <a class="btn btn-ghost" href="#/articles/${a.id}" style="padding:7px 12px;font-size:11.5px">ویرایش</a>
-            <button class="btn btn-ghost" data-del="${a.id}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">حذف</button>
+            <a class="btn btn-ghost" href="#/articles/${a.id}" style="padding:7px 12px;font-size:11.5px">${ic('edit', 14)} ویرایش</a>
+            <button class="btn btn-ghost" data-del="${a.id}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">${ic('trash', 14)} حذف</button>
           </td>
         </tr>`).join('')}
     </tbody>
@@ -47,7 +48,7 @@ export async function formRender(params) {
   if (params) a = (await AdminAPI.get('/admin/articles')).articles.find(x => x.id == params) || a;
   return `
   <div class="a-card">
-    <h3>📰 ${params ? 'ویرایش مقاله' : 'مقاله جدید'}</h3>
+    <h3>${ic('newspaper', 18)} ${params ? 'ویرایش مقاله' : 'مقاله جدید'}</h3>
     <div class="form-grid">
       <div class="field full"><label>عنوان مقاله *</label><input data-title value="${a.title || ''}"></div>
       <div class="field"><label>دسته (مثلاً: تغذیه، بهداشت)</label><input data-category value="${a.category || ''}"></div>
@@ -69,7 +70,7 @@ export async function formRender(params) {
       </div>
     </div>
     <div style="display:flex;gap:10px;margin-top:18px">
-      <button class="btn btn-primary" data-save style="flex:1">💾 ذخیره مقاله</button>
+      <button class="btn btn-primary" data-save style="flex:1">${ic('settings', 16)} ذخیره مقاله</button>
       <a class="btn btn-ghost" href="#/articles">انصراف</a>
     </div>
   </div>`;

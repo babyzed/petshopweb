@@ -12,6 +12,7 @@ import * as blog from './pages/blog.js';
 import * as pages from './pages/pages.js';
 import * as order from './pages/order.js';
 import * as search from './pages/search.js';
+import * as paymentResult from './pages/payment-result.js';
 
 async function bootstrap() {
   try { await renderHeader(); } catch (e) { console.error(e); }
@@ -39,6 +40,7 @@ async function bootstrap() {
   register('blog/:slug', { render: (p) => blog.render(p) });
   register('page/:key', { render: (p) => pages.render(p), mount: (el, p) => pages.mount(el, p) });
   register('search/:q', { render: (p) => search.render(p) });
+  register('payment-result', { render: (p, q) => paymentResult.render(p, q) });
 
   // ---------- رویدادهای سراسری ----------
   bindGlobalEvents();
@@ -56,6 +58,21 @@ async function bootstrap() {
   });
 
   if (Session.isLoggedIn) Session.loadWishlist();
+
+  // CSP-safe image fallback (replaces onerror inline handlers)
+  document.addEventListener('error', (e) => {
+    if (e.target.tagName === 'IMG' && !e.target.dataset.fallback) {
+      e.target.dataset.fallback = '1';
+      e.target.src = '/assets/img/placeholder.jpg';
+    }
+  }, true);
+
+  // CSP-safe click delegation (replaces onclick inline handlers)
+  document.addEventListener('click', (e) => {
+    const href = e.target.closest('[data-href]');
+    if (href) { e.preventDefault(); location.hash = href.dataset.href; }
+    if (e.target.closest('[data-reload]')) { location.reload(); }
+  });
 
   console.log('%cپت‌شاپ', 'font-size:18px;font-weight:bold;color:#F97316');
 }

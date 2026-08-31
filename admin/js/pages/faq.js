@@ -1,13 +1,14 @@
 // admin/pages/faq.js — سوالات متداول
 import { AdminAPI, faNum } from '../api.js';
 import { toast, confirmModal, openModal } from '../components.js';
+import { ic } from '../icons.js';
 
 export async function render() {
   const { faqs } = await AdminAPI.get('/admin/faqs');
   return `
   <div class="toolbar">
-    <h3 style="font-size:15px;font-weight:800">❓ سوالات متداول</h3>
-    <button class="btn btn-primary" data-new style="padding:10px 22px;font-size:13px">+ پرسش جدید</button>
+    <h3 style="font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px">${ic('helpCircle', 18)} سوالات متداول</h3>
+    <button class="btn btn-primary" data-new style="padding:10px 22px;font-size:13px">${ic('plus', 16)} پرسش جدید</button>
   </div>
   <table class="data-table">
     <thead><tr><th>#</th><th>پرسش</th><th>پاسخ</th><th>وضعیت</th><th>عملیات</th></tr></thead>
@@ -19,8 +20,8 @@ export async function render() {
           <td class="t-sub" style="max-width:280px">${f.answer}</td>
           <td>${f.is_active ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">غیرفعال</span>'}</td>
           <td style="white-space:nowrap">
-            <button class="btn btn-ghost" data-edit='${JSON.stringify(f)}' style="padding:7px 12px;font-size:11.5px">ویرایش</button>
-            <button class="btn btn-ghost" data-del="${f.id}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">حذف</button>
+            <button class="btn btn-ghost" data-edit='${JSON.stringify(f)}' style="padding:7px 12px;font-size:11.5px">${ic('edit', 14)} ویرایش</button>
+            <button class="btn btn-ghost" data-del="${f.id}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">${ic('trash', 14)} حذف</button>
           </td>
         </tr>`).join('')}
     </tbody>
@@ -40,7 +41,7 @@ export function after() {
 
 function openForm(f) {
   const { close, body } = openModal(`
-    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px">${f ? '✏️ ویرایش' : '➕ پرسش جدید'}</h3>
+    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${f ? ic('edit', 18) + ' ویرایش' : ic('plus', 18) + ' پرسش جدید'}</h3>
     <div class="form-grid">
       <div class="field full"><label>پرسش *</label><input data-q value="${f?.question || ''}"></div>
       <div class="field full"><label>پاسخ *</label><textarea data-a rows="4">${f?.answer || ''}</textarea></div>
