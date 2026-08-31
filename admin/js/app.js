@@ -1,6 +1,6 @@
 // admin/js/app.js — نقطه ورود پنل مدیریت
 import { AdminAPI } from './api.js';
-import { renderSidebar, renderTopbar } from './components.js';
+import { renderSidebar, renderTopbar, closeSidebar } from './components.js';
 import { init } from './router.js';
 
 function bootstrap() {
@@ -11,7 +11,7 @@ function bootstrap() {
     // بستن سایدبار موبایل با کلیک روی لینک
     document.addEventListener('click', (e) => {
       if (e.target.closest('.as-link')) {
-        document.getElementById('admin-sidebar').classList.remove('open');
+        closeSidebar();
       }
     });
   } else {

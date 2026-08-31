@@ -215,21 +215,29 @@
   .pd-meta { gap: 10px; font-size: 11.5px; }
 
   /* ---------- نوار خرید چسبان (بالای ناوبری پایین) ---------- */
+  /* صفحه محصول: فضای پایین اضافه تا محتوا پشت نوار خرید مخفی نشود */
+  .pd-page { padding-bottom: 104px; }
+
   .mobile-buybar {
     bottom: calc(96px + env(safe-area-inset-bottom));
-    padding: 12px 14px 12px;
+    padding: 10px 12px 10px;
     border-radius: 20px;
     background: rgba(250,244,233,.97);
     margin-inline: 10px;
     animation: bb-slideUp .4s cubic-bezier(.22,1,.36,1) .15s both;
     box-shadow: 0 -4px 20px rgba(70,45,20,.08);
     border: 1px solid var(--line);
+    gap: 10px;
   }
   @keyframes bb-slideUp {
     from { transform: translateY(100%); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
   }
-  .mobile-buybar .btn { min-height: 46px; border-radius: 16px; }
+  .mobile-buybar .bb-price-box { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+  .mobile-buybar .bb-qty { flex-shrink: 0; padding: 3px; gap: 2px; }
+  .mobile-buybar .bb-qty button { width: 30px; height: 30px; font-size: 15px; }
+  .mobile-buybar .bb-qty span { min-width: 26px; font-size: 13px; }
+  .mobile-buybar .btn { min-height: 46px; border-radius: 16px; font-size: 13px; padding-inline: 12px; min-width: 0; white-space: nowrap; }
 
   /* ---------- دراپر سبد: تمام‌صفحه ---------- */
   .cart-drawer .cd-panel {

@@ -456,7 +456,7 @@ export async function renderFooter() {
       </div>
       <div class="f-bottom">
         <span>© ۱۴۰۵ پت‌شاپ — تمامی حقوق محفوظ است.</span>
-        <span>ساخته شده با ${ic('heart', 12)} برای دوست‌های کوچک شما</span>
+        <a class="f-made" href="https://zenoxweb.ir" target="_blank" rel="noopener" title="zenoxweb.ir">ساخته شده با ${ic('heart', 12)} برای دوست‌های کوچک شما</a>
       </div>
     </div>
   </div>`;

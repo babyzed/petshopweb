@@ -22,7 +22,7 @@ const ALLOWED_ATTRS = {
   'th': ['colspan', 'rowspan'],
 };
 
-// الگوهای خطرناک
+// الگوهای خطرناک (defense-in-depth در کنار وایت‌لیست تگ/اتریبیوت)
 const DANGEROUS_PATTERNS = [
   /<script[\s>]/i,
   /<\/script>/i,
@@ -42,40 +42,84 @@ const DANGEROUS_PATTERNS = [
   /<meta[\s>]/i,
 ];
 
+// مقادیر مجاز برای src/img (فقط تصویر، نه SVG/HTML)
+const IMG_SRC_RE = /^(https?:)?\/\//i;              // http(s):// یا // (پروتکل نسبی)
+const IMG_DATA_RE = /^data:image\/(png|jpe?g|gif|webp|avif);/i;
+// مقادیر مجاز برای href (جلوگیری از javascript: و vbscript:)
+const SAFE_HREF_RE = /^(https?:|mailto:|tel:|\/|#|\.{1,2}\/)/i;
+
 /**
- * پاکسازی HTML — فقط تگ‌های مجاز را نگه می‌دارد
+ * رمزگشایی entityهای HTML — برای اینکه حمله‌های رمزگذاری‌شده
+ * (مثل jav&#x61;script:) قبل از بررسی الگوها خنثی شوند.
+ */
+function decodeEntities(s) {
+  return s
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&amp;/gi, '&');
+}
+
+function isSafeSrc(value) {
+  const v = String(value || '').trim();
+  return IMG_SRC_RE.test(v) || IMG_DATA_RE.test(v) || (!/^[a-z][a-z0-9+.-]*:/i.test(v) && v.startsWith('/'));
+}
+
+function isSafeHref(value) {
+  const v = String(value || '').trim();
+  return SAFE_HREF_RE.test(v);
+}
+
+/**
+ * پاکسازی HTML — فقط تگ‌ها و اتریبیوت‌های مجاز را نگه می‌دارد
  * @param {string} html - متن HTML ورودی
  * @returns {string} متن پاکسازی شده
  */
 function sanitizeHtml(html) {
   if (!html || typeof html !== 'string') return '';
 
+  // رمزگشایی entityها (رفع بای‌پس jav&#x61;script:)
+  let clean = decodeEntities(html);
+
   // حذف الگوهای خطرناک
-  let clean = html;
   for (const pattern of DANGEROUS_PATTERNS) {
     clean = clean.replace(pattern, '');
   }
 
-  // حذف تمام تگ‌ها و فقط نگه‌داشتن متن
-  // این approach ساده‌تر و امن‌تر از parse کردن HTML است
+  // بازسازی تگ‌ها فقط با اتریبیوت‌های مجاز
   clean = clean.replace(/<[^>]+>/g, (tag) => {
     // استخراج نام تگ
-    const match = tag.match(/^<\/?(\w+)/);
+    const match = tag.match(/^<\/?([a-zA-Z][a-zA-Z0-9]*)/);
     if (!match) return '';
     const tagName = match[1].toLowerCase();
 
     // اگر تگ مجاز نیست، حذف شود
     if (!ALLOWED_TAGS.has(tagName)) return '';
 
-    // بررسی attribute‌های خطرناک
-    const attrs = tag.match(/\s+(\w+)=/g) || [];
-    for (const attr of attrs) {
-      const attrName = attr.trim().split('=')[0].toLowerCase();
-      // حذف event handlers
-      if (attrName.startsWith('on')) return '';
+    // تگ بسته‌شونده
+    if (/^<\//.test(tag)) return `</${tagName}>`;
+
+    const allowed = ALLOWED_ATTRS[tagName] || [];
+
+    // استخراج اتریبیوت‌ها (با/بدون کوتیشن)
+    const attrRe = /([a-zA-Z-]+)\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g;
+    let out = `<${tagName}`;
+    let am;
+    while ((am = attrRe.exec(tag)) !== null) {
+      const name = am[1].toLowerCase();
+      const rawValue = am[3] !== undefined ? am[3] : (am[4] !== undefined ? am[4] : am[5]);
+      // حذف event handlers و اتریبیوت‌های غیرمجاز
+      if (name.startsWith('on') || !allowed.includes(name)) continue;
+      // اعتبارسنجی scheme برای src/href
+      if (name === 'src' && !isSafeSrc(rawValue)) continue;
+      if (name === 'href' && !isSafeHref(rawValue)) continue;
+      out += ` ${name}="${String(rawValue).replace(/"/g, '&quot;')}"`;
     }
 
-    return tag;
+    return out + '>';
   });
 
   return clean;

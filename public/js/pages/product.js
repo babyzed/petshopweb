@@ -44,7 +44,7 @@ export async function render(params) {
     </div>` : `<p style="font-size:13px;color:var(--muted);margin-top:14px">برای ثبت نظر، ابتدا <a href="#/auth" style="color:var(--brand-dark);font-weight:700">وارد حساب</a> شوید.</p>`;
 
   return `
-  <div class="container">
+  <div class="container pd-page">
     <nav class="breadcrumb">
       <a href="#/">خانه</a><span class="sep">/</span>
       <a href="#/shop">فروشگاه</a>
@@ -138,11 +138,17 @@ export async function render(params) {
     ${relatedHtml}
 
     <div class="mobile-buybar" data-mobile-buybar>
-      <div>
+      <div class="bb-price-box">
         <div class="bb-price">${price(currentPrice(product))} <span class="unit" style="font-size:10px;color:var(--muted)">تومان</span></div>
         ${off ? `<span class="bb-price-old">${price(product.price)}</span>` : ''}
       </div>
-      ${inStock ? `<button class="btn btn-primary" data-add-cart>${ic('cart', 17)} افزودن به سبد</button>` : '<button class="btn btn-ghost" disabled>ناموجود</button>'}
+      ${inStock ? `
+      <div class="qty-stepper bb-qty">
+        <button data-qty="-1">−</button>
+        <span class="pd-qty">۱</span>
+        <button data-qty="1">+</button>
+      </div>
+      <button class="btn btn-primary" data-add-cart>${ic('cart', 17)} افزودن به سبد</button>` : '<button class="btn btn-ghost" disabled>ناموجود</button>'}
     </div>
   </div>`;
 }
@@ -160,10 +166,10 @@ export function mount(el) {
 
   // تعداد
   let qty = 1;
-  const qtyEl = el.querySelector('#pd-qty');
+  const qtyEls = el.querySelectorAll('#pd-qty, .pd-qty');
   el.querySelectorAll('[data-qty]').forEach(b => b.addEventListener('click', () => {
     qty = Math.max(1, Math.min(99, qty + Number(b.dataset.qty)));
-    qtyEl.textContent = faNum(qty);
+    qtyEls.forEach(x => x.textContent = faNum(qty));
   }));
 
   const add = () => {
@@ -177,13 +183,13 @@ export function mount(el) {
     });
   };
   el.querySelectorAll('[data-add-cart]').forEach(b => b.addEventListener('click', add));
-  el.querySelector('[data-buy-now]')?.addEventListener('click', () => {
+  el.querySelectorAll('[data-buy-now]').forEach(b => b.addEventListener('click', () => {
     fetch('/api/products/' + slug).then(r => r.json()).then(({ product }) => {
       Cart.add(product, qty);
       updateBadges();
       location.hash = '#/checkout';
     });
-  });
+  }));
 
   el.querySelector('[data-share]')?.addEventListener('click', async () => {
     try { await navigator.share({ title: document.title, url: location.href }); }

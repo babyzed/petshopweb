@@ -671,23 +671,35 @@ router.get('/roles', requirePerm('roles.manage'), (req, res) => {
   res.json({ roles, stats, catalog: PERMISSION_CATALOG });
 });
 router.post('/roles', requirePerm('roles.manage'), (req, res) => {
-  const b = req.body || {};
-  if (!b.name || !b.title) return res.status(400).json({ error: 'نام و عنوان نقش الزامی است.' });
-  const perms = Array.isArray(b.permissions) ? b.permissions : [];
-  perms.forEach(p => { if (!PERMISSION_CATALOG.some(c => c.key === p)) throw new Error('دسترسی نامعتبر'); });
-  const info = db.prepare('INSERT INTO roles (name, title, permissions, is_system) VALUES (?,?,?,0)')
-    .run(slugifyFa(b.name), b.title, JSON.stringify(perms));
-  res.json({ ok: true, id: info.lastInsertRowid });
+  try {
+    const b = req.body || {};
+    if (!b.name || !b.title) return res.status(400).json({ error: 'نام و عنوان نقش الزامی است.' });
+    const perms = Array.isArray(b.permissions) ? b.permissions : [];
+    const invalid = perms.filter(p => !PERMISSION_CATALOG.some(c => c.key === p));
+    if (invalid.length) return res.status(400).json({ error: 'دسترسی نامعتبر: ' + invalid.join('، ') });
+    const info = db.prepare('INSERT INTO roles (name, title, permissions, is_system) VALUES (?,?,?,0)')
+      .run(slugifyFa(b.name), b.title, JSON.stringify(perms));
+    res.json({ ok: true, id: info.lastInsertRowid });
+  } catch (err) {
+    console.error('[Admin] Role create error:', err.message);
+    res.status(500).json({ error: 'خطا در ساخت نقش.' });
+  }
 });
 router.put('/roles/:id', requirePerm('roles.manage'), (req, res) => {
-  const r = db.prepare('SELECT * FROM roles WHERE id = ?').get(req.params.id);
-  if (!r) return res.status(404).json({ error: 'نقش یافت نشد.' });
-  const b = req.body || {};
-  if (r.is_system) return res.status(400).json({ error: 'نقش‌های سیستمی قابل ویرایش نیستند.' });
-  const perms = Array.isArray(b.permissions) ? b.permissions : JSON.parse(r.permissions);
-  perms.forEach(p => { if (!PERMISSION_CATALOG.some(c => c.key === p)) throw new Error('دسترسی نامعتبر'); });
-  db.prepare('UPDATE roles SET title=?, permissions=? WHERE id=?').run(b.title ?? r.title, JSON.stringify(perms), r.id);
-  res.json({ ok: true });
+  try {
+    const r = db.prepare('SELECT * FROM roles WHERE id = ?').get(req.params.id);
+    if (!r) return res.status(404).json({ error: 'نقش یافت نشد.' });
+    const b = req.body || {};
+    if (r.is_system) return res.status(400).json({ error: 'نقش‌های سیستمی قابل ویرایش نیستند.' });
+    let perms = Array.isArray(b.permissions) ? b.permissions : JSON.parse(r.permissions);
+    const invalid = perms.filter(p => !PERMISSION_CATALOG.some(c => c.key === p));
+    if (invalid.length) return res.status(400).json({ error: 'دسترسی نامعتبر: ' + invalid.join('، ') });
+    db.prepare('UPDATE roles SET title=?, permissions=? WHERE id=?').run(b.title ?? r.title, JSON.stringify(perms), r.id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Admin] Role update error:', err.message);
+    res.status(500).json({ error: 'خطا در ویرایش نقش.' });
+  }
 });
 router.delete('/roles/:id', requirePerm('roles.manage'), (req, res) => {
   const r = db.prepare('SELECT * FROM roles WHERE id = ?').get(req.params.id);
