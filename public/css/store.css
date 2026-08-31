@@ -726,6 +726,14 @@ input, select, textarea { font-family: inherit; color: inherit; }
   font-size: 12px; color: #8A7B63; flex-wrap: wrap;
 }
 .f-bottom svg { color: var(--danger); }
+.f-made {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: #A2947C; text-decoration: none;
+  transition: color .2s, transform .2s;
+}
+.f-made svg { color: var(--danger); vertical-align: -2px; }
+.f-made:hover { color: #fff; }
+.f-made:hover svg { transform: scale(1.2); }
 
 /* ---------- Cart Drawer ---------- */
 .cart-drawer {
