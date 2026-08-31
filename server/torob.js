@@ -7,7 +7,9 @@
 const { db } = require('./db');
 
 // ---------- ساخت فید XML ----------
-function generateTorobFeed(baseUrl) {
+function generateTorobFeed(baseUrl, torob = {}) {
+  const title = torob.title || 'پت‌شاپ — فروشگاه محصولات حیوانات خانگی';
+  const description = torob.description || 'مرجع تخصصی محصولات حیوانات خانگی با ۱۲ سال تجربه';
   const products = db.prepare(`
     SELECT p.*, c.name AS category_name, b.name AS brand_name,
       COALESCE((SELECT image FROM product_images WHERE product_id = p.id ORDER BY sort_order ASC, id ASC LIMIT 1),'') AS image
@@ -20,9 +22,9 @@ function generateTorobFeed(baseUrl) {
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.torob.com/">
-  <title>پت‌شاپ — فروشگاه محصولات حیوانات خانگی</title>
+  <title>${escapeXml(title)}</title>
   <link>${baseUrl}</link>
-  <description>مرجع تخصصی محصولات حیوانات خانگی با ۱۲ سال تجربه</description>
+  <description>${escapeXml(description)}</description>
   <language>fa</language>
   <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
 `;
@@ -61,7 +63,9 @@ function generateTorobFeed(baseUrl) {
 }
 
 // ---------- JSON Feed (نسخه ۲) ----------
-function generateTorobJsonFeed(baseUrl) {
+function generateTorobJsonFeed(baseUrl, torob = {}) {
+  const title = torob.title || 'پت‌شاپ';
+  const description = torob.description || 'مرجع تخصصی محصولات حیوانات خانگی';
   const products = db.prepare(`
     SELECT p.*, c.name AS category_name, b.name AS brand_name,
       COALESCE((SELECT image FROM product_images WHERE product_id = p.id ORDER BY sort_order ASC, id ASC LIMIT 1),'') AS image
@@ -73,9 +77,9 @@ function generateTorobJsonFeed(baseUrl) {
   `).all();
 
   return {
-    title: 'پت‌شاپ',
+    title,
     link: baseUrl,
-    description: 'مرجع تخصصی محصولات حیوانات خانگی',
+    description,
     language: 'fa',
     lastBuildDate: new Date().toISOString(),
     items: products.map(p => {

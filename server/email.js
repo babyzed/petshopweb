@@ -86,6 +86,15 @@ function orderConfirmationEmail(order, customer) {
       <h2 style="color:#333;margin-top:0">سلام ${customer.full_name || ''} 👋</h2>
       <p style="color:#666;line-height:1.8">سفارش شما با موفقیت ثبت شد. جزئیات زیر را بررسی کنید:</p>
 
+      <!-- روش پرداخت -->
+      <div style="background:${order.payment_method === 'cod' ? '#FFF7ED' : '#EFF6FF'};border:1px solid ${order.payment_method === 'cod' ? '#FED7AA' : '#BFDBFE'};border-radius:12px;padding:14px 16px;margin:16px 0">
+        <p style="margin:0;font-size:13px;color:${order.payment_method === 'cod' ? '#9A3412' : '#1D4ED8'};font-weight:bold">
+          ${order.payment_method === 'cod'
+            ? '💵 روش پرداخت: در محل — مبلغ هنگام تحویل دریافت می‌شود.'
+            : '💳 روش پرداخت: آنلاین — سفارش پس از پرداخت تایید می‌شود.'}
+        </p>
+      </div>
+
       <!-- کد سفارش -->
       <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:16px;margin:16px 0;text-align:center">
         <p style="margin:0;color:#9A3412;font-size:13px">کد سفارش</p>

@@ -20,6 +20,35 @@ const STATUS_LABELS = {
   failed: 'ناموفق',
 };
 
+// برچسب وضعیت با در نظر گرفتن روش پرداخت:
+// سفارش «پرداخت در محل» در حالت pending یعنی در انتظار تایید/ارسال (نه در انتظار پرداخت)
+function statusLabel(order) {
+  if (order.status === 'pending') {
+    return order.payment_method === 'cod' ? 'در انتظار تایید' : 'در انتظار پرداخت';
+  }
+  return STATUS_LABELS[order.status] || order.status;
+}
+
+// مراحل پیگیری سفارش — بسته به روش پرداخت متفاوت است:
+// آنلاین: ثبت سفارش → پرداخت → ارسال → تحویل
+// در محل: ثبت سفارش → ارسال → تحویل → پرداخت در محل (هنگام تحویل)
+function buildStatusTimeline(order) {
+  if (order.payment_method === 'cod') {
+    return [
+      { key: 'pending', label: 'ثبت سفارش', done: true },
+      { key: 'shipped', label: 'ارسال', done: ['shipped', 'delivered'].includes(order.status) },
+      { key: 'delivered', label: 'تحویل', done: order.status === 'delivered' },
+      { key: 'paid', label: 'پرداخت در محل', done: order.payment_status === 'paid' },
+    ];
+  }
+  return [
+    { key: 'pending', label: 'ثبت سفارش', done: true },
+    { key: 'paid', label: 'پرداخت', done: ['paid', 'shipped', 'delivered'].includes(order.status) },
+    { key: 'shipped', label: 'ارسال', done: ['shipped', 'delivered'].includes(order.status) },
+    { key: 'delivered', label: 'تحویل', done: order.status === 'delivered' },
+  ];
+}
+
 // لغو سفارش + برگرداندن موجودی (برای پرداخت ناموفق)
 function cancelOrder(orderId, reason) {
   try {
@@ -29,6 +58,7 @@ function cancelOrder(orderId, reason) {
       db.prepare("UPDATE orders SET status = 'cancelled', payment_status = 'failed', updated_at = datetime('now') WHERE id = ?").run(orderId);
       db.prepare('SELECT product_id, quantity FROM order_items WHERE order_id = ?').all(orderId)
         .forEach(oi => db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(oi.quantity, oi.product_id));
+      db.prepare('DELETE FROM coupon_usage WHERE order_id = ?').run(orderId);
       addOrderHistory(orderId, cur.status, 'cancelled', null, reason || 'لغو خودکار — پرداخت ناموفق');
     })();
   } catch (err) {
@@ -51,8 +81,28 @@ function addAuditLog(userId, action, entityType, entityId, metadata, req) {
 }
 
 // ---------- اعتبارسنجی کد تخفیف ----------
-router.post('/coupons/validate', (req, res) => {
-  const { code, subtotal } = req.body || {};
+// هویت کاربر برای محدودیت «هر کاربر یک بار»:
+// کاربر لاگین‌شده → user_id | مهمان → شماره موبایل (یا ایمیل) نرمال‌شده
+function normalizeGuestKey(phone, email) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (digits) return 'phone:' + digits;
+  const em = String(email || '').trim().toLowerCase();
+  if (em) return 'email:' + em;
+  return null;
+}
+
+function couponUsedBy(couponId, userId, guestKey) {
+  if (userId) {
+    return !!db.prepare('SELECT id FROM coupon_usage WHERE coupon_id = ? AND user_id = ?').get(couponId, userId);
+  }
+  if (guestKey) {
+    return !!db.prepare('SELECT id FROM coupon_usage WHERE coupon_id = ? AND guest_key = ?').get(couponId, guestKey);
+  }
+  return false;
+}
+
+router.post('/coupons/validate', optionalAuth, (req, res) => {
+  const { code, subtotal, phone, email } = req.body || {};
   if (!code || typeof code !== 'string') return res.status(400).json({ error: 'کد تخفیف را وارد کنید.' });
   if (!subtotal || isNaN(subtotal) || subtotal < 0) return res.status(400).json({ error: 'مبلغ نامعتبر است.' });
 
@@ -61,6 +111,13 @@ router.post('/coupons/validate', (req, res) => {
   if (row.expires_at && new Date(row.expires_at) < new Date()) return res.json({ valid: false, error: 'کد تخفیف منقضی شده است.' });
   if (row.max_usage > 0 && row.used_count >= row.max_usage) return res.json({ valid: false, error: 'ظرفیت استفاده از این کد تمام شده است.' });
   if (row.min_amount > 0 && subtotal < row.min_amount) return res.json({ valid: false, error: `حداقل مبلغ سفارش برای این کد ${row.min_amount.toLocaleString('fa-IR')} تومان است.` });
+
+  // محدودیت هر کاربر: فقط یک بار می‌توان از یک کد استفاده کرد
+  const userId = req.user ? req.user.id : null;
+  const guestKey = userId ? null : normalizeGuestKey(phone, email);
+  if (couponUsedBy(row.id, userId, guestKey)) {
+    return res.json({ valid: false, error: 'شما قبلاً از این کد تخفیف استفاده کرده‌اید.' });
+  }
 
   let discount = row.type === 'percent' ? Math.round(subtotal * row.value / 100) : Math.min(row.value, subtotal);
   discount = Math.max(0, Math.min(discount, subtotal));
@@ -156,6 +213,7 @@ router.post('/orders', optionalAuth, (req, res) => {
       // --- اعمال کد تخفیف ---
       let discount = 0;
       let coupon = null;
+      const guestKey = userId ? null : normalizeGuestKey(customer?.phone, customer?.email);
       if (use_coupon && coupon_code && typeof coupon_code === 'string') {
         const row = db.prepare('SELECT * FROM coupons WHERE code = ? AND is_active = 1').get(coupon_code.trim().toUpperCase());
         if (!row) throw new Error('کد تخفیف معتبر نیست.');
@@ -163,6 +221,10 @@ router.post('/orders', optionalAuth, (req, res) => {
         if (row.max_usage > 0 && row.used_count >= row.max_usage) throw new Error('ظرفیت کد تخفیف تمام شده است.');
         if (row.min_amount > 0 && subtotal < row.min_amount) {
           throw new Error(`حداقل مبلغ سفارش برای این کد ${row.min_amount.toLocaleString('fa-IR')} تومان است.`);
+        }
+        // هر کاربر فقط یک بار می‌تواند از این کد استفاده کند
+        if (couponUsedBy(row.id, userId, guestKey)) {
+          throw new Error('شما قبلاً از این کد تخفیف استفاده کرده‌اید.');
         }
         discount = row.type === 'percent' ? Math.round(subtotal * row.value / 100) : Math.min(row.value, subtotal);
         discount = Math.max(0, Math.min(discount, subtotal));
@@ -204,6 +266,9 @@ router.post('/orders', optionalAuth, (req, res) => {
       // اعمال کد تخفیف
       if (coupon) {
         db.prepare('UPDATE coupons SET used_count = used_count + 1 WHERE id = ?').run(coupon.id);
+        // ثبت استفادهٔ این کاربر از کد (محدودیت هر کاربر = یک بار)
+        db.prepare('INSERT INTO coupon_usage (coupon_id, user_id, guest_key, order_id) VALUES (?,?,?,?)')
+          .run(coupon.id, userId, guestKey, orderId);
       }
 
       return orderId;
@@ -470,7 +535,7 @@ router.get('/orders/my', authRequired, (req, res) => {
       (SELECT SUM(oi.quantity) FROM order_items oi WHERE oi.order_id = o.id) AS item_count
     FROM orders o WHERE o.user_id = ? AND o.is_demo = 0 ORDER BY o.created_at DESC, o.id DESC
   `).all(req.user.id);
-  res.json({ orders: rows.map(o => ({ ...o, status_label: STATUS_LABELS[o.status] || o.status })) });
+  res.json({ orders: rows.map(o => ({ ...o, status_label: statusLabel(o) })) });
 });
 
 router.get('/orders/my/:id', authRequired, (req, res) => {
@@ -481,13 +546,8 @@ router.get('/orders/my/:id', authRequired, (req, res) => {
   if (!order) return res.status(404).json({ error: 'سفارش یافت نشد.' });
   order.items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(order.id);
   order.customer = JSON.parse(order.customer_json || '{}');
-  order.status_label = STATUS_LABELS[order.status] || order.status;
-  order.statuses = [
-    { key: 'pending', label: 'ثبت سفارش', done: ['pending','paid','shipped','delivered'].includes(order.status) },
-    { key: 'paid', label: 'پرداخت', done: ['paid','shipped','delivered'].includes(order.status) },
-    { key: 'shipped', label: 'ارسال', done: ['shipped','delivered'].includes(order.status) },
-    { key: 'delivered', label: 'تحویل', done: order.status === 'delivered' },
-  ];
+  order.status_label = statusLabel(order);
+  order.statuses = buildStatusTimeline(order);
   res.json({ order });
 });
 
@@ -509,6 +569,8 @@ router.post('/orders/my/:id/cancel', authRequired, (req, res) => {
     // برگرداندن موجودی
     db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(order.id)
       .forEach(oi => db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(oi.quantity, oi.product_id));
+    // آزاد کردن استفادهٔ کد تخفیف تا کاربر بتواند دوباره استفاده کند
+    db.prepare('DELETE FROM coupon_usage WHERE order_id = ?').run(order.id);
     addOrderHistory(order.id, order.status, 'cancelled', req.user.id, 'لغو توسط مشتری');
   })();
 

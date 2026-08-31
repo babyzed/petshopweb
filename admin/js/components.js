@@ -59,7 +59,9 @@ export function paymentBadge(paymentMethod, paymentStatus) {
     if (paymentStatus === 'failed') return `<span class="s-badge s-cancelled">پرداخت ناموفق</span>`;
     return `<span class="s-badge s-draft">پرداخت آنلاین</span>`;
   }
-  return `<span class="s-badge s-inactive">در محل</span>`;
+  // پرداخت در محل: وجه هنگام تحویل دریافت می‌شود
+  if (paymentStatus === 'paid') return `<span class="s-badge s-paid">در محل (دریافت شده)</span>`;
+  return `<span class="s-badge s-pending">در محل (دریافت نشده)</span>`;
 }
 
 export function initials(name) {
@@ -103,6 +105,7 @@ export function renderSidebar() {
     <div class="as-logo">
       <span class="al-ic">${ic('paw', 22)}</span>
       <div><span class="al-t">پت‌شاپ</span><span class="al-s">پنل مدیریت</span></div>
+      <button class="as-close" data-sidebar-close aria-label="بستن منو">${ic('x', 18)}</button>
     </div>
     <nav class="as-nav">
       ${groups.map(g => `
@@ -117,6 +120,29 @@ export function renderSidebar() {
       <a href="#/profile"><span class="as-link-icon">${ic('user', 16)}</span> ${u?.name || ''}</a>
       <a href="/" target="_blank"><span class="as-link-icon">${ic('externalLink', 16)}</span> مشاهده فروشگاه</a>
     </div>`;
+  el.querySelector('[data-sidebar-close]')?.addEventListener('click', closeSidebar);
+}
+
+// ---------- سایدبار موبایل ----------
+let sidebarBackdrop = null;
+function ensureSidebarBackdrop() {
+  if (!sidebarBackdrop) {
+    sidebarBackdrop = document.createElement('div');
+    sidebarBackdrop.id = 'admin-sidebar-backdrop';
+    sidebarBackdrop.className = 'admin-sidebar-backdrop';
+    document.body.appendChild(sidebarBackdrop);
+  }
+  return sidebarBackdrop;
+}
+export function openSidebar() {
+  document.getElementById('admin-sidebar').classList.add('open');
+  ensureSidebarBackdrop().classList.add('open');
+  document.body.classList.add('no-scroll');
+}
+export function closeSidebar() {
+  document.getElementById('admin-sidebar').classList.remove('open');
+  if (sidebarBackdrop) sidebarBackdrop.classList.remove('open');
+  document.body.classList.remove('no-scroll');
 }
 
 // ---------- سایدبار موبایل ----------

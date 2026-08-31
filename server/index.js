@@ -2,6 +2,7 @@
 const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
+const fs = require('fs');
 const { db } = require('./db');
 const { seed } = require('./seed');
 const { getSetting } = require('./db');
@@ -13,6 +14,49 @@ initTransporter();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const IS_PROD = process.env.NODE_ENV === 'production';
+
+// ============================================================
+// SEO — متاتگ‌ها، کلمات کلیدی، لینک canonical و گوگل آنالیتیکس
+// این مقادیر از «تنظیمات → سئو» در پنل مدیریت خوانده می‌شوند
+// ============================================================
+const SEO_DEFAULTS = {
+  title: 'پت‌شاپ | فروشگاه اینترنتی محصولات حیوانات خانگی — غذا، اسباب‌بازی، لوازم بهداشتی',
+  description: 'پت‌شاپ؛ مرجع تخصصی محصولات حیوانات خانگی. خرید آنلاین غذای سگ و گربه، اسباب‌بازی، لوازم بهداشتی، قلاده، جای خواب و مکمل با ضمانت اصالت و ارسال سریع به سراسر کشور.',
+  keywords: 'فروشگاه حیوانات خانگی, غذای سگ, غذای گربه, پت شاپ, خرید غذای خشک سگ, خرید غذای گربه, اسباب بازی سگ, قلاده سگ, جای خواب گربه, مکمل حیوانات, بهداشت سگ و گربه, pet shop, dog food, cat food',
+  og_image: '/assets/img/og-cover.jpg',
+  canonical_url: '',
+  site_name: 'پت‌شاپ',
+};
+
+function getSeoSettings() {
+  const seo = getSetting('seo', {}) || {};
+  const out = { ...SEO_DEFAULTS };
+  // فقط مقادیر غیرخالی جایگزین پیش‌فرض شوند
+  for (const k of Object.keys(out)) {
+    if (seo[k] && String(seo[k]).trim()) out[k] = String(seo[k]).trim();
+  }
+  return out;
+}
+
+function getGaId() {
+  const seo = getSetting('seo', {}) || {};
+  return (seo.ga_measurement_id || process.env.GA_MEASUREMENT_ID || '').trim();
+}
+
+function escAttr(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function buildGaSnippet(gaId) {
+  if (!gaId || !gaId.startsWith('G-')) return '';
+  const safe = gaId.replace(/[^A-Z0-9-]/gi, '');
+  return `<script async src="https://www.googletagmanager.com/gtag/js?id=${safe}"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${safe}');</script>`;
+}
 
 // اگر پشت reverse-proxy (مثل nginx) اجرا می‌شود TRUST_PROXY=1 قرار دهید
 // تا IP واقعی کاربر برای rate limit و لاگ استفاده شود
@@ -105,7 +149,8 @@ app.use((req, res, next) => {
   const scriptSrc = ["'self'"];
   const connectSrc = ["'self'"];
   const imgSrc = ["'self'", 'data:', 'blob:'];
-  const gaId = process.env.GA_MEASUREMENT_ID || '';
+  // شناسه GA از تنظیمات پنل (دیتابیس) یا متغیر محیطی
+  const gaId = getGaId();
   if (gaId && gaId.startsWith('G-')) {
     scriptSrc.push('https://www.googletagmanager.com', 'https://www.google-analytics.com');
     connectSrc.push('https://www.google-analytics.com', 'https://analytics.google.com');
@@ -227,13 +272,17 @@ setInterval(expireStaleOrders, 10 * 60 * 1000);
 // ---------- فید ترب ----------
 const { generateTorobFeed, generateTorobJsonFeed } = require('./torob');
 app.get('/api/torob/feed.xml', (req, res) => {
+  const torob = getSetting('torob', { enabled: true }) || {};
+  if (torob.enabled === false) return res.status(404).json({ error: 'فید ترب غیرفعال است.' });
   const base = (req.protocol + '://' + req.get('host'));
   res.set('Content-Type', 'application/xml; charset=utf-8');
-  res.send(generateTorobFeed(base));
+  res.send(generateTorobFeed(base, torob));
 });
 app.get('/api/torob/feed.json', (req, res) => {
+  const torob = getSetting('torob', { enabled: true }) || {};
+  if (torob.enabled === false) return res.status(404).json({ error: 'فید ترب غیرفعال است.' });
   const base = (req.protocol + '://' + req.get('host'));
-  res.json(generateTorobJsonFeed(base));
+  res.json(generateTorobJsonFeed(base, torob));
 });
 
 // ============================================================
@@ -269,11 +318,34 @@ app.get('/api/health', (req, res) => {
   }
 });
 
+// ---------- صفحه اصلی با متاتگ‌های سئو و GA (تزریق سمت سرور) ----------
+app.get('/', (req, res) => {
+  const seo = getSeoSettings();
+  const base = (req.protocol + '://' + req.get('host'));
+  const canonical = seo.canonical_url || base + '/';
+  const ogImage = /^https?:\/\//i.test(seo.og_image)
+    ? seo.og_image
+    : base + (seo.og_image || '/assets/img/og-cover.jpg');
+
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8')
+    .replaceAll('{{SEO_TITLE}}', escAttr(seo.title))
+    .replaceAll('{{SEO_DESCRIPTION}}', escAttr(seo.description))
+    .replaceAll('{{SEO_KEYWORDS}}', escAttr(seo.keywords))
+    .replaceAll('{{SITE_NAME}}', escAttr(seo.site_name))
+    .replaceAll('{{CANONICAL_URL}}', escAttr(canonical))
+    .replaceAll('{{OG_IMAGE}}', escAttr(ogImage))
+    .replaceAll('{{GA_SNIPPET}}', buildGaSnippet(getGaId()));
+
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
 // ---------- sitemap و robots ----------
 app.get('/sitemap.xml', (req, res) => {
   const base = (req.protocol + '://' + req.get('host'));
   const now = new Date().toISOString();
-  const products = db.prepare("SELECT slug, created_at FROM products WHERE status='active' AND is_demo = 0 ORDER BY id DESC").all();
+  const products = db.prepare("SELECT p.slug, p.created_at, (SELECT image FROM product_images WHERE product_id = p.id ORDER BY sort_order ASC, id ASC LIMIT 1) AS image FROM products p WHERE p.status='active' AND p.is_demo = 0 ORDER BY p.id DESC").all();
   const cats = db.prepare("SELECT slug FROM categories WHERE is_active=1").all();
   const arts = db.prepare("SELECT slug, created_at FROM articles WHERE status='active' ORDER BY created_at DESC").all();
 
@@ -289,7 +361,8 @@ app.get('/sitemap.xml', (req, res) => {
 
   products.forEach(p => {
     const lastmod = p.created_at || now;
-    xml += `  <url><loc>${base}/#/product/${p.slug}</loc><lastmod>${lastmod}</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>\n`;
+    const img = p.image ? `<image:image><image:loc>${base}${p.image}</image:loc></image:image>` : '';
+    xml += `  <url><loc>${base}/#/product/${p.slug}</loc><lastmod>${lastmod}</lastmod><changefreq>weekly</changefreq><priority>0.8</priority>${img}</url>\n`;
   });
 
   cats.forEach(c => {

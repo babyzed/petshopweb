@@ -2,6 +2,7 @@
 import { API, price, faNum, currentPrice } from '../api.js';
 import { productCard, productCardH } from '../components.js';
 import { ic, catIcon } from '../icons.js';
+import { setMeta } from '../meta.js';
 
 let state = { page: 1, perPage: 12, total: 0, pages: 1 };
 let lastQuery = null;
@@ -37,6 +38,15 @@ export async function render(params, query) {
   const selected = [];
   const catPath = (list, slug) => { for (const c of list) { if (c.slug === slug) return c; const r = catPath(c.children || [], slug); if (r) return r; } return null; };
   const activeCatObj = catPath(cats, activeCat);
+
+  // SEO — متاتگ‌های صفحه فروشگاه / دسته‌بندی
+  setMeta({
+    title: activeCatObj ? activeCatObj.name : 'فروشگاه پت‌شاپ',
+    description: activeCatObj
+      ? `خرید اینترنتی محصولات دسته «${activeCatObj.name}» با ضمانت اصالت و ارسال سریع.`
+      : 'فروشگاه اینترنتی محصولات حیوانات خانگی؛ غذای سگ و گربه، اسباب‌بازی، لوازم بهداشتی و مکمل‌ها.',
+    path: activeCatObj ? '#/category/' + activeCatObj.slug : '#/shop',
+  });
 
   const catListHtml = (list, depth = 0) => list.map(c => `
     <button class="sf-cat ${c.slug === activeCat ? 'active' : ''} ${depth ? 'sub' : ''}" data-cat="${c.slug}">

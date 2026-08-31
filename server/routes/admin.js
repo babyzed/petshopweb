@@ -299,14 +299,41 @@ router.put('/orders/:id/status', requirePerm('orders.manage'), (req, res) => {
     if (['cancelled', 'delivered'].includes(order.status) && status !== order.status) {
       return res.status(400).json({ error: `سفارش ${order.status === 'cancelled' ? 'لغو' : 'تحویل'} شده و قابل تغییر نیست.` });
     }
+
+    const isOnline = order.payment_method === 'online';
+
+    // === تفاوت فرایند پرداخت آنلاین و پرداخت در محل ===
+    if (isOnline) {
+      // آنلاین: ارسال/تحویل فقط پس از پرداخت موفق مجاز است
+      if (['shipped', 'delivered'].includes(status) && order.payment_status !== 'paid') {
+        return res.status(400).json({ error: 'این سفارش آنلاین هنوز پرداخت نشده است؛ ابتدا پرداخت را تأیید کنید.' });
+      }
+    } else {
+      // در محل: مرحله «پرداخت» جداگانه ندارد — وجه هنگام تحویل دریافت می‌شود
+      if (status === 'paid') {
+        return res.status(400).json({ error: 'سفارش «پرداخت در محل» مرحله پرداخت جداگانه ندارد؛ با تغییر وضعیت به «تحویل شده» وجه دریافت‌شده ثبت می‌شود.' });
+      }
+    }
+
     db.transaction(() => {
       db.prepare("UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, order.id);
+      // آنلاین: تایید پرداخت به‌صورت دستی توسط مدیر → ثبت پرداخت
+      if (isOnline && status === 'paid' && order.payment_status !== 'paid') {
+        db.prepare("UPDATE orders SET payment_status = 'paid' WHERE id = ?").run(order.id);
+        db.prepare("UPDATE payments SET status = 'paid', verified_at = datetime('now') WHERE order_id = ? AND status = 'pending'").run(order.id);
+      }
+      // در محل: تحویل = دریافت وجه در محل
+      if (!isOnline && status === 'delivered' && order.payment_status !== 'paid') {
+        db.prepare("UPDATE orders SET payment_status = 'paid' WHERE id = ?").run(order.id);
+      }
       // تاریخچه وضعیت
       addOrderHistory(order.id, order.status, status, req.user.id, note || '');
       // برگرداندن موجودی در صورت لغو
       if (status === 'cancelled' && order.status !== 'cancelled') {
         db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(order.id)
           .forEach(oi => db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(oi.quantity, oi.product_id));
+        // آزاد کردن استفادهٔ کد تخفیف
+        db.prepare('DELETE FROM coupon_usage WHERE order_id = ?').run(order.id);
       }
     })();
     // لاگ امنیتی
@@ -649,13 +676,57 @@ router.get('/settings', requirePerm('settings.manage'), (req, res) => {
       return pay;
     })(),
     initialStats: getSetting('initial_stats', { years: 0, customers: 0, satisfaction: 0, founded_year: 1402 }),
+    seo: getSetting('seo', {}),
+    torob: getSetting('torob', { enabled: true, title: '', description: '' }),
+    sms: (() => {
+      const sms = getSetting('sms', {});
+      return {
+        sender: sms.sender || process.env.KAVENEGAR_SENDER || '',
+        has_key: !!(sms.api_key || process.env.KAVENEGAR_API_KEY),
+      };
+    })(),
   });
 });
 router.put('/settings', requirePerm('settings.manage'), (req, res) => {
   const b = req.body || {};
-  ['contact', 'socials', 'footer', 'shipping', 'site'].forEach(k => { if (b[k] !== undefined) setSetting(k, b[k]); });
+  ['contact', 'socials', 'footer', 'shipping', 'site', 'torob'].forEach(k => { if (b[k] !== undefined) setSetting(k, b[k]); });
   if (b.payment !== undefined) setSetting('payment', b.payment);
+  if (b.seo !== undefined) {
+    const prev = getSetting('seo', {});
+    setSetting('seo', {
+      title: b.seo.title ?? prev.title ?? '',
+      description: b.seo.description ?? prev.description ?? '',
+      keywords: b.seo.keywords ?? prev.keywords ?? '',
+      og_image: b.seo.og_image ?? prev.og_image ?? '',
+      canonical_url: b.seo.canonical_url ?? prev.canonical_url ?? '',
+      site_name: b.seo.site_name ?? prev.site_name ?? '',
+      ga_measurement_id: b.seo.ga_measurement_id ?? prev.ga_measurement_id ?? '',
+    });
+  }
+  if (b.sms !== undefined) {
+    const prev = getSetting('sms', {});
+    const next = {
+      sender: b.sms.sender ?? prev.sender ?? '',
+      // اگر فیلد api_key خالی ارسال شود، کلید قبلی حفظ می‌شود
+      api_key: (b.sms.api_key && String(b.sms.api_key).trim()) ? String(b.sms.api_key).trim() : (prev.api_key || ''),
+    };
+    setSetting('sms', next);
+  }
   res.json({ ok: true, message: 'تنظیمات ذخیره شد.' });
+});
+
+// ============================================================
+// سرویس پیامک — تست اتصال و ارسال آزمایشی
+// ============================================================
+router.post('/sms/test', requirePerm('settings.manage'), (req, res) => {
+  const { to } = req.body || {};
+  if (!to || !/^09\d{9}$/.test(String(to))) return res.status(400).json({ error: 'شماره موبایل معتبر وارد کنید (مثلاً 09123456789).' });
+  const { sendSMS } = require('../sms');
+  sendSMS(String(to), 'پت‌شاپ\nپیامک آزمایشی: اتصال سرویس پیامکی با موفقیت برقرار شد. 🐾')
+    .then(result => {
+      if (result.ok) res.json({ ok: true, message: 'پیامک آزمایشی ارسال شد.' });
+      else res.status(502).json({ error: result.error || 'خطا در ارسال پیامک.' });
+    });
 });
 
 // ============================================================
@@ -746,6 +817,7 @@ router.delete('/cleanup-test-data', requirePerm('users.manage'), (req, res) => {
 
       // حذف همه سفارش‌ها، نظرات، و داده‌های مرتبط
       db.prepare('DELETE FROM order_status_history').run();
+      db.prepare('DELETE FROM coupon_usage').run();
       db.prepare('DELETE FROM payments').run();
       db.prepare('DELETE FROM audit_log').run();
       db.prepare('DELETE FROM order_items').run();

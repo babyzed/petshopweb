@@ -3,6 +3,7 @@ import { API, price, faNum, currentPrice, discountPct, dateFa } from '../api.js'
 import { Cart, Session } from '../store.js';
 import { productCard, productCardH, stars, toast, initials } from '../components.js';
 import { ic } from '../icons.js';
+import { setMeta } from '../meta.js';
 
 let slug = null;
 
@@ -19,6 +20,14 @@ export async function render(params) {
   const wished = Session.isWished(product.id);
   const features = Object.entries(product.features || {});
   const mainImage = product.images?.[0]?.image || product.image || '/assets/img/placeholder.jpg';
+
+  // SEO — متاتگ‌های مخصوص صفحه محصول
+  setMeta({
+    title: product.seo_title || product.name,
+    description: product.seo_description || product.short_description || product.description || '',
+    image: mainImage,
+    path: '#/product/' + params.slug,
+  });
 
   const relatedHtml = product.related?.length ? `
     <section class="section">

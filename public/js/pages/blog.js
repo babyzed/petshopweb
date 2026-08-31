@@ -1,6 +1,7 @@
 // pages/blog.js — مجله پت: لیست و جزئیات مقاله
 import { API, dateFa } from '../api.js';
 import { ic } from '../icons.js';
+import { setMeta } from '../meta.js';
 
 export function title(params) {
   return params.slug ? 'مقاله | پت‌شاپ' : 'مجله پت';
@@ -9,6 +10,12 @@ export function title(params) {
 export async function render(params) {
   if (params.slug) {
     const { article, related } = await API.get('/articles/' + params.slug);
+    setMeta({
+      title: article.title,
+      description: article.excerpt || '',
+      image: article.image || '',
+      path: '#/blog/' + params.slug,
+    });
     return `
     <div class="container">
       <nav class="breadcrumb">
@@ -39,6 +46,7 @@ export async function render(params) {
   }
 
   const { articles } = await API.get('/articles');
+  setMeta({ title: 'مجله پت — مقالات تخصصی حیوانات خانگی', path: '#/blog' });
   return `
   <div class="container">
     <nav class="breadcrumb"><a href="#/">خانه</a><span class="sep">/</span><span>مجله پت</span></nav>

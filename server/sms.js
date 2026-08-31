@@ -7,20 +7,28 @@
 //   3. در فایل .env تنظیم کنید
 
 const https = require('https');
+const { getSetting } = require('./db');
 
-const KAVENEGAR_API_KEY = process.env.KAVENEGAR_API_KEY || '';
-const KAVENEGAR_SENDER = process.env.KAVENEGAR_SENDER || '';
+// تنظیمات پیامک: اول از پنل مدیریت (دیتابیس)، سپس متغیرهای محیطی
+function smsConfig() {
+  const dbCfg = getSetting('sms', {}) || {};
+  return {
+    apiKey: dbCfg.api_key || process.env.KAVENEGAR_API_KEY || '',
+    sender: dbCfg.sender || process.env.KAVENEGAR_SENDER || '',
+  };
+}
 
 // ---------- ارسال پیامک ----------
 async function sendSMS(receptor, template, params = {}) {
-  if (!KAVENEGAR_API_KEY) {
+  const { apiKey, sender } = smsConfig();
+  if (!apiKey) {
     console.log(`[SMS] (نمایشی) به: ${receptor} | قالب: ${template} | پارامترها:`, params);
     return { ok: true, simulated: true };
   }
 
   const data = {
     receptor: Array.isArray(receptor) ? receptor.join(',') : receptor,
-    sender: KAVENEGAR_SENDER,
+    sender,
     message: template,
     ...params,
   };
@@ -30,7 +38,7 @@ async function sendSMS(receptor, template, params = {}) {
     const options = {
       hostname: 'api.kavenegar.com',
       port: 443,
-      path: `/v1/${KAVENEGAR_API_KEY}/sms/send.json`,
+      path: `/v1/${apiKey}/sms/send.json`,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -73,8 +81,13 @@ const TEMPLATES = {
   // تایید ثبت‌نام
   VERIFY: (code) => `پت‌شاپ\nکد تایید شما: ${code}\nاین کد تا ۵ دقیقه معتبر است.`,
 
-  // تایید سفارش
-  ORDER_CONFIRM: (code, total) => `پت‌شاپ\nسفارش ${code} ثبت شد.\nمبلغ: ${total.toLocaleString('fa-IR')} تومان\nپس از پرداخت، سفارش شما تایید می‌شود.`,
+  // تایید سفارش — متن بر اساس روش پرداخت متفاوت است
+  ORDER_CONFIRM: (code, total, method) => {
+    const payNote = method === 'cod'
+      ? 'پرداخت در محل: مبلغ هنگام تحویل دریافت می‌شود.'
+      : 'پرداخت آنلاین: پس از پرداخت، سفارش تایید می‌شود.';
+    return `پت‌شاپ\nسفارش ${code} ثبت شد.\nمبلغ: ${total.toLocaleString('fa-IR')} تومان\n${payNote}`;
+  },
 
   // ارسال سفارش
   ORDER_SHIPPED: (code) => `پت‌شاپ\nسفارش ${code} ارسال شد.\nبه زودی به دست شما می‌رسد.`,
@@ -103,7 +116,7 @@ async function sendOrderSMS(order, type) {
   let message = '';
   switch (type) {
     case 'confirm':
-      message = TEMPLATES.ORDER_CONFIRM(order.code, order.total);
+      message = TEMPLATES.ORDER_CONFIRM(order.code, order.total, order.payment_method);
       break;
     case 'shipped':
       message = TEMPLATES.ORDER_SHIPPED(order.code);
@@ -123,19 +136,15 @@ async function sendOrderSMS(order, type) {
 
 // ---------- تست اتصال ----------
 async function testConnection() {
-  if (!KAVENEGAR_API_KEY) {
-    return { ok: false, message: 'KAVENEGAR_API_KEY تنظیم نشده است.' };
+  const { apiKey, sender } = smsConfig();
+  if (!apiKey) {
+    return { ok: false, message: 'کلید API کاوه‌نگار تنظیم نشده است.' };
   }
-  try {
-    // تست ساده با ارسال به شماره خود
-    return {
-      ok: true,
-      message: 'سرویس پیامک آماده است.',
-      sender: KAVENEGAR_SENDER || 'تنظیم نشده',
-    };
-  } catch (err) {
-    return { ok: false, message: err.message };
-  }
+  return {
+    ok: true,
+    message: 'سرویس پیامک آماده است.',
+    sender: sender || 'تنظیم نشده',
+  };
 }
 
 module.exports = {
