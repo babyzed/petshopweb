@@ -3,6 +3,7 @@ import { API, price, faNum } from '../api.js';
 import { Cart, Session } from '../store.js';
 import { toast } from '../components.js';
 import { ic } from '../icons.js';
+import { openAccountCompletionModal, markPendingAccountCompletion } from '../account-complete.js';
 
 let coupon = null;
 let shippingCost = 0;
@@ -274,6 +275,11 @@ export function mount(el) {
       if (r.needsPayment) {
         Cart.clear();
         if (r.paymentUrl) {
+          // اگر حساب مهمان به‌صورت خودکار ساخته شده (یا ایمیل هنوز موقت است)،
+          // بعد از بازگشت از درگاه پنجره تکمیل ثبت‌نام نمایش داده می‌شود.
+          if (r.accountCreated || String(Session.user?.email || '').toLowerCase().endsWith('@petshop.local')) {
+            markPendingAccountCompletion();
+          }
           window.location.href = r.paymentUrl;
           return; // منتظر ریدایرکت بانک باش
         }
@@ -301,7 +307,7 @@ async function renderSuccess(el, order, payment, accountCreated) {
     extra = `<p style="font-size:13px;color:#065F46;background:#D1FAE5;padding:10px 14px;border-radius:10px;margin-bottom:14px">💵 پرداخت در محل: مبلغ سفارش را هنگام تحویل پرداخت می‌کنید. سفارش شما پس از <b>تایید فروشگاه</b> وارد مرحله ارسال می‌شود.</p>`;
   }
   if (accountCreated) {
-    extra += `<p style="font-size:13px;color:#1E40AF;background:#DBEAFE;padding:10px 14px;border-radius:10px;margin-bottom:14px">🧾 حساب کاربری با شماره موبایل شما ساخته شد و وارد آن شدید؛ از این به بعد همه سفارش‌ها در بخش «سفارش‌های من» قابل پیگیری هستند. برای ورودهای بعدی، با همین شماره موبایل و «بازیابی رمز» وارد شوید.</p>`;
+    extra += `<p style="font-size:13px;color:#1E40AF;background:#DBEAFE;padding:10px 14px;border-radius:10px;margin-bottom:14px">🧾 حساب کاربری با شماره موبایل شما ساخته شد و وارد آن شدید؛ همه سفارش‌ها از این به بعد در بخش «سفارش‌های من» قابل پیگیری هستند. پنجره تکمیل ثبت‌نام هم باز شد؛ پس از تکمیل، با همان ایمیل و رمز وارد می‌شوید.</p>`;
   }
   const root = el.querySelector('.container') || el;
   root.innerHTML = `
@@ -317,4 +323,9 @@ async function renderSuccess(el, order, payment, accountCreated) {
     </div>
   </div>`;
   window.scrollTo({ top: 0 });
+
+  // === تکمیل ثبت‌نام حساب مهمان ===
+  if (accountCreated || String(Session.user?.email || '').toLowerCase().endsWith('@petshop.local')) {
+    openAccountCompletionModal();
+  }
 }

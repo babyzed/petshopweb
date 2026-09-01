@@ -265,20 +265,92 @@ router.get('/me', authRequired, (req, res) => {
 });
 
 // ---------- ویرایش پروفایل ----------
+// FIX: ایمیل حساب‌های مهمان/جدید دیگر غیرقابل‌تغییر نیست؛ کاربر می‌تواند
+// ایمیل موقت (guest-...@petshop.local) را با ایمیل واقعی خود جایگزین کند.
 router.put('/profile', authRequired, (req, res) => {
   try {
-    const { name, phone } = req.body || {};
-    if (!name || !name.trim()) return res.status(400).json({ error: 'نام را وارد کنید.' });
-    if (name.trim().length > 100) return res.status(400).json({ error: 'نام بیش از حد طولانی است.' });
-    if (phone && !PHONE_RE.test(phone.trim())) return res.status(400).json({ error: 'شماره موبایل نامعتبر است.' });
+    const current = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    if (!current) return res.status(404).json({ error: 'کاربر یافت نشد.' });
 
-    db.prepare("UPDATE users SET name = ?, phone = ?, updated_at = datetime('now') WHERE id = ?")
-      .run(name.trim().slice(0, 100), (phone || '').trim(), req.user.id);
+    const { name, phone, email } = req.body || {};
+    const newName = String(name || current.name || '').trim().slice(0, 100);
+    const rawPhone = phone === undefined || phone === '' ? current.phone : phone;
+    const newPhone = normalizePhone(rawPhone);
+    const newEmail = String(email === undefined ? current.email : email).trim().toLowerCase();
+
+    if (!newName) return res.status(400).json({ error: 'نام را وارد کنید.' });
+    if (newName.length > 100) return res.status(400).json({ error: 'نام بیش از حد طولانی است.' });
+    if (rawPhone && !newPhone) return res.status(400).json({ error: 'شماره موبایل نامعتبر است.' });
+    if (newPhone && !PHONE_RE.test(newPhone)) return res.status(400).json({ error: 'شماره موبایل نامعتبر است.' });
+    if (!newEmail || !EMAIL_RE.test(newEmail)) return res.status(400).json({ error: 'ایمیل معتبر وارد کنید.' });
+
+    // جلوگیری از تصاحب ایمیل/موبایل کاربر دیگر
+    const emailOwner = newEmail !== current.email
+      ? db.prepare('SELECT id FROM users WHERE email = ?').get(newEmail)
+      : null;
+    if (emailOwner) return res.status(409).json({ error: 'کاربری با این ایمیل قبلاً ثبت‌نام کرده است.' });
+    const phoneOwner = newPhone && newPhone !== current.phone
+      ? db.prepare('SELECT id FROM users WHERE phone = ?').get(newPhone)
+      : null;
+    if (phoneOwner) return res.status(409).json({ error: 'کاربری با این شماره موبایل قبلاً ثبت‌نام کرده است.' });
+
+    // اگر شماره در آدرس‌های ذخیره‌شده کاربر قدیمی است، آن را هم به‌روز می‌کنیم
+    if (newPhone && newPhone !== current.phone) {
+      db.prepare("UPDATE addresses SET phone = ? WHERE user_id = ? AND phone = ?").run(newPhone, req.user.id, current.phone);
+    }
+
+    db.prepare("UPDATE users SET name = ?, phone = ?, email = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(newName, newPhone, newEmail, req.user.id);
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
     res.json({ ok: true, user: publicUser(user) });
   } catch (err) {
     console.error('[Auth] Profile update error:', err.message);
     res.status(500).json({ error: 'خطا در بروزرسانی پروفایل.' });
+  }
+});
+
+// ---------- تکمیل ثبت‌نام حساب مهمان (ساخته‌شده هنگام خرید) ----------
+// بعد از خرید مهمان، حساب به‌صورت خودکار ساخته شده است؛ این مسیر اجازه می‌دهد
+// همان پنجره/فرم، مشخصات (نام، موبایل، ایمیل واقعی) و رمز عبور را تکمیل کند.
+router.put('/complete', authRequired, (req, res) => {
+  try {
+    const current = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    if (!current) return res.status(404).json({ error: 'کاربر یافت نشد.' });
+
+    const { name, email, phone, password } = req.body || {};
+    const newName = String(name || current.name || '').trim().slice(0, 100);
+    const newPhone = normalizePhone(phone === undefined || phone === '' ? current.phone : phone);
+    const newEmail = String(email || '').trim().toLowerCase();
+
+    if (!newName) return res.status(400).json({ error: 'نام و نام خانوادگی را وارد کنید.' });
+    if (newName.length > 100) return res.status(400).json({ error: 'نام بیش از حد طولانی است.' });
+    if (!newPhone) return res.status(400).json({ error: 'شماره موبایل را وارد کنید (09...).' });
+    if (!PHONE_RE.test(newPhone)) return res.status(400).json({ error: 'شماره موبایل معتبر وارد کنید (09...).' });
+    if (!EMAIL_RE.test(newEmail)) return res.status(400).json({ error: 'ایمیل معتبر وارد کنید.' });
+
+    const pwError = validatePassword(password);
+    if (pwError) return res.status(400).json({ error: pwError });
+
+    const emailOwner = newEmail !== current.email
+      ? db.prepare('SELECT id FROM users WHERE email = ?').get(newEmail)
+      : null;
+    if (emailOwner) return res.status(409).json({ error: 'کاربری با این ایمیل قبلاً ثبت‌نام کرده است.' });
+    const phoneOwner = newPhone !== current.phone
+      ? db.prepare('SELECT id FROM users WHERE phone = ?').get(newPhone)
+      : null;
+    if (phoneOwner) return res.status(409).json({ error: 'کاربری با این شماره موبایل قبلاً ثبت‌نام کرده است.' });
+
+    if (newPhone !== current.phone) {
+      db.prepare("UPDATE addresses SET phone = ? WHERE user_id = ? AND phone = ?").run(newPhone, req.user.id, current.phone);
+    }
+
+    db.prepare("UPDATE users SET name = ?, email = ?, phone = ?, password_hash = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(newName, newEmail, newPhone, bcrypt.hashSync(String(password), BCRYPT_ROUNDS), req.user.id);
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    res.json({ ok: true, account_completed: true, user: publicUser(user) });
+  } catch (err) {
+    console.error('[Auth] Complete error:', err.message);
+    res.status(500).json({ error: 'خطا در تکمیل ثبت‌نام.' });
   }
 });
 

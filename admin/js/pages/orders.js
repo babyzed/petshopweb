@@ -172,6 +172,13 @@ export async function detailRender(params) {
       <div class="dash-card">
         <h3>${ic('refreshCw', 18)} تغییر وضعیت سفارش</h3>
         ${statusPipeline(order)}
+        <div class="form-grid" style="margin-top:14px">
+          <div class="field">
+            <label>کد رهگیری پستی</label>
+            <input data-tracking-code dir="ltr" placeholder="هنگام ارسال وارد کنید" value="${escHtml(order.tracking_code || '')}">
+            <span style="font-size:11px;color:var(--muted)">این کد پس از ثبت «ارسال»، همزمان با پیامک ارسال برای مشتری فرستاده می‌شود.</span>
+          </div>
+        </div>
         <div class="status-actions">
           ${flow.map(s => `
             <button class="btn ${order.status === s ? 'btn-primary' : (s === 'cancelled' ? 'btn-ghost btn-cancel' : 'btn-ghost')}" data-set-status="${s}" ${order.status === s ? 'disabled' : ''} style="padding:9px 18px;font-size:12px">
@@ -213,6 +220,7 @@ export async function detailRender(params) {
         <div class="mini-list-item">${ic('card', 16)}<span class="mli-name">روش پرداخت</span><b>${isCod ? 'در محل' : 'آنلاین'}</b></div>
         <div class="mini-list-item">${ic('card', 16)}<span class="mli-name">وضعیت پرداخت</span>${paymentBadge(order.payment_method, order.payment_status)}</div>
         ${order.transaction_id ? `<div class="mini-list-item">${ic('clipboard', 16)}<span class="mli-name">شناسه تراکنش</span><b dir="ltr">${escHtml(order.transaction_id)}</b></div>` : ''}
+        ${order.tracking_code ? `<div class="mini-list-item">${ic('package', 16)}<span class="mli-name">کد رهگیری پستی</span><b dir="ltr">${escHtml(order.tracking_code)}</b></div>` : ''}
         <div class="mini-list-item">${ic('clock', 16)}<span class="mli-name">تاریخ ثبت</span><b>${faDate(order.created_at)}</b></div>
         ${order.note ? `<div class="mini-list-item">${ic('file', 16)}<span class="mli-name">یادداشت</span><b style="max-width:180px">${escHtml(order.note)}</b></div>` : ''}
       </div>
@@ -232,7 +240,10 @@ export function detailAfter(params) {
     if (b.disabled) return;
     b.disabled = true;
     try {
-      const r = await AdminAPI.put('/admin/orders/' + params + '/status', { status: b.dataset.setStatus });
+      const r = await AdminAPI.put('/admin/orders/' + params + '/status', {
+        status: b.dataset.setStatus,
+        tracking_code: document.querySelector('[data-tracking-code]')?.value || '',
+      });
       toast(r.message || 'وضعیت سفارش به‌روزرسانی شد ✅');
       setTimeout(() => location.reload(), 500);
     } catch (err) { b.disabled = false; toast(err.message, 'err'); }
