@@ -3,7 +3,7 @@ const express = require('express');
 const { db, getSetting } = require('../db');
 const { authRequired } = require('../auth');
 const { sanitizeHtml, sanitizeText } = require('../sanitize');
-const { SAMAN_TERMINAL_ID } = require('../payment');
+const { isOnlineAvailable, activeGatewayKey, gatewayLabel } = require('../payment');
 
 const router = express.Router();
 
@@ -181,10 +181,15 @@ router.get('/settings/public', (req, res) => {
       description: seo.description || '',
     },
     payment: (() => {
-      const pay = getSetting('payment', { online_enabled: true, cod_enabled: true });
-      // اگر درگاه سامان تنظیم نشده، پرداخت آنلاین غیرفعال باشه
-      if (!SAMAN_TERMINAL_ID) pay.online_enabled = false;
-      return pay;
+      const saved = getSetting('payment', { online_enabled: true, cod_enabled: true });
+      const active = activeGatewayKey();
+      // فقط اطلاعات عمومی؛ کلیدها و اطلاعات درگاه‌ها هرگز به فروشگاه ارسال نمی‌شوند
+      return {
+        online_enabled: saved.online_enabled !== false && isOnlineAvailable(),
+        cod_enabled: saved.cod_enabled !== false,
+        gateway: active,
+        gateway_label: gatewayLabel(active),
+      };
     })(),
   });
 });

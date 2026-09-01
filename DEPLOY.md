@@ -50,11 +50,28 @@ nano .env
 مهم‌ترین مقادیر:
 ```
 JWT_SECRET=یک رشته تصادفی_خیلی_طولانی_اینجا_بنویسید
-SAMAN_TERMINAL_ID=شماره_ترمینال_بانک
-SAMAN_SANDBOX=false
-SAMAN_CALLBACK_URL=https://petshop.ir/api/payments/callback
 PORT=3000
+
+# درگاه پرداخت فعال: saman | zarinpal | melli | saderat
+PAYMENT_GATEWAY=saman
+PAYMENT_CALLBACK_URL=https://petshop.ir/api/payments/callback
+
+# اطلاعات درگاه انتخابی (فقط همان درگاه را پر کنید)
+SAMAN_TERMINAL_ID=شماره_ترمینال_سامان
+ZARINPAL_MERCHANT_ID=کد_۳۶_کاراکتری_زرین‌پال
+MELLI_MERCHANT_ID=
+MELLI_TERMINAL_ID=
+MELLI_TERMINAL_KEY=
+SADERAT_TERMINAL_ID=
+
+# پیامک آموت
+AMOOT_TOKEN=توکن_رست_آموت
+AMOOT_LINE_SERVICE=خط_خدماتی
+AMOOT_LINE_ADS=خط_تبلیغاتی
 ```
+
+> 💡 همهٔ این مقادیر را می‌توانید به‌جای `.env` از **پنل مدیریت → تنظیمات** هم وارد کنید؛
+> مقادیر پنل بر `.env` اولویت دارند. آدرس `PAYMENT_CALLBACK_URL` باید در پنل پذیرندگی بانک ثبت شود.
 
 ## ۴. ساخت تصویر و اجرا
 
@@ -244,11 +261,14 @@ sudo tail -f /var/log/nginx/error.log
 
 ### خطای پرداخت
 ```bash
-# تست اتصال درگاه
-curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/api/payments/test
+# فهرست درگاه‌ها و وضعیت پیکربندی
+curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/api/payments/gateways
 
-# بررسی SAMAN_TERMINAL_ID در .env
-cat /opt/petshop/.env | grep SAMAN
+# تست اتصال یک درگاه مشخص (saman | zarinpal | melli | saderat)
+curl -H "Authorization: Bearer YOUR_TOKEN" "http://localhost:3000/api/payments/test?gateway=melli"
+
+# بررسی اطلاعات درگاه‌ها در .env
+grep -E "PAYMENT_|SAMAN_|ZARINPAL_|MELLI_|SADERAT_" /opt/petshop/.env
 ```
 
 ### پشتیبان بازیابی

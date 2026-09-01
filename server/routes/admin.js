@@ -1,10 +1,11 @@
 // routes/admin.js — تمام عملیات پنل مدیریت (Database Driven)
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { db, getSetting, setSetting } = require('../db');
 const { authRequired, requirePerm, withRole } = require('../auth');
 const { PERMISSION_CATALOG, hasPermission } = require('../permissions');
-const { upload } = require('../upload');
+const { upload, toWebp } = require('../upload');
 const { sendOrderSMS } = require('../sms');
 const { sanitizeHtml } = require('../sanitize');
 
@@ -233,7 +234,7 @@ router.delete('/products/:id', requirePerm('products.manage'), (req, res) => {
 });
 
 // آپلود و مدیریت تصاویر محصول
-router.post('/products/:id/images', requirePerm('products.manage'), upload.single('image'), (req, res) => {
+router.post('/products/:id/images', requirePerm('products.manage'), upload.single('image'), toWebp(), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'فایلی دریافت نشد.' });
   const url = '/uploads/' + req.file.filename;
   const last = db.prepare('SELECT COALESCE(MAX(sort_order), -1) AS m FROM product_images WHERE product_id = ?').get(req.params.id).m;
@@ -611,7 +612,7 @@ router.delete('/banners/:id', requirePerm('banners.manage'), (req, res) => {
   db.prepare('DELETE FROM banners WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
-router.post('/banners/:id/image', requirePerm('banners.manage'), upload.single('image'), (req, res) => {
+router.post('/banners/:id/image', requirePerm('banners.manage'), upload.single('image'), toWebp(), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'فایلی دریافت نشد.' });
   const url = '/uploads/' + req.file.filename;
   db.prepare('UPDATE banners SET image = ? WHERE id = ?').run(url, req.params.id);
@@ -624,7 +625,7 @@ router.post('/banners/:id/image', requirePerm('banners.manage'), upload.single('
 router.get('/articles', requirePerm('articles.manage'), (req, res) => {
   res.json({ articles: db.prepare('SELECT * FROM articles ORDER BY id DESC').all() });
 });
-router.post('/articles', requirePerm('articles.manage'), upload.single('image'), (req, res) => {
+router.post('/articles', requirePerm('articles.manage'), upload.single('image'), toWebp(), (req, res) => {
   const b = req.body || {};
   if (!b.title || !b.content) return res.status(400).json({ error: 'عنوان و متن مقاله الزامی است.' });
   const image = req.file ? '/uploads/' + req.file.filename : (b.image || '');
@@ -632,7 +633,7 @@ router.post('/articles', requirePerm('articles.manage'), upload.single('image'),
     .run(b.title, slugifyFa(b.slug || b.title), b.excerpt || '', b.content, image, b.category || '', b.status || 'active');
   res.json({ ok: true, id: info.lastInsertRowid });
 });
-router.put('/articles/:id', requirePerm('articles.manage'), upload.single('image'), (req, res) => {
+router.put('/articles/:id', requirePerm('articles.manage'), upload.single('image'), toWebp(), (req, res) => {
   const c = db.prepare('SELECT * FROM articles WHERE id = ?').get(req.params.id);
   if (!c) return res.status(404).json({ error: 'مقاله یافت نشد.' });
   const b = req.body || {};
@@ -680,7 +681,7 @@ router.put('/initial-stats', requirePerm('settings.manage'), (req, res) => {
   res.json({ ok: true, message: 'آمار اولیه ذخیره شد.' });
 });
 // آپلود تصویر عمومی (مثلاً برای بخش معرفی)
-router.post('/upload', requirePerm('home.manage'), upload.single('image'), (req, res) => {
+router.post('/upload', requirePerm('home.manage'), upload.single('image'), toWebp(), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'فایلی دریافت نشد.' });
   res.json({ ok: true, url: '/uploads/' + req.file.filename });
 });
@@ -763,20 +764,41 @@ router.get('/settings', requirePerm('settings.manage'), (req, res) => {
     shipping: getSetting('shipping', {}),
     site: getSetting('site', {}),
     payment: (() => {
-      const pay = getSetting('payment', { online_enabled: true, cod_enabled: true });
-      const { SAMAN_TERMINAL_ID } = require('../payment');
-      pay.saman_configured = !!SAMAN_TERMINAL_ID;
-      if (!SAMAN_TERMINAL_ID) pay.online_enabled = false;
-      return pay;
+      const saved = getSetting('payment', { online_enabled: true, cod_enabled: true });
+      const { listGateways, activeGatewayKey, isOnlineAvailable, callbackBaseUrl, gatewayConfig } = require('../payment');
+      // مقادیر حساس فقط به‌صورت «تنظیم شده / نشده» برگردانده می‌شوند
+      const gateways = listGateways().map(g => {
+        const cfg = gatewayConfig(g.key);
+        const values = {};
+        g.fields.forEach(f => {
+          if (f.type === 'boolean') values[f.key] = !!cfg[f.key];
+          else if (f.secret) values[f.key] = cfg[f.key] ? '••••••••' : '';
+          else values[f.key] = cfg[f.key] || '';
+        });
+        return { ...g, values };
+      });
+      return {
+        online_enabled: saved.online_enabled !== false,
+        cod_enabled: saved.cod_enabled !== false,
+        gateway: activeGatewayKey(),
+        callback_url: callbackBaseUrl(),
+        online_available: isOnlineAvailable(),
+        gateways,
+      };
     })(),
     initialStats: getSetting('initial_stats', { years: 0, customers: 0, satisfaction: 0, founded_year: 1402 }),
     seo: getSetting('seo', {}),
     torob: getSetting('torob', { enabled: true, title: '', description: '' }),
     sms: (() => {
-      const sms = getSetting('sms', {});
+      const { smsConfig, isConfigured } = require('../sms');
+      const cfg = smsConfig();
       return {
-        sender: sms.sender || process.env.KAVENEGAR_SENDER || '',
-        has_key: !!(sms.api_key || process.env.KAVENEGAR_API_KEY),
+        provider: 'amoot',
+        line_service: cfg.lineService || '',
+        line_otp: cfg.lineOtp || '',
+        line_ads: cfg.lineAds || '',
+        otp_pattern_id: cfg.otpPatternId || '',
+        has_key: isConfigured(),
       };
     })(),
   });
@@ -784,7 +806,36 @@ router.get('/settings', requirePerm('settings.manage'), (req, res) => {
 router.put('/settings', requirePerm('settings.manage'), (req, res) => {
   const b = req.body || {};
   ['contact', 'socials', 'footer', 'shipping', 'site', 'torob'].forEach(k => { if (b[k] !== undefined) setSetting(k, b[k]); });
-  if (b.payment !== undefined) setSetting('payment', b.payment);
+  if (b.payment !== undefined) {
+    const { GATEWAY_KEYS } = require('../payment');
+    const prev = getSetting('payment', {}) || {};
+    const prevGw = prev.gateways || {};
+    const incoming = b.payment.gateways || {};
+    const gateways = {};
+
+    for (const key of GATEWAY_KEYS) {
+      const p = prevGw[key] || {};
+      const n = incoming[key] || {};
+      const merged = { ...p };
+      for (const [field, value] of Object.entries(n)) {
+        if (typeof value === 'boolean') { merged[field] = value; continue; }
+        const v = String(value ?? '').trim();
+        // مقدار ماسک‌شده یا خالی ⇒ مقدار قبلی حفظ می‌شود
+        if (!v || /^[•*]+$/.test(v)) continue;
+        merged[field] = v;
+      }
+      gateways[key] = merged;
+    }
+
+    const gateway = GATEWAY_KEYS.includes(b.payment.gateway) ? b.payment.gateway : (prev.gateway || 'saman');
+    setSetting('payment', {
+      online_enabled: b.payment.online_enabled !== false,
+      cod_enabled: b.payment.cod_enabled !== false,
+      gateway,
+      callback_url: b.payment.callback_url !== undefined ? String(b.payment.callback_url).trim() : (prev.callback_url || ''),
+      gateways,
+    });
+  }
   if (b.seo !== undefined) {
     const prev = getSetting('seo', {});
     setSetting('seo', {
@@ -799,10 +850,17 @@ router.put('/settings', requirePerm('settings.manage'), (req, res) => {
   }
   if (b.sms !== undefined) {
     const prev = getSetting('sms', {});
+    const pick = (next, old) => (next !== undefined && next !== null ? String(next).trim() : (old || ''));
     const next = {
-      sender: b.sms.sender ?? prev.sender ?? '',
-      // اگر فیلد api_key خالی ارسال شود، کلید قبلی حفظ می‌شود
-      api_key: (b.sms.api_key && String(b.sms.api_key).trim()) ? String(b.sms.api_key).trim() : (prev.api_key || ''),
+      provider: 'amoot',
+      line_service: pick(b.sms.line_service, prev.line_service || prev.sender),
+      line_otp: pick(b.sms.line_otp, prev.line_otp),
+      line_ads: pick(b.sms.line_ads, prev.line_ads),
+      otp_pattern_id: pick(b.sms.otp_pattern_id, prev.otp_pattern_id),
+      // اگر فیلد توکن خالی ارسال شود، توکن قبلی حفظ می‌شود
+      token: (b.sms.token && String(b.sms.token).trim())
+        ? String(b.sms.token).trim()
+        : (prev.token || prev.api_key || ''),
     };
     setSetting('sms', next);
   }
@@ -810,17 +868,97 @@ router.put('/settings', requirePerm('settings.manage'), (req, res) => {
 });
 
 // ============================================================
-// سرویس پیامک — تست اتصال و ارسال آزمایشی
+// سرویس پیامک «آموت» — سه API: کد تایید، پیامک تستی، تبلیغات
 // ============================================================
-router.post('/sms/test', requirePerm('settings.manage'), (req, res) => {
+
+// وضعیت اتصال و اعتبار حساب
+router.get('/sms/status', requirePerm('settings.manage'), (req, res) => {
+  const { testConnection } = require('../sms');
+  testConnection()
+    .then(result => res.json(result))
+    .catch(err => res.json({ ok: false, message: err.message }));
+});
+
+// ۱) ارسال کد تایید (آزمایش API کد یکبار مصرف)
+router.post('/sms/verify-code', requirePerm('settings.manage'), (req, res) => {
   const { to } = req.body || {};
-  if (!to || !/^09\d{9}$/.test(String(to))) return res.status(400).json({ error: 'شماره موبایل معتبر وارد کنید (مثلاً 09123456789).' });
-  const { sendSMS } = require('../sms');
-  sendSMS(String(to), 'پت‌شاپ\nپیامک آزمایشی: اتصال سرویس پیامکی با موفقیت برقرار شد. 🐾')
+  const { sendVerificationCode, isValidMobile } = require('../sms');
+  if (!isValidMobile(to)) return res.status(400).json({ error: 'شماره موبایل معتبر وارد کنید (مثلاً 09123456789).' });
+
+  const code = String(crypto.randomInt(100000, 999999));
+  sendVerificationCode(String(to), code)
     .then(result => {
-      if (result.ok) res.json({ ok: true, message: 'پیامک آزمایشی ارسال شد.' });
+      if (result.ok) {
+        auditLog(req.user.id, 'sms.verify_code_sent', 'sms', null, req);
+        res.json({ ok: true, message: 'کد تایید ارسال شد.', simulated: !!result.simulated });
+      } else {
+        res.status(502).json({ error: result.error || 'خطا در ارسال کد تایید.' });
+      }
+    })
+    .catch(err => res.status(500).json({ error: err.message }));
+});
+
+// ۲) ارسال پیامک تستی
+router.post('/sms/test', requirePerm('settings.manage'), (req, res) => {
+  const { to, text } = req.body || {};
+  const { sendTestSMS, isValidMobile } = require('../sms');
+  if (!isValidMobile(to)) return res.status(400).json({ error: 'شماره موبایل معتبر وارد کنید (مثلاً 09123456789).' });
+
+  sendTestSMS(String(to), text ? String(text).slice(0, 500) : undefined)
+    .then(result => {
+      if (result.ok) res.json({ ok: true, message: 'پیامک آزمایشی ارسال شد.', simulated: !!result.simulated });
       else res.status(502).json({ error: result.error || 'خطا در ارسال پیامک.' });
-    });
+    })
+    .catch(err => res.status(500).json({ error: err.message }));
+});
+
+// ۳) ارسال پیامک تبلیغاتی (انبوه)
+// audience: customers | manual   —  numbers: آرایه یا رشتهٔ شماره‌ها (برای manual)
+router.post('/sms/campaign', requirePerm('settings.manage'), (req, res) => {
+  const b = req.body || {};
+  const { sendAdvertisingSMS, isValidMobile, normalizeMobile } = require('../sms');
+  const message = String(b.message || '').trim();
+  if (!message) return res.status(400).json({ error: 'متن پیامک تبلیغاتی الزامی است.' });
+  if (message.length > 600) return res.status(400).json({ error: 'متن پیامک نباید بیش از ۶۰۰ کاراکتر باشد.' });
+
+  let numbers = [];
+  if (b.audience === 'manual') {
+    const raw = Array.isArray(b.numbers) ? b.numbers : String(b.numbers || '').split(/[\s,،;\n]+/);
+    numbers = raw.map(n => normalizeMobile(n)).filter(isValidMobile);
+  } else {
+    // همهٔ مشتریان دارای شماره موبایل
+    const rows = db.prepare(`
+      SELECT DISTINCT phone FROM users
+      WHERE phone IS NOT NULL AND phone != ''
+    `).all();
+    numbers = rows.map(r => normalizeMobile(r.phone)).filter(isValidMobile);
+  }
+
+  numbers = [...new Set(numbers)];
+  if (!numbers.length) return res.status(400).json({ error: 'هیچ شماره موبایل معتبری برای ارسال یافت نشد.' });
+
+  sendAdvertisingSMS(numbers, message)
+    .then(result => {
+      auditLog(req.user.id, 'sms.campaign_sent', 'sms', null, req);
+      if (result.ok) {
+        res.json({
+          ok: true,
+          message: `پیامک تبلیغاتی برای ${result.sent} شماره ارسال شد${result.failed ? ` (${result.failed} ناموفق)` : ''}.`,
+          total: result.total, sent: result.sent, failed: result.failed, simulated: !!result.simulated,
+        });
+      } else {
+        res.status(502).json({ error: result.error || 'ارسال پیامک تبلیغاتی ناموفق بود.' });
+      }
+    })
+    .catch(err => res.status(500).json({ error: err.message }));
+});
+
+// تعداد مخاطبان تبلیغاتی (مشتریان دارای موبایل)
+router.get('/sms/audience', requirePerm('settings.manage'), (req, res) => {
+  const { isValidMobile, normalizeMobile } = require('../sms');
+  const rows = db.prepare("SELECT DISTINCT phone FROM users WHERE phone IS NOT NULL AND phone != ''").all();
+  const count = new Set(rows.map(r => normalizeMobile(r.phone)).filter(isValidMobile)).size;
+  res.json({ count });
 });
 
 // ============================================================

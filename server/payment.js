@@ -1,214 +1,283 @@
-// server/payment.js — ماژول پرداخت بانک سامان (Saman Sepehr API)
-// مستندات: https://developer.sep.ir
+// server/payment.js — لایهٔ یکپارچهٔ درگاه‌های پرداخت
+// درگاه‌های پشتیبانی‌شده: سامان (سپ)، زرین‌پال، بانک ملی (سداد)، بانک صادرات (سپهر)
 //
-// نحوه استفاده:
-//   1. اکانت سامان را فعال کنید و Terminal ID دریافت کنید
-//   2. در فایل .env مقدار SAMAN_TERMINAL_ID را تنظیم کنید
-//   3. برای تست از sandbox استفاده کنید (SAMAN_SANDBOX=true)
+// تنظیمات از «پنل مدیریت → تنظیمات → پرداخت» خوانده می‌شود و در صورت خالی بودن،
+// از متغیرهای محیطی (.env) استفاده می‌گردد.
+const crypto = require('crypto');
+const { getSetting } = require('./db');
 
-const https = require('https');
-const http = require('http');
+const saman = require('./gateways/saman');
+const zarinpal = require('./gateways/zarinpal');
+const melli = require('./gateways/melli');
+const saderat = require('./gateways/saderat');
 
-// ---------- تنظیمات ----------
-const SAMAN_TERMINAL_ID = process.env.SAMAN_TERMINAL_ID || '';
-const SAMAN_SANDBOX = process.env.SAMAN_SANDBOX === 'true';
-const SAMAN_CALLBACK_URL = process.env.SAMAN_CALLBACK_URL || 'http://localhost:3000/api/payments/callback';
+const GATEWAYS = { saman, zarinpal, melli, saderat };
+const GATEWAY_KEYS = Object.keys(GATEWAYS);
 
-// آدرس‌های API
-const BASE_URL = SAMAN_SANDBOX
-  ? 'https://sep.shaparak.ir/sandbox/api/v1'
-  : 'https://sep.shaparak.ir/api/v1';
+const DEFAULT_CALLBACK = '/api/payments/callback';
 
-// ---------- درخواست HTTP ----------
-function httpRequest(url, method, data, headers = {}) {
-  return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
-    const isHttps = urlObj.protocol === 'https:';
-    const options = {
-      hostname: urlObj.hostname,
-      port: urlObj.port || (isHttps ? 443 : 80),
-      path: urlObj.pathname + urlObj.search,
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-      },
-    };
-
-    const client = isHttps ? https : http;
-    const req = client.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => { body += chunk; });
-      res.on('end', () => {
-        try {
-          resolve({ status: res.statusCode, data: JSON.parse(body) });
-        } catch {
-          resolve({ status: res.statusCode, data: body });
-        }
-      });
-    });
-
-    req.on('error', reject);
-    if (data) req.write(JSON.stringify(data));
-    req.end();
-  });
+// ============================================================
+// تنظیمات
+// ============================================================
+function envBool(v, fallback = false) {
+  if (v === undefined || v === '') return fallback;
+  return String(v).toLowerCase() === 'true' || v === '1';
 }
 
-// ---------- دریافت توکن از سامان ----------
-async function getToken() {
-  try {
-    const res = await httpRequest(`${BASE_URL}/token`, 'POST', {
-      terminalId: SAMAN_TERMINAL_ID,
-    });
+function paymentSettings() {
+  return getSetting('payment', {}) || {};
+}
 
-    if (res.status === 200 && res.data?.token) {
-      return res.data.token;
-    }
+// آدرس بازگشت از بانک
+function callbackBaseUrl() {
+  const s = paymentSettings();
+  return (s.callback_url
+    || process.env.PAYMENT_CALLBACK_URL
+    || process.env.SAMAN_CALLBACK_URL
+    || ((process.env.SITE_URL || 'http://localhost:3000').replace(/\/+$/, '') + DEFAULT_CALLBACK)).trim();
+}
 
-    console.error('[Saman] Token error:', res.data);
-    throw new Error('خطا در دریافت توکن سامان');
-  } catch (err) {
-    console.error('[Saman] Token request failed:', err.message);
-    throw err;
+// تنظیمات یک درگاه مشخص (دیتابیس ← env)
+function gatewayConfig(key) {
+  const s = paymentSettings();
+  const g = (s.gateways && s.gateways[key]) || {};
+  const callback_url = callbackBaseUrl();
+
+  switch (key) {
+    case 'saman':
+      return {
+        callback_url,
+        terminal_id: (g.terminal_id || process.env.SAMAN_TERMINAL_ID || '').trim(),
+        sandbox: g.sandbox !== undefined ? !!g.sandbox : envBool(process.env.SAMAN_SANDBOX),
+      };
+    case 'zarinpal':
+      return {
+        callback_url,
+        merchant_id: (g.merchant_id || process.env.ZARINPAL_MERCHANT_ID || '').trim(),
+        sandbox: g.sandbox !== undefined ? !!g.sandbox : envBool(process.env.ZARINPAL_SANDBOX),
+      };
+    case 'melli':
+      return {
+        callback_url,
+        merchant_id: (g.merchant_id || process.env.MELLI_MERCHANT_ID || '').trim(),
+        terminal_id: (g.terminal_id || process.env.MELLI_TERMINAL_ID || '').trim(),
+        terminal_key: (g.terminal_key || process.env.MELLI_TERMINAL_KEY || '').trim(),
+      };
+    case 'saderat':
+      return {
+        callback_url,
+        terminal_id: (g.terminal_id || process.env.SADERAT_TERMINAL_ID || '').trim(),
+        host: (g.host || process.env.SADERAT_HOST || 'sepehr.shaparak.ir').trim(),
+      };
+    default:
+      return { callback_url };
   }
 }
 
-// ---------- ایجاد لینک پرداخت ----------
-async function createPayment({ amount, orderId, orderCode, description, mobile, email }) {
-  if (!SAMAN_TERMINAL_ID) {
+function isGatewayConfigured(key) {
+  const gw = GATEWAYS[key];
+  if (!gw) return false;
+  try { return !!gw.configured(gatewayConfig(key)); } catch { return false; }
+}
+
+// درگاه فعال (انتخاب‌شده در پنل مدیریت) — اگر تنظیم نشده باشد،
+// اولین درگاهِ پیکربندی‌شده انتخاب می‌شود.
+function activeGatewayKey() {
+  const s = paymentSettings();
+  const chosen = s.gateway || process.env.PAYMENT_GATEWAY || '';
+  if (GATEWAYS[chosen] && isGatewayConfigured(chosen)) return chosen;
+  return GATEWAY_KEYS.find(isGatewayConfigured) || (GATEWAYS[chosen] ? chosen : 'saman');
+}
+
+// فهرست درگاه‌ها برای پنل مدیریت
+function listGateways() {
+  const active = activeGatewayKey();
+  return GATEWAY_KEYS.map(key => ({
+    key,
+    label: GATEWAYS[key].label,
+    fields: GATEWAYS[key].fields(),
+    configured: isGatewayConfigured(key),
+    active: key === active,
+  }));
+}
+
+// آیا پرداخت آنلاین قابل استفاده است؟
+function isOnlineAvailable() {
+  return GATEWAY_KEYS.some(isGatewayConfigured);
+}
+
+function gatewayLabel(key) {
+  return GATEWAYS[key]?.label || key || '';
+}
+
+// ============================================================
+// مسیر واسط برای درگاه‌هایی که نیاز به POST فرم دارند (سپهر)
+// ============================================================
+const pendingForms = new Map();
+const FORM_TTL_MS = 20 * 60 * 1000;
+
+function storeFormPost(formPost) {
+  const id = crypto.randomBytes(16).toString('hex');
+  pendingForms.set(id, { formPost, expires: Date.now() + FORM_TTL_MS });
+  // پاکسازی موارد منقضی
+  for (const [k, v] of pendingForms) if (v.expires < Date.now()) pendingForms.delete(k);
+  return id;
+}
+
+function takeFormPost(id) {
+  const item = pendingForms.get(id);
+  if (!item) return null;
+  if (item.expires < Date.now()) { pendingForms.delete(id); return null; }
+  return item.formPost;
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// صفحهٔ HTML با فرم خودکار برای انتقال کاربر به درگاه
+function renderRedirectPage(formPost) {
+  const inputs = Object.entries(formPost.fields || {})
+    .map(([k, v]) => `<input type="hidden" name="${escapeHtml(k)}" value="${escapeHtml(v)}">`).join('\n    ');
+  return `<!DOCTYPE html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>انتقال به درگاه پرداخت</title>
+<style>body{font-family:Tahoma,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;color:#334155}</style>
+</head><body>
+  <div style="text-align:center">
+    <p>در حال انتقال به درگاه بانک…</p>
+    <p style="font-size:12px;color:#64748b">اگر به‌صورت خودکار منتقل نشدید، دکمهٔ زیر را بزنید.</p>
+    <form id="gw" method="POST" action="${escapeHtml(formPost.action)}">
+    ${inputs}
+      <button type="submit" style="padding:10px 22px;border-radius:10px;border:0;background:#2563eb;color:#fff;cursor:pointer">انتقال به درگاه</button>
+    </form>
+  </div>
+  <script>document.getElementById('gw').submit();</script>
+</body></html>`;
+}
+
+// ============================================================
+// ساخت پرداخت
+// ============================================================
+// amount به «تومان» است و در همهٔ درگاه‌ها به ریال تبدیل می‌شود.
+async function createPayment({ amount, orderId, orderCode, description, mobile, email, gateway }) {
+  const key = gateway && GATEWAYS[gateway] ? gateway : activeGatewayKey();
+  const gw = GATEWAYS[key];
+  if (!gw) return { ok: false, error: 'درگاه پرداخت نامعتبر است.', errorCode: 'INVALID_GATEWAY' };
+
+  const cfg = gatewayConfig(key);
+  if (!gw.configured(cfg)) {
     return {
       ok: false,
-      error: 'SAMAN_TERMINAL_ID تنظیم نشده است. لطفاً فایل .env را بررسی کنید.',
-      errorCode: 'NO_TERMINAL_ID',
+      gateway: key,
+      error: `اطلاعات درگاه «${gw.label}» تنظیم نشده است. لطفاً تنظیمات پرداخت را کامل کنید.`,
+      errorCode: 'NOT_CONFIGURED',
     };
   }
 
-  // دریافت توکن
-  const token = await getToken();
+  const base = cfg.callback_url;
+  const sep = base.includes('?') ? '&' : '?';
+  const callbackUrl = `${base}${sep}gw=${key}&order=${encodeURIComponent(orderCode)}`;
 
-  // ساخت URL callback
-  const callbackUrl = `${SAMAN_CALLBACK_URL}?order=${encodeURIComponent(orderCode)}`;
-
-  // درخواست پرداخت
-  const res = await httpRequest(`${BASE_URL}/payments`, 'POST', {
-    terminalId: SAMAN_TERMINAL_ID,
-    amount: amount * 10, // تبدیل تومان به ریال (Saman API ریال می‌خواهد)
-    callbackUrl,
-    orderId: String(orderId),
-    orderCode: String(orderCode),
-    description: description || `پرداخت سفارش ${orderCode}`,
-    mobile: mobile || undefined,
-    email: email || undefined,
-  }, {
-    Authorization: `Bearer ${token}`,
-  });
-
-  if (res.status === 200 && res.data?.paymentUrl) {
-    return {
-      ok: true,
-      paymentUrl: res.data.paymentUrl,
-      token: res.data.token || token,
-      fee: res.data.fee || 0,
-    };
-  }
-
-  console.error('[Saman] Payment creation failed:', res.data);
-  return {
-    ok: false,
-    error: res.data?.message || res.data?.errorCode || 'خطا در ایجاد لینک پرداخت',
-    errorCode: res.data?.errorCode,
-  };
-}
-
-// ---------- تایید پرداخت ----------
-// نکته: توکن دسترسی (access token) باید از سمت سرور و از endpoint «/token»
-// گرفته شود؛ نباید از مقدار RRN/RefNum برگشتی بانک به‌عنوان توکن استفاده کرد.
-async function verifyPayment({ RRN }) {
-  if (!SAMAN_TERMINAL_ID) {
-    throw new Error('SAMAN_TERMINAL_ID تنظیم نشده است.');
-  }
-
-  // دریافت توکن دسترسی معتبر (سرور به سرور)
-  const token = await getToken();
-
-  const res = await httpRequest(`${BASE_URL}/payments/${RRN}/verify`, 'POST', {
-    terminalId: SAMAN_TERMINAL_ID,
-  }, {
-    Authorization: `Bearer ${token}`,
-  });
-
-  if (res.status === 200 && res.data?.verified === true) {
-    return {
-      ok: true,
-      RRN: res.data.RRN || RRN,
-      cardNumber: res.data.cardNumber || '',
-      amount: res.data.amount || 0,
-    };
-  }
-
-  console.error('[Saman] Verification failed:', res.data);
-  return {
-    ok: false,
-    error: res.data?.message || res.data?.errorCode || 'تایید پرداخت ناموفق',
-    errorCode: res.data?.errorCode,
-  };
-}
-
-// ---------- وضعیت خطاها ----------
-const ERROR_MESSAGES = {
-  '-1': 'پارامترهای ارسالی نامعتبر هستند',
-  '-2': 'ترمینال یافت نشد',
-  '-3': 'پرداخت تایید نشد',
-  '-4': 'تعداد درخواست‌ها از حد مجاز فراتر رفته',
-  '-5': 'مبلغ پرداخت نامعتبر است',
-  '-6': 'درخواست منقضی شده',
-  '-7': 'خطای سمت سرور',
-  '-8': 'نسخه API نامعتبر',
-  '-9': '/callbackDomain نامعتبر',
-  '-10': 'توکن منقضی شده',
-  '-11': 'درخواست تکراری',
-  '-12': 'IP ترمینال متفاوت است',
-  '-13': 'امکان پرداخت با این مبلغ وجود ندارد',
-  '-14': 'پرداخت قبلاً برگردانده شده',
-  '-15': 'پرداخت نامعتبر',
-  '-16': 'پرداخت با موفقیت برگردانده شد',
-  '-17': 'خطا در برگشت وجه',
-  '-18': 'مبلغ درخواستی با مبلغ پرداختی متفاوت',
-  '-19': 'خطای احراز هویت',
-  '-20': 'پرداخت انجام شده',
-  '-21': 'پرداخت یافت نشد',
-  '-22': 'پرداخت در حالت بررسی است',
-  '-23': 'خطا در ایجاد پرداخت',
-};
-
-function getErrorMessage(code) {
-  return ERROR_MESSAGES[String(code)] || `خطای ناشناخته (${code})`;
-}
-
-// ---------- تست اتصال ----------
-async function testConnection() {
-  if (!SAMAN_TERMINAL_ID) {
-    return { ok: false, message: 'SAMAN_TERMINAL_ID تنظیم نشده است.' };
-  }
   try {
-    const token = await getToken();
-    return {
-      ok: true,
-      message: `اتصال با سامان ${SAMAN_SANDBOX ? '(sandbox)' : '(تولید)'} برقرار است.`,
-      sandbox: SAMAN_SANDBOX,
-      terminalId: SAMAN_TERMINAL_ID.slice(0, 4) + '****',
-    };
+    const result = await gw.createPayment(cfg, {
+      amountRial: Math.round(Number(amount) * 10),
+      amountToman: Number(amount),
+      orderId,
+      orderCode,
+      description,
+      mobile,
+      email,
+      callbackUrl,
+    });
+
+    if (!result.ok) return { ...result, gateway: key };
+
+    // درگاه‌های فرم‌محور (سپهر) از مسیر واسط سرور عبور می‌کنند
+    let paymentUrl = result.paymentUrl;
+    if (!paymentUrl && result.formPost) {
+      paymentUrl = `/api/payments/redirect/${storeFormPost(result.formPost)}`;
+    }
+
+    return { ok: true, gateway: key, gatewayLabel: gw.label, paymentUrl, token: result.authority || '' };
   } catch (err) {
-    return { ok: false, message: `خطا در اتصال: ${err.message}` };
+    console.error(`[Payment/${key}] createPayment error:`, err.message);
+    return { ok: false, gateway: key, error: err.message || 'خطا در اتصال به درگاه پرداخت' };
+  }
+}
+
+// ============================================================
+// تایید پرداخت
+// ============================================================
+async function verifyPayment({ gateway, params = {}, amount }) {
+  const key = gateway && GATEWAYS[gateway] ? gateway : activeGatewayKey();
+  const gw = GATEWAYS[key];
+  if (!gw) return { ok: false, error: 'درگاه پرداخت نامعتبر است.' };
+
+  const cfg = gatewayConfig(key);
+  try {
+    const result = await gw.verifyPayment(cfg, {
+      params,
+      amountRial: amount !== undefined ? Math.round(Number(amount) * 10) : undefined,
+    });
+    return { ...result, gateway: key };
+  } catch (err) {
+    console.error(`[Payment/${key}] verifyPayment error:`, err.message);
+    return { ok: false, gateway: key, error: err.message || 'خطا در تایید پرداخت' };
+  }
+}
+
+// ============================================================
+// تفسیر کال‌بک بانک
+// ============================================================
+function parseCallback(req) {
+  const all = { ...(req.query || {}), ...(req.body || {}) };
+  let key = String(all.gw || all.gateway || '').trim();
+  if (!GATEWAYS[key]) {
+    // تشخیص خودکار درگاه از روی پارامترهای بازگشتی
+    if (all.digitalreceipt !== undefined || all.respcode !== undefined) key = 'saderat';
+    else if (all.Authority !== undefined || all.authority !== undefined) key = 'zarinpal';
+    else if (all.ResCode !== undefined && (all.token !== undefined || all.Token !== undefined)) key = 'melli';
+    else if (all.RRN !== undefined || all.RefNum !== undefined) key = 'saman';
+    else key = activeGatewayKey();
+  }
+  const parsed = GATEWAYS[key].parseCallback(req);
+  return { ...parsed, gateway: key, gatewayLabel: GATEWAYS[key].label };
+}
+
+function getErrorMessage(code, gateway) {
+  const key = gateway && GATEWAYS[gateway] ? gateway : activeGatewayKey();
+  return GATEWAYS[key].errorMessage(code);
+}
+
+// ============================================================
+// تست اتصال
+// ============================================================
+async function testConnection(gateway) {
+  const key = gateway && GATEWAYS[gateway] ? gateway : activeGatewayKey();
+  const gw = GATEWAYS[key];
+  if (!gw) return { ok: false, message: 'درگاه پرداخت نامعتبر است.' };
+  try {
+    const r = await gw.testConnection(gatewayConfig(key));
+    return { ...r, gateway: key, label: gw.label };
+  } catch (err) {
+    return { ok: false, gateway: key, label: gw.label, message: err.message };
   }
 }
 
 module.exports = {
+  GATEWAY_KEYS,
   createPayment,
   verifyPayment,
+  parseCallback,
   getErrorMessage,
   testConnection,
-  SAMAN_SANDBOX,
-  SAMAN_TERMINAL_ID,
-  SAMAN_CALLBACK_URL,
+  listGateways,
+  activeGatewayKey,
+  isGatewayConfigured,
+  isOnlineAvailable,
+  gatewayLabel,
+  gatewayConfig,
+  callbackBaseUrl,
+  takeFormPost,
+  renderRedirectPage,
 };

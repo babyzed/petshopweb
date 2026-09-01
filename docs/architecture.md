@@ -43,7 +43,15 @@ petshop/
 │   ├── seed.js             # داده‌های اولیه (محصول، بنر، مقاله، تنظیمات...)
 │   ├── auth.js             # JWT + میدل‌ور احراز هویت و دسترسی
 │   ├── permissions.js      # کاتالوگ دسترسی‌ها (Permission Catalog)
-│   ├── upload.js           # کانفیگ Multer
+│   ├── upload.js           # کانفیگ Multer + تبدیل خودکار تصاویر به WebP
+│   ├── payment.js          # لایهٔ یکپارچهٔ درگاه‌ها (انتخاب درگاه، کال‌بک، تایید)
+│   ├── gateways/           # پیاده‌سازی درگاه‌ها
+│   │   ├── saman.js        # بانک سامان (سپ)
+│   │   ├── zarinpal.js     # زرین‌پال
+│   │   ├── melli.js        # بانک ملی (سداد)
+│   │   ├── saderat.js      # بانک صادرات (سپهر)
+│   │   └── http.js         # کمک‌کنندهٔ HTTP مشترک
+│   ├── sms.js              # سرویس پیامک آموت (کد تایید / تستی / تبلیغات)
 │   └── routes/
 │       ├── auth.js         # ورود/ثبت‌نام/فراموشی رمز/پروفایل
 │       ├── public.js       # API عمومی فروشگاه (خانه، محصولات، مقالات...)
@@ -58,7 +66,8 @@ petshop/
 │   ├── index.html
 │   ├── css/admin.css
 │   └── js/ (api, router, pages/*)
-├── uploads/                # تصاویر آپلودی مدیر
+├── uploads/                # تصاویر آپلودی مدیر (همیشه WebP)
+├── scripts/                # ابزارها (convert-images-to-webp.js، backup.sh)
 ├── data/petshop.db         # دیتابیس
 ├── docs/architecture.md    # همین سند
 └── README.md
@@ -242,3 +251,37 @@ testimonials.manage · pages.manage · settings.manage · roles.manage
 6. ✅ پنل مدیریت: محتوا (بنر، مقاله، خانه، صفحات، FAQ، نظرات)
 7. ✅ تنظیمات + نقش‌ها و دسترسی‌ها
 8. ✅ تست سراسری + رفع خطا + بهینه‌سازی
+
+
+---
+
+## ۱۵. تصاویر، پرداخت و پیامک
+
+### تصاویر — فقط WebP
+- ورودی‌های مجاز آپلود: JPG/PNG/WebP/AVIF/GIF/BMP/TIFF (حداکثر ۵ مگابایت)
+- میدل‌ور `toWebp()` بعد از Multer اجرا می‌شود: تغییر اندازه تا حداکثر ۱۶۰۰px، کیفیت ۸۲، خروجی `.webp` و **حذف فایل اصلی**
+- تبدیل تصاویر قدیمی و اصلاح مسیرها در دیتابیس: `npm run images:webp`
+
+### درگاه‌های پرداخت
+همهٔ درگاه‌ها یک قرارداد مشترک دارند (`createPayment` / `verifyPayment` / `parseCallback` / `testConnection`)
+و `server/payment.js` بین آن‌ها مسیریابی می‌کند.
+
+| درگاه | کلید | ایجاد تراکنش | تایید |
+|---|---|---|---|
+| بانک سامان | `saman` | `POST /api/v1/payments` (بعد از `/token`) | `POST /payments/{RRN}/verify` |
+| زرین‌پال | `zarinpal` | `pg/v4/payment/request.json` | `pg/v4/payment/verify.json` |
+| بانک ملی (سداد) | `melli` | `VPG/api/v0/Request/PaymentRequest` (امضای TripleDES) | `VPG/api/v0/Advice/Verify` |
+| بانک صادرات (سپهر) | `saderat` | `V1/PeymentApi/GetToken` + فرم POST | `V1/PeymentApi/Advice` |
+
+- مبلغ سفارش در دیتابیس **تومان** است و هنگام ارسال به بانک ×۱۰ (ریال) می‌شود.
+- کال‌بک مشترک: `GET|POST /api/payments/callback?gw=<key>&order=<code>` — Idempotent، با بررسی تطابق مبلغ و ثبت رکورد در جدول `payments`.
+- درگاه‌های فرم‌محور (سپهر) از مسیر واسط `GET /api/payments/redirect/:id` عبور می‌کنند که فرم POST خودکار رندر می‌کند.
+
+### سرویس پیامک آموت (AmootSMS)
+| API | متد آموت | کاربرد |
+|---|---|---|
+| `sendVerificationCode()` | `SendOTP` / `SendWithPattern` | کد تایید و بازیابی رمز |
+| `sendTestSMS()` / `sendSMS()` | `SendSimple` | پیامک تستی و اطلاع‌رسانی سفارش‌ها |
+| `sendAdvertisingSMS()` | `SendSimple` روی خط تبلیغاتی | ارسال انبوه تبلیغاتی (چانک ۱۰۰تایی + افزودن «لغو۱۱») |
+
+اگر توکن تنظیم نشده باشد، پیامک‌ها فقط در لاگ سرور ثبت می‌شوند (حالت نمایشی) و جریان سفارش متوقف نمی‌شود.

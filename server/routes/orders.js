@@ -4,7 +4,10 @@ const express = require('express');
 const { db, getSetting } = require('../db');
 const { authRequired, requirePerm, optionalAuth, signToken, withRole } = require('../auth');
 const { ensureCustomerUser } = require('../customer-account');
-const { createPayment, verifyPayment, getErrorMessage, testConnection, SAMAN_SANDBOX } = require('../payment');
+const {
+  createPayment, verifyPayment, parseCallback, getErrorMessage, testConnection,
+  listGateways, activeGatewayKey, isOnlineAvailable, takeFormPost, renderRedirectPage,
+} = require('../payment');
 const { sendOrderConfirmation, sendOrderShipped } = require('../email');
 const { sendOrderSMS } = require('../sms');
 
@@ -324,8 +327,8 @@ router.post('/orders', optionalAuth, (req, res) => {
         if (result.ok) {
           // ذخیره رکورد پرداخت
           db.prepare('INSERT INTO payments (order_id, user_id, amount, gateway, authority, status) VALUES (?,?,?,?,?,?)')
-            .run(orderId, userId, order.total, 'saman', '', 'pending');
-          res.json({ ok: true, order, needsPayment: true, paymentUrl: result.paymentUrl, message: 'سفارش ثبت شد. در حال انتقال به درگاه پرداخت...', accountCreated: !!(autoAccount && autoAccount.created), token: sessionToken || undefined, user: sessionUser || undefined });
+            .run(orderId, userId, order.total, result.gateway || 'unknown', result.token || '', 'pending');
+          res.json({ ok: true, order, needsPayment: true, paymentUrl: result.paymentUrl, gateway: result.gateway, gatewayLabel: result.gatewayLabel, message: `سفارش ثبت شد. در حال انتقال به درگاه ${result.gatewayLabel || 'پرداخت'}...`, accountCreated: !!(autoAccount && autoAccount.created), token: sessionToken || undefined, user: sessionUser || undefined });
         } else {
           // درگاه پرداخت تنظیم نشده — سفارش ثبت می‌شود ولی پرداخت pending می‌ماند
           // هیچ پرداخت جعلی ثبت نمی‌شود
@@ -385,14 +388,14 @@ router.post('/payments/create', (req, res) => {
       // به‌روزرسانی یا ایجاد رکورد پرداخت
       const existing = db.prepare("SELECT id FROM payments WHERE order_id = ? AND status = 'pending'").get(order.id);
       if (existing) {
-        db.prepare("UPDATE payments SET authority = ? WHERE id = ?").run(result.token || '', existing.id);
+        db.prepare("UPDATE payments SET authority = ?, gateway = ? WHERE id = ?").run(result.token || '', result.gateway || 'unknown', existing.id);
       } else {
         db.prepare('INSERT INTO payments (order_id, user_id, amount, gateway, authority, status) VALUES (?,?,?,?,?,?)')
-          .run(order.id, order.user_id, order.total, 'saman', result.token || '', 'pending');
+          .run(order.id, order.user_id, order.total, result.gateway || 'unknown', result.token || '', 'pending');
       }
-      res.json({ ok: true, paymentUrl: result.paymentUrl });
+      res.json({ ok: true, paymentUrl: result.paymentUrl, gateway: result.gateway, gatewayLabel: result.gatewayLabel });
     } else {
-      if (result.error?.includes('SAMAN_TERMINAL_ID') && process.env.NODE_ENV !== 'production') {
+      if (result.errorCode === 'NOT_CONFIGURED' && process.env.NODE_ENV !== 'production') {
         res.json({ ok: true, mockPayment: true, message: 'پرداخت نمایشی (فقط توسعه)' });
       } else {
         res.status(502).json({ ok: false, error: result.error || 'خطا در اتصال به درگاه پرداخت' });
@@ -405,55 +408,76 @@ router.post('/payments/create', (req, res) => {
 });
 
 // ============================================================
-// Callback از بانک — Idempotent
+// مسیر واسط انتقال به درگاه‌هایی که فرم POST می‌خواهند (بانک صادرات/سپهر)
 // ============================================================
-router.get('/payments/callback', (req, res) => {
-  const { order, RefNum, RRN, Status } = req.query;
-  // Sepehr REST از RRN استفاده می‌کند؛ RefNum برای سازگاری با SOAP قدیمی نگه داشته می‌شود
-  const rrn = (RRN || RefNum || '').trim();
-
-  if (!order || !rrn) {
-    return res.redirect('/#/payment-result?status=error&message=اطلاعات پرداخت ناقص است');
+router.get('/payments/redirect/:id', (req, res) => {
+  const formPost = takeFormPost(req.params.id);
+  if (!formPost) {
+    return res.redirect('/#/payment-result?status=error&message=' + encodeURIComponent('لینک پرداخت منقضی شده است. دوباره تلاش کنید.'));
   }
+  res.set('Content-Type', 'text/html; charset=utf-8').send(renderRedirectPage(formPost));
+});
 
-  const dbOrder = db.prepare("SELECT * FROM orders WHERE code = ?").get(order);
+// ============================================================
+// Callback از بانک — Idempotent و مشترک بین همهٔ درگاه‌ها
+// (برخی درگاه‌ها GET و برخی POST برمی‌گردانند)
+// ============================================================
+function handlePaymentCallback(req, res) {
+  const cb = parseCallback(req);
+
+  // یافتن سفارش: ابتدا با کد سفارش، سپس با شناسهٔ عددی سفارش
+  let dbOrder = null;
+  if (cb.orderCode) dbOrder = db.prepare('SELECT * FROM orders WHERE code = ?').get(String(cb.orderCode).trim());
+  if (!dbOrder && cb.orderId) dbOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(cb.orderId);
   if (!dbOrder) {
-    return res.redirect('/#/payment-result?status=error&message=سفارش یافت نشد');
+    return res.redirect('/#/payment-result?status=error&message=' + encodeURIComponent('سفارش یافت نشد'));
   }
+
+  const orderCode = dbOrder.code;
 
   // === IDEMPOTENCY: اگر قبلاً پرداخت شده، دوباره پردازش نکن ===
   if (dbOrder.payment_status === 'paid') {
-    return res.redirect(`/#/payment-result?status=success&order=${order}&RRN=${rrn}&message=پرداخت قبلاً تایید شده`);
+    return res.redirect(`/#/payment-result?status=success&order=${orderCode}&RRN=${encodeURIComponent(cb.ref || '')}&message=${encodeURIComponent('پرداخت قبلاً تایید شده')}`);
   }
 
-  // بررسی وضعیت پرداخت از بانک
-  if (String(Status) !== '0') {
-    const errorMsg = getErrorMessage(String(Status));
-    // ثبت رکورد پرداخت ناموفق
+  // بررسی وضعیت بازگشتی بانک
+  if (!cb.ok) {
+    const errorMsg = getErrorMessage(cb.statusCode, cb.gateway);
     db.prepare('INSERT INTO payments (order_id, user_id, amount, gateway, authority, status, raw_response) VALUES (?,?,?,?,?,?,?)')
-      .run(dbOrder.id, dbOrder.user_id, dbOrder.total, 'saman', rrn, 'failed', JSON.stringify({ Status, error: errorMsg }));
-    return res.redirect(`/#/payment-result?status=failed&message=${encodeURIComponent(errorMsg)}&order=${order}`);
+      .run(dbOrder.id, dbOrder.user_id, dbOrder.total, cb.gateway, String(cb.ref || ''), 'failed', JSON.stringify({ status: cb.statusCode, error: errorMsg }));
+    return res.redirect(`/#/payment-result?status=failed&message=${encodeURIComponent(errorMsg)}&order=${orderCode}`);
   }
 
   // تایید پرداخت با بانک
-  verifyPayment({ RRN: rrn }).then(result => {
+  verifyPayment({ gateway: cb.gateway, params: cb.params, amount: dbOrder.total }).then(result => {
     if (result.ok) {
+      const refId = String(result.refId || cb.ref || '');
+
+      // بررسی مبلغ (در صورتی که بانک مبلغ را برگرداند)
+      if (result.amountRial && Math.round(dbOrder.total * 10) !== Number(result.amountRial)) {
+        console.error(`[Payment Callback] Amount mismatch for ${orderCode}: expected ${dbOrder.total * 10} got ${result.amountRial}`);
+        db.prepare('INSERT INTO payments (order_id, user_id, amount, gateway, authority, status, raw_response) VALUES (?,?,?,?,?,?,?)')
+          .run(dbOrder.id, dbOrder.user_id, dbOrder.total, cb.gateway, refId, 'failed', JSON.stringify({ error: 'amount_mismatch', raw: result.raw || null }));
+        return res.redirect(`/#/payment-result?status=failed&order=${orderCode}&message=${encodeURIComponent('مبلغ پرداخت‌شده با مبلغ سفارش مطابقت ندارد')}`);
+      }
+
       // === TRANSACTION: به‌روزرسانی اتمیک وضعیت ===
       db.transaction(() => {
         // دوباره بررسی idempotency داخل Transaction
-        const current = db.prepare("SELECT payment_status FROM orders WHERE id = ?").get(dbOrder.id);
+        const current = db.prepare('SELECT payment_status FROM orders WHERE id = ?').get(dbOrder.id);
         if (current.payment_status === 'paid') return; // قبلاً پرداخت شده
 
-        // به‌روزرسانی سفارش
         db.prepare("UPDATE orders SET payment_status = 'paid', status = 'paid', updated_at = datetime('now') WHERE id = ? AND payment_status = 'unpaid'")
           .run(dbOrder.id);
 
-        // به‌روزرسانی رکورد پرداخت
-        db.prepare("UPDATE payments SET status = 'paid', transaction_id = ?, verified_at = datetime('now') WHERE order_id = ? AND status = 'pending'")
-          .run(rrn || result.RRN || '', dbOrder.id);
+        const updated = db.prepare("UPDATE payments SET status = 'paid', gateway = ?, transaction_id = ?, raw_response = ?, verified_at = datetime('now') WHERE order_id = ? AND status = 'pending'")
+          .run(cb.gateway, refId, JSON.stringify(result.raw || {}), dbOrder.id);
+        if (!updated.changes) {
+          db.prepare("INSERT INTO payments (order_id, user_id, amount, gateway, authority, transaction_id, status, raw_response, verified_at) VALUES (?,?,?,?,?,?,'paid',?,datetime('now'))")
+            .run(dbOrder.id, dbOrder.user_id, dbOrder.total, cb.gateway, String(cb.ref || ''), refId, JSON.stringify(result.raw || {}));
+        }
 
-        // تاریخچه وضعیت
-        addOrderHistory(dbOrder.id, dbOrder.status, 'paid', dbOrder.user_id, 'پرداخت موفق بانکی');
+        addOrderHistory(dbOrder.id, dbOrder.status, 'paid', dbOrder.user_id, `پرداخت موفق بانکی (${cb.gatewayLabel})`);
       })();
 
       // اطلاع‌رسانی (غیرهمزمان)
@@ -462,22 +486,26 @@ router.get('/payments/callback', (req, res) => {
         sendOrderSMS(updatedOrder, 'paid').catch(() => {});
       });
 
-      res.redirect(`/#/payment-result?status=success&order=${order}&RRN=${rrn}`);
+      res.redirect(`/#/payment-result?status=success&order=${orderCode}&RRN=${encodeURIComponent(refId)}`);
     } else {
-      res.redirect(`/#/payment-result?status=failed&message=${encodeURIComponent(result.error || 'تایید پرداخت ناموفق')}&order=${order}`);
+      res.redirect(`/#/payment-result?status=failed&message=${encodeURIComponent(result.error || 'تایید پرداخت ناموفق')}&order=${orderCode}`);
     }
   }).catch(err => {
     console.error('[Payment Callback] Verify error:', err.message);
-    res.redirect(`/#/payment-result?status=error&message=${encodeURIComponent('خطا در تایید پرداخت')}&order=${order}`);
+    res.redirect(`/#/payment-result?status=error&message=${encodeURIComponent('خطا در تایید پرداخت')}&order=${orderCode}`);
   });
-});
+}
+
+router.get('/payments/callback', handlePaymentCallback);
+router.post('/payments/callback', handlePaymentCallback);
+
 
 // ============================================================
 // تایید پرداخت (API) — Idempotent
 // ============================================================
 router.post('/payments/verify', authRequired, (req, res) => {
-  const { orderCode, RRN } = req.body || {};
-  if (!orderCode || !RRN) return res.status(400).json({ error: 'اطلاعات ناقص است.' });
+  const { orderCode, RRN, gateway, params } = req.body || {};
+  if (!orderCode || (!RRN && !params)) return res.status(400).json({ error: 'اطلاعات ناقص است.' });
 
   const order = db.prepare("SELECT * FROM orders WHERE code = ?").get(orderCode);
   if (!order) return res.status(404).json({ error: 'سفارش یافت نشد.' });
@@ -492,16 +520,24 @@ router.post('/payments/verify', authRequired, (req, res) => {
     return res.json({ ok: true, message: 'پرداخت قبلاً تایید شده.' });
   }
 
-  verifyPayment({ RRN }).then(result => {
+  // درگاه: از بدنهٔ درخواست یا از رکورد پرداخت ثبت‌شدهٔ سفارش
+  const payRow = db.prepare('SELECT gateway FROM payments WHERE order_id = ? ORDER BY id DESC LIMIT 1').get(order.id);
+  const gw = gateway || payRow?.gateway || undefined;
+  const verifyParams = params && typeof params === 'object'
+    ? params
+    : { RRN, RefNum: RRN, Authority: RRN, token: RRN, digitalreceipt: RRN };
+
+  verifyPayment({ gateway: gw, params: verifyParams, amount: order.total }).then(result => {
     if (result.ok) {
+      const refId = String(result.refId || RRN || '');
       db.transaction(() => {
         db.prepare("UPDATE orders SET payment_status = 'paid', status = 'paid', updated_at = datetime('now') WHERE id = ? AND payment_status = 'unpaid'")
           .run(order.id);
-        db.prepare("UPDATE payments SET status = 'paid', transaction_id = ?, verified_at = datetime('now') WHERE order_id = ? AND status = 'pending'")
-          .run(RRN || result.RRN || '', order.id);
+        db.prepare("UPDATE payments SET status = 'paid', gateway = ?, transaction_id = ?, verified_at = datetime('now') WHERE order_id = ? AND status = 'pending'")
+          .run(result.gateway, refId, order.id);
         addOrderHistory(order.id, order.status, 'paid', req.user.id, 'تایید پرداخت دستی');
       })();
-      res.json({ ok: true, message: 'پرداخت با موفقیت تایید شد.' });
+      res.json({ ok: true, message: 'پرداخت با موفقیت تایید شد.', gateway: result.gateway });
     } else {
       res.json({ ok: false, error: result.error || 'تایید پرداخت ناموفق' });
     }
@@ -542,8 +578,15 @@ router.post('/payments/mock', (req, res) => {
 // ============================================================
 // تست اتصال درگاه
 // ============================================================
+// ============================================================
+// تست اتصال درگاه‌ها
+// ============================================================
+router.get('/payments/gateways', authRequired, requirePerm('orders.manage'), (req, res) => {
+  res.json({ gateways: listGateways(), active: activeGatewayKey(), online_available: isOnlineAvailable() });
+});
+
 router.get('/payments/test', authRequired, requirePerm('orders.manage'), (req, res) => {
-  testConnection().then(result => {
+  testConnection(req.query.gateway).then(result => {
     res.json(result);
   }).catch(err => {
     res.json({ ok: false, message: err.message });

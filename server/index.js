@@ -117,6 +117,9 @@ try {
 
 app.use(express.json({ limit: '2mb' }));
 
+// بازگشت از درگاه‌های بانکی (سداد/سپهر) با POST و بدنهٔ form-urlencoded ارسال می‌شود
+app.use('/api/payments/callback', express.urlencoded({ extended: false, limit: '256kb' }));
+
 // ============================================================
 // Security Headers (Production-Grade)
 // ============================================================

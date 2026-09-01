@@ -190,9 +190,10 @@ router.post('/forgot', (req, res) => {
     // ارسال از طریق پیامک (برای حساب‌های موبایلی/مهمان) یا ایمیل (غیرهمزمان)
     setImmediate(() => {
       if (phone) {
-        const { sendSMS } = require('../sms');
-        sendSMS(phone, `پت‌شاپ\nکد بازیابی رمز عبور شما: ${code}\nاین کد تا ۱۵ دقیقه معتبر است.`)
-          .catch(() => {});
+        const { sendVerificationCode } = require('../sms');
+        sendVerificationCode(phone, code, {
+          text: `پت‌شاپ\nکد بازیابی رمز عبور شما: ${code}\nاین کد تا ۱۵ دقیقه معتبر است.`,
+        }).catch(() => {});
       } else {
         const { sendEmail } = require('../email');
         sendEmail(user.email, 'بازیابی رمز عبور — پت‌شاپ', `
