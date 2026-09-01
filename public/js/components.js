@@ -21,7 +21,7 @@ export function productCard(p, opts = {}) {
   <article class="p-card" data-slug="${p.slug}">
     <div class="p-media">
       <a href="#/product/${p.slug}">
-        <img src="${p.image || '/assets/img/placeholder.jpg'}" alt="${p.name}" loading="lazy">
+        <img src="${p.image || '/assets/img/placeholder.webp'}" alt="${p.name}" loading="lazy">
       </a>
       <div class="p-badges">
         ${off ? `<span class="p-badge off">٪${faNum(off)} تخفیف</span>` : ''}
@@ -58,7 +58,7 @@ export function productCardH(p) {
   return `
   <article class="p-card hz" data-slug="${p.slug}">
     <div class="p-media">
-      <a href="#/product/${p.slug}"><img src="${p.image || '/assets/img/placeholder.jpg'}" alt="${p.name}" loading="lazy"></a>
+      <a href="#/product/${p.slug}"><img src="${p.image || '/assets/img/placeholder.webp'}" alt="${p.name}" loading="lazy"></a>
       ${off ? `<span class="p-badge off">٪${faNum(off)}</span>` : ''}
       <button class="p-wish ${wished}" data-wish="${p.id}" aria-label="علاقه‌مندی"><span class="${wished ? 'heart-fill' : ''}">${ic('heart', 15)}</span></button>
     </div>

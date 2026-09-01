@@ -100,7 +100,7 @@ export async function render() {
       <div class="field full"><label>توضیحات متا (meta description)</label><textarea data-seo-desc rows="2">${seo.description || ''}</textarea></div>
       <div class="field full"><label>کلمات کلیدی (با کاما جدا کنید)</label><input data-seo-keywords value="${seo.keywords || ''}"></div>
       <div class="field"><label>نام سایت (og:site_name)</label><input data-seo-sitename value="${seo.site_name || ''}"></div>
-      <div class="field"><label>تصویر اشتراک‌گذاری (og:image)</label><input data-seo-ogimage value="${seo.og_image || ''}" dir="ltr" placeholder="/assets/img/og-cover.jpg"></div>
+      <div class="field"><label>تصویر اشتراک‌گذاری (og:image)</label><input data-seo-ogimage value="${seo.og_image || ''}" dir="ltr" placeholder="/assets/img/og-cover.webp"></div>
       <div class="field"><label>آدرس اصلی سایت (canonical)</label><input data-seo-canonical value="${seo.canonical_url || ''}" dir="ltr" placeholder="https://petshop.ir"></div>
       <div class="field"><label>شناسه گوگل آنالیتیکس (GA4)</label><input data-seo-ga value="${seo.ga_measurement_id || ''}" dir="ltr" placeholder="G-XXXXXXXXXX"></div>
     </div>

@@ -23,7 +23,7 @@ const SEO_DEFAULTS = {
   title: 'پت‌شاپ | فروشگاه اینترنتی محصولات حیوانات خانگی — غذا، اسباب‌بازی، لوازم بهداشتی',
   description: 'پت‌شاپ؛ مرجع تخصصی محصولات حیوانات خانگی. خرید آنلاین غذای سگ و گربه، اسباب‌بازی، لوازم بهداشتی، قلاده، جای خواب و مکمل با ضمانت اصالت و ارسال سریع به سراسر کشور.',
   keywords: 'فروشگاه حیوانات خانگی, غذای سگ, غذای گربه, پت شاپ, خرید غذای خشک سگ, خرید غذای گربه, اسباب بازی سگ, قلاده سگ, جای خواب گربه, مکمل حیوانات, بهداشت سگ و گربه, pet shop, dog food, cat food',
-  og_image: '/assets/img/og-cover.jpg',
+  og_image: '/assets/img/og-cover.webp',
   canonical_url: '',
   site_name: 'پت‌شاپ',
 };
@@ -325,7 +325,7 @@ app.get('/', (req, res) => {
   const canonical = seo.canonical_url || base + '/';
   const ogImage = /^https?:\/\//i.test(seo.og_image)
     ? seo.og_image
-    : base + (seo.og_image || '/assets/img/og-cover.jpg');
+    : base + (seo.og_image || '/assets/img/og-cover.webp');
 
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8')
     .replaceAll('{{SEO_TITLE}}', escAttr(seo.title))

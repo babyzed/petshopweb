@@ -19,7 +19,7 @@ export async function render(params) {
   const isMobile = window.innerWidth <= 900;
   const wished = Session.isWished(product.id);
   const features = Object.entries(product.features || {});
-  const mainImage = product.images?.[0]?.image || product.image || '/assets/img/placeholder.jpg';
+  const mainImage = product.images?.[0]?.image || product.image || '/assets/img/placeholder.webp';
 
   // SEO — متاتگ‌های مخصوص صفحه محصول
   setMeta({

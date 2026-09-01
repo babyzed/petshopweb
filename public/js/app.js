@@ -63,7 +63,7 @@ async function bootstrap() {
   document.addEventListener('error', (e) => {
     if (e.target.tagName === 'IMG' && !e.target.dataset.fallback) {
       e.target.dataset.fallback = '1';
-      e.target.src = '/assets/img/placeholder.jpg';
+      e.target.src = '/assets/img/placeholder.webp';
     }
   }, true);
 

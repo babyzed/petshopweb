@@ -102,7 +102,7 @@ export async function render() {
   // کارت قهرمان دسکتاپ: اولین محصول سکشن پرفروش‌ها با نمایش بزرگ
   const heroCard = (p) => isMobile ? '' : `
     <a class="featured-card" href="#/product/${p.slug}">
-      <div class="fc-media"><img src="${p.image || '/assets/img/placeholder.jpg'}" alt="${p.name}" loading="lazy"></div>
+      <div class="fc-media"><img src="${p.image || '/assets/img/placeholder.webp'}" alt="${p.name}" loading="lazy"></div>
       <div class="fc-body">
         <span class="fc-badge">${ic('star', 13)} پرفروش هفته</span>
         <h3 class="fc-name">${p.name}</h3>

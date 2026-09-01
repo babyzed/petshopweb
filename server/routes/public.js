@@ -45,7 +45,7 @@ function productBaseQuery(withImages = false) {
   return `
     SELECT p.*, c.name AS category_name, c.slug AS category_slug, b.name AS brand_name, b.slug AS brand_slug,
       COALESCE((SELECT image FROM product_images WHERE product_id = p.id ORDER BY sort_order ASC, id ASC LIMIT 1),
-        (SELECT MIN(image) FROM categories WHERE id = p.category_id), '/assets/img/placeholder.jpg') AS image,
+        (SELECT MIN(image) FROM categories WHERE id = p.category_id), '/assets/img/placeholder.webp') AS image,
       (SELECT ROUND(AVG(rating), 1) FROM product_reviews r WHERE r.product_id = p.id AND r.status = 'approved') AS rating,
       (SELECT COUNT(*) FROM product_reviews r WHERE r.product_id = p.id AND r.status = 'approved') AS review_count
     FROM products p
@@ -269,7 +269,7 @@ router.get('/products/:slug', (req, res) => {
   }
   product.features = (() => { try { return JSON.parse(product.features); } catch { return {}; } })();
   product.images = db.prepare('SELECT id, image FROM product_images WHERE product_id = ? ORDER BY sort_order ASC, id ASC').all(product.id);
-  if (!product.image) product.image = product.images?.[0]?.image || '/assets/img/placeholder.jpg';
+  if (!product.image) product.image = product.images?.[0]?.image || '/assets/img/placeholder.webp';
   product.reviews = db.prepare(`
     SELECT r.*, u.name AS user_name FROM product_reviews r JOIN users u ON u.id = r.user_id
     WHERE r.product_id = ? AND r.status = 'approved' ORDER BY r.created_at DESC
@@ -299,7 +299,7 @@ router.get('/products/by-id/:id', (req, res) => {
   if (!product) return res.status(404).json({ error: 'محصول یافت نشد.' });
   product.features = (() => { try { return JSON.parse(product.features); } catch { return {}; } })();
   product.images = db.prepare('SELECT id, image FROM product_images WHERE product_id = ? ORDER BY sort_order ASC, id ASC').all(product.id);
-  if (!product.image) product.image = product.images?.[0]?.image || '/assets/img/placeholder.jpg';
+  if (!product.image) product.image = product.images?.[0]?.image || '/assets/img/placeholder.webp';
   res.json({ product });
 });
 
