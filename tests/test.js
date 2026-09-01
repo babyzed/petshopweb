@@ -253,6 +253,96 @@ async function runTests() {
     assert(typeof list.body.demoCount === 'number', 'Demo count is number');
   }
 
+  // ---------- 8b. Order Approval Flow (پرداخت در محل) ----------
+  // مسیر کامل: ثبت سفارش → تایید فروشگاه → ارسال → تحویل
+  section('Order Approval Flow (COD)');
+  {
+    const products = await request('GET', '/api/products?per_page=1&in_stock=1');
+    const p = products.body.products[0];
+
+    // --- سفارش پرداخت در محل توسط کاربر ---
+    const created = await request('POST', '/api/orders', {
+      customer: { full_name: 'خریدار تایید', phone: '09123456789', address: 'تهران' },
+      items: [{ product_id: p.id, quantity: 1 }],
+      payment_method: 'cod',
+    }, userToken);
+    assert(created.status === 200 && created.body.order, 'Approval-flow: COD order created');
+    const oid = created.body.order.id;
+
+    // از دید مشتری: «در انتظار تایید» + مرحله تایید در تایم‌لاین
+    const mine1 = await request('GET', `/api/orders/my/${oid}`, null, userToken);
+    assert(mine1.body.order.status_label === 'در انتظار تایید', 'Customer sees «در انتظار تایید» for COD pending order');
+    assert(mine1.body.order.statuses.some(s => s.key === 'confirmed'), 'Timeline contains the approval step');
+
+    // --- قوانین پیش از تایید ---
+    const earlyShip = await request('PUT', `/api/admin/orders/${oid}/status`, { status: 'shipped' }, adminToken);
+    assert(earlyShip.status === 400, 'Shipping before approval is rejected');
+    const codPaid = await request('PUT', `/api/admin/orders/${oid}/status`, { status: 'paid' }, adminToken);
+    assert(codPaid.status === 400, 'COD order has no separate «paid» step');
+
+    // --- تایید سفارش توسط مدیر ---
+    const approve = await request('PUT', `/api/admin/orders/${oid}/status`, { status: 'confirmed' }, adminToken);
+    assert(approve.status === 200 && approve.body.status === 'confirmed', 'Admin can approve the order (status=confirmed)');
+
+    const mine2 = await request('GET', `/api/orders/my/${oid}`, null, userToken);
+    assert(mine2.body.order.status_label === 'تایید شده', 'Customer sees «تایید شده» after approval');
+    assert(mine2.body.order.statuses.find(s => s.key === 'confirmed').done === true, 'Approval step marked done in timeline');
+
+    const reApprove = await request('PUT', `/api/admin/orders/${oid}/status`, { status: 'confirmed' }, adminToken);
+    assert(reApprove.status === 400, 'Approving twice is rejected');
+
+    // تاریخچه وضعیت + نام کاربر تغییردهنده
+    const detail = await request('GET', `/api/admin/orders/${oid}`, null, adminToken);
+    assert(Array.isArray(detail.body.order.history) && detail.body.order.history.length >= 2, 'Order history is returned to admin');
+    const approvalStep = detail.body.order.history.find(h => h.new_status === 'confirmed');
+    assert(!!approvalStep && approvalStep.changed_by_name, 'Approval recorded in history with the admin name');
+
+    // --- ارسال و تحویل ---
+    const ship = await request('PUT', `/api/admin/orders/${oid}/status`, { status: 'shipped' }, adminToken);
+    assert(ship.status === 200, 'Shipping after approval works');
+    const deliver = await request('PUT', `/api/admin/orders/${oid}/status`, { status: 'delivered' }, adminToken);
+    assert(deliver.status === 200, 'Delivering works');
+    const afterDeliver = await request('GET', `/api/admin/orders/${oid}`, null, adminToken);
+    assert(afterDeliver.body.order.payment_status === 'paid', 'COD payment marked paid on delivery');
+    const locked = await request('PUT', `/api/admin/orders/${oid}/status`, { status: 'confirmed' }, adminToken);
+    assert(locked.status === 400, 'Delivered order is locked');
+    const cancelLate = await request('POST', `/api/orders/my/${oid}/cancel`, null, userToken);
+    assert(cancelLate.status === 400, 'Customer cannot cancel a delivered order');
+
+    // --- لغو توسط مشتری پس از تایید (پیش از ارسال) + برگشت موجودی ---
+    const before = await request('GET', `/api/products/${p.slug}`);
+    const second = await request('POST', '/api/orders', {
+      customer: { full_name: 'خریدار لغو', phone: '09123456789' },
+      items: [{ product_id: p.id, quantity: 1 }],
+      payment_method: 'cod',
+    }, userToken);
+    const oid2 = second.body.order.id;
+    await request('PUT', `/api/admin/orders/${oid2}/status`, { status: 'confirmed' }, adminToken);
+    const cancel = await request('POST', `/api/orders/my/${oid2}/cancel`, null, userToken);
+    assert(cancel.status === 200, 'Customer can cancel an approved (not shipped) order');
+    const after = await request('GET', `/api/products/${p.slug}`);
+    assert(after.body.product.stock === before.body.product.stock, 'Stock restored after cancel of approved order');
+
+    // --- داشبورد: کارت تایید سریع ---
+    const dash = await request('GET', '/api/admin/dashboard', null, adminToken);
+    assert(typeof dash.body.pendingApprovalCount === 'number', 'Dashboard returns pendingApprovalCount');
+    assert(Array.isArray(dash.body.pendingApproval), 'Dashboard returns pendingApproval list');
+    const badge = await request('GET', '/api/admin/orders/pending-count', null, adminToken);
+    assert(badge.status === 200 && typeof badge.body.count === 'number', 'Pending-approval count endpoint works');
+
+    // --- سفارش آنلاین مرحله تایید جداگانه ندارد ---
+    const online = await request('POST', '/api/orders', {
+      customer: { full_name: 'خریدار آنلاین', phone: '09123456789' },
+      items: [{ product_id: p.id, quantity: 1 }],
+      payment_method: 'online',
+    }, userToken);
+    if (online.body.order) {
+      const onlineConfirm = await request('PUT', `/api/admin/orders/${online.body.order.id}/status`, { status: 'confirmed' }, adminToken);
+      assert(onlineConfirm.status === 400, 'Online orders have no separate approval step');
+      await request('PUT', `/api/admin/orders/${online.body.order.id}/status`, { status: 'cancelled' }, adminToken);
+    }
+  }
+
   // ---------- 9. Mock Payment in Production ----------
   section('Payment Security');
   {

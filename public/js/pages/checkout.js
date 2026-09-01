@@ -291,7 +291,7 @@ async function renderSuccess(el, order, payment) {
   if (payment === 'online') {
     extra = `<p style="font-size:13px;color:#92400E;background:#FEF3C7;padding:10px 14px;border-radius:10px;margin-bottom:14px">⚠️ پرداخت آنلاین در حال حاضر فعال نیست. سفارش شما ثبت شده و در انتظار پرداخت است. لطفاً با پشتیبانی تماس بگیرید.</p>`;
   } else {
-    extra = `<p style="font-size:13px;color:#065F46;background:#D1FAE5;padding:10px 14px;border-radius:10px;margin-bottom:14px">💵 پرداخت در محل: مبلغ سفارش را هنگام تحویل پرداخت می‌کنید.</p>`;
+    extra = `<p style="font-size:13px;color:#065F46;background:#D1FAE5;padding:10px 14px;border-radius:10px;margin-bottom:14px">💵 پرداخت در محل: مبلغ سفارش را هنگام تحویل پرداخت می‌کنید. سفارش شما پس از <b>تایید فروشگاه</b> وارد مرحله ارسال می‌شود.</p>`;
   }
   const root = el.querySelector('.container') || el;
   root.innerHTML = `

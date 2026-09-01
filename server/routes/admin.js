@@ -74,6 +74,16 @@ router.get('/dashboard', requirePerm('dashboard.view'), (req, res) => {
   // وضعیت سفارش‌ها برای دایره (فقط واقعی)
   const statusDist = db.prepare(`SELECT status, COUNT(*) AS c FROM orders WHERE ${real} GROUP BY status`).all();
 
+  // سفارش‌های «پرداخت در محل» در انتظار تایید — کارت تایید سریع در داشبورد
+  const pendingApprovalCount = db.prepare("SELECT COUNT(*) AS c FROM orders WHERE status = 'pending' AND payment_method = 'cod' AND is_demo = 0").get().c;
+  const pendingApproval = db.prepare(`
+    SELECT o.id, o.code, o.total, o.created_at, o.customer_json,
+      (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS item_count
+    FROM orders o
+    WHERE o.status = 'pending' AND o.payment_method = 'cod' AND o.is_demo = 0
+    ORDER BY o.created_at ASC, o.id ASC LIMIT 6
+  `).all();
+
   // فروش به تفکیک دسته (فقط واقعی)
   const catSales = db.prepare(`
     SELECT c.name, SUM(oi.total) AS total FROM order_items oi
@@ -85,6 +95,7 @@ router.get('/dashboard', requirePerm('dashboard.view'), (req, res) => {
   res.json({
     revenue, paidRevenue, orderCount, userCount, newUsers, todayOrders, todayRevenue,
     chart, bestsellers, recent, lowStock, statusDist, catSales,
+    pendingApproval, pendingApprovalCount,
   });
 });
 
@@ -261,6 +272,26 @@ router.delete('/brands/:id', requirePerm('brands.manage'), (req, res) => {
 // ============================================================
 // سفارش‌ها
 // ============================================================
+
+// مسیر مجاز تغییر وضعیت، بسته به روش پرداخت:
+//   آنلاین:    pending → paid → shipped → delivered
+//   در محل:    pending (در انتظار تایید) → confirmed (تایید شده) → shipped → delivered
+// «cancelled» در هر دو مسیر و تا پیش از تحویل مجاز است.
+const ORDER_FLOW = {
+  online: ['pending', 'paid', 'shipped', 'delivered', 'cancelled'],
+  cod: ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'],
+};
+const ORDER_STATUS_FA = {
+  pending: 'در انتظار', confirmed: 'تایید شده', paid: 'پرداخت شده',
+  shipped: 'ارسال شده', delivered: 'تحویل شده', cancelled: 'لغو شده',
+};
+
+// تعداد سفارش‌های «پرداخت در محل» در انتظار تایید — برای نشان (badge) منوی پنل
+router.get('/orders/pending-count', requirePerm('orders.manage'), (req, res) => {
+  const count = db.prepare("SELECT COUNT(*) AS c FROM orders WHERE status = 'pending' AND payment_method = 'cod' AND is_demo = 0").get().c;
+  res.json({ count });
+});
+
 router.get('/orders', requirePerm('orders.manage'), (req, res) => {
   const { status, q, page = 1, per_page = 15 } = req.query;
   const where = ['1=1']; const params = [];
@@ -284,6 +315,12 @@ router.get('/orders/:id', requirePerm('orders.manage'), (req, res) => {
   order.payments = db.prepare("SELECT id, amount, gateway, authority, transaction_id, status, created_at, verified_at FROM payments WHERE order_id = ? ORDER BY id DESC").all(order.id);
   const latestPay = order.payments[0];
   order.transaction_id = latestPay?.transaction_id || '';
+  // تاریخچه تغییر وضعیت (Audit Trail) — چه کسی، چه زمانی، از چه وضعیتی به چه وضعیتی
+  order.history = db.prepare(`
+    SELECT h.id, h.old_status, h.new_status, h.note, h.created_at, u.name AS changed_by_name
+    FROM order_status_history h LEFT JOIN users u ON u.id = h.changed_by
+    WHERE h.order_id = ? ORDER BY h.id ASC
+  `).all(order.id);
   const user = order.user_id ? db.prepare('SELECT id, name, email, phone FROM users WHERE id = ?').get(order.user_id) : null;
   res.json({ order, user });
 });
@@ -291,7 +328,7 @@ router.get('/orders/:id', requirePerm('orders.manage'), (req, res) => {
 router.put('/orders/:id/status', requirePerm('orders.manage'), (req, res) => {
   try {
     const { status, note } = req.body || {};
-    const valid = ['pending', 'paid', 'shipped', 'delivered', 'cancelled'];
+    const valid = ['pending', 'confirmed', 'paid', 'shipped', 'delivered', 'cancelled'];
     if (!valid.includes(status)) return res.status(400).json({ error: 'وضعیت نامعتبر است.' });
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
     if (!order) return res.status(404).json({ error: 'سفارش یافت نشد.' });
@@ -301,17 +338,31 @@ router.put('/orders/:id/status', requirePerm('orders.manage'), (req, res) => {
     }
 
     const isOnline = order.payment_method === 'online';
+    const flow = isOnline ? ORDER_FLOW.online : ORDER_FLOW.cod;
 
     // === تفاوت فرایند پرداخت آنلاین و پرداخت در محل ===
+    // وضعیت‌های خارج از مسیر مجازِ همین روش پرداخت، رد می‌شوند
+    if (!flow.includes(status)) {
+      return res.status(400).json({
+        error: status === 'paid'
+          ? 'سفارش «پرداخت در محل» مرحله پرداخت جداگانه ندارد؛ با تغییر وضعیت به «تحویل شده» وجه دریافت‌شده ثبت می‌شود.'
+          : 'سفارش آنلاین با تایید پرداخت، تایید می‌شود؛ وضعیت «تایید شده» فقط برای سفارش‌های پرداخت در محل است.',
+      });
+    }
+
     if (isOnline) {
       // آنلاین: ارسال/تحویل فقط پس از پرداخت موفق مجاز است
       if (['shipped', 'delivered'].includes(status) && order.payment_status !== 'paid') {
         return res.status(400).json({ error: 'این سفارش آنلاین هنوز پرداخت نشده است؛ ابتدا پرداخت را تأیید کنید.' });
       }
     } else {
-      // در محل: مرحله «پرداخت» جداگانه ندارد — وجه هنگام تحویل دریافت می‌شود
-      if (status === 'paid') {
-        return res.status(400).json({ error: 'سفارش «پرداخت در محل» مرحله پرداخت جداگانه ندارد؛ با تغییر وضعیت به «تحویل شده» وجه دریافت‌شده ثبت می‌شود.' });
+      // در محل: تایید سفارش فقط از وضعیت «در انتظار تایید»
+      if (status === 'confirmed' && order.status !== 'pending') {
+        return res.status(400).json({ error: `فقط سفارش «در انتظار تایید» را می‌توان تایید کرد (وضعیت فعلی: ${ORDER_STATUS_FA[order.status] || order.status}).` });
+      }
+      // در محل: ارسال فقط پس از تایید سفارش
+      if (status === 'shipped' && !['confirmed', 'shipped'].includes(order.status)) {
+        return res.status(400).json({ error: 'پیش از ارسال، سفارش باید تایید شود؛ ابتدا «تایید سفارش» را بزنید.' });
       }
     }
 
@@ -339,10 +390,12 @@ router.put('/orders/:id/status', requirePerm('orders.manage'), (req, res) => {
     // لاگ امنیتی
     auditLog(req.user.id, 'order.status_changed', 'order', order.id, req);
     // ارسال پیامک اطلاع‌رسانی
-    if (['shipped', 'delivered', 'cancelled'].includes(status)) {
-      sendOrderSMS(order, status).catch(err => console.error('[SMS] Status change error:', err.message));
+    if (['confirmed', 'shipped', 'delivered', 'cancelled'].includes(status)) {
+      // نوع پیامک تایید سفارش «approved» است (قالب جداگانه در sms.js)
+      const smsType = status === 'confirmed' ? 'approved' : status;
+      sendOrderSMS(order, smsType).catch(err => console.error('[SMS] Status change error:', err.message));
     }
-    res.json({ ok: true, message: 'وضعیت سفارش به‌روزرسانی شد.' });
+    res.json({ ok: true, status, message: `وضعیت سفارش به «${ORDER_STATUS_FA[status] || status}» تغییر کرد.` });
   } catch (err) {
     console.error('[Admin] Order status error:', err.message);
     res.status(500).json({ error: 'خطا در بروزرسانی وضعیت.' });

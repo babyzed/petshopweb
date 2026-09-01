@@ -97,10 +97,11 @@
 #admin-view { padding: 24px 28px 60px; flex: 1; }
 
 /* ---------- Stat cards ---------- */
-.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px; }
+.stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 22px; }
 .stat-card {
   background: #fff; border-radius: 18px; padding: 18px 20px; border: 1px solid #EFE9E2;
-  display: flex; align-items: center; gap: 14px; transition: transform .2s, box-shadow .2s;
+  display: flex; align-items: center; gap: 14px; min-width: 0;
+  transition: transform .2s, box-shadow .2s;
 }
 .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-sm); }
 .stat-ic {
@@ -112,14 +113,15 @@
 .stat-ic.g { background: linear-gradient(135deg, #10B981, #34D399); }
 .stat-ic.b { background: linear-gradient(135deg, #3B82F6, #60A5FA); }
 .stat-ic.p { background: linear-gradient(135deg, #8B5CF6, #A78BFA); }
-.stat-v { font-size: 19px; font-weight: 800; line-height: 1.2; }
-.stat-l { font-size: 11.5px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+.stat-v { font-size: 19px; font-weight: 800; line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
+.stat-l { font-size: 11.5px; color: var(--muted); font-weight: 600; margin-top: 2px; min-width: 0; overflow-wrap: anywhere; }
 
 /* ---------- Dashboard grid ---------- */
 .dash-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+.dash-grid > * { min-width: 0; }
 .dash-card {
   background: #fff; border: 1px solid #EFE9E2; border-radius: 18px; padding: 20px;
-  margin-bottom: 16px;
+  margin-bottom: 16px; min-width: 0;
 }
 .dash-card h3 {
   font-size: 14.5px; font-weight: 800; margin-bottom: 14px;
@@ -136,8 +138,8 @@
   white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 5;
 }
 .chart-bar:hover .cb-tip { opacity: 1; transform: translateX(50%) scale(1); }
-.chart-labels { display: flex; gap: 3px; margin-top: 6px; }
-.chart-labels span { flex: 1; text-align: center; font-size: 8.5px; color: var(--muted); }
+.chart-labels { display: flex; justify-content: space-between; gap: 3px; margin-top: 6px; }
+.chart-labels span { flex: 0 0 auto; text-align: center; font-size: 8.5px; color: var(--muted); direction: ltr; }
 
 /* Donut */
 .donut-row { display: flex; align-items: center; gap: 16px; }
@@ -174,6 +176,8 @@
 /* Status badges */
 .s-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; display: inline-block; white-space: nowrap; }
 .s-pending { background: #FEF3C7; color: #92400E; }
+.s-awaiting { background: #FFEDD5; color: #9A3412; }
+.s-confirmed { background: #EDE9FE; color: #6D28D9; }
 .s-paid { background: #DBEAFE; color: #1D4ED8; }
 .s-shipped { background: #E0E7FF; color: #4338CA; }
 .s-delivered { background: #D1FAE5; color: #065F46; }
@@ -210,7 +214,103 @@
 .btn-danger { background: #DC2626; color: #fff; }
 .btn-danger:hover { background: #B91C1C; }
 .btn-lg { padding: 12px 28px; font-size: 14px; }
+.btn-xs { padding: 6px 12px; font-size: 11.5px; border-radius: 10px; gap: 4px; }
+.btn-cancel { color: var(--danger); border-color: #FCA5A5; }
+.btn-cancel:hover { background: #FEF2F2; border-color: var(--danger); color: #B91C1C; }
 .btn[disabled] { opacity: .5; pointer-events: none; }
+
+/* ---------- فیلترها و اکشن‌های داخل جدول ---------- */
+.filter-sel {
+  padding: 10px 14px; border: 1.5px solid #E7E0D8; border-radius: 12px;
+  font-size: 13px; background: #fff; outline: none; max-width: 100%;
+}
+.filter-sel:focus { border-color: var(--brand); }
+.demo-hint {
+  font-size: 11px; color: var(--muted); background: #FEF3C7;
+  padding: 4px 12px; border-radius: 8px; display: inline-flex; align-items: center; gap: 4px;
+}
+.row-actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+
+/* ---------- بنر تایید سفارش (پرداخت در محل) ---------- */
+.approval-banner {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  background: linear-gradient(135deg, #FFF7ED, #FFEDD5);
+  border: 1.5px solid #FDBA74; border-radius: 18px;
+  padding: 14px 18px; margin-bottom: 16px;
+}
+.approval-banner .ab-ic {
+  width: 42px; height: 42px; border-radius: 13px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--brand), #EA580C); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.approval-banner .ab-txt { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 180px; }
+.approval-banner .ab-txt b { font-size: 13.5px; }
+.approval-banner .ab-txt span { font-size: 11.5px; color: #7C2D12; }
+.approval-banner .btn { margin-inline-start: auto; }
+
+/* ---------- کارت سفارش‌های در انتظار تایید (داشبورد) ---------- */
+.waiting-card { border-color: #FDBA74; background: linear-gradient(180deg, #FFFBF5, #fff); }
+.waiting-card.ok { border-color: #BBF7D0; background: linear-gradient(180deg, #F7FEF9, #fff); }
+.waiting-card h3 { margin-bottom: 10px; }
+.waiting-card .wc-count {
+  background: #FDBA74; color: #7C2D12; font-size: 11px; padding: 2px 10px;
+  border-radius: 20px; font-weight: 800;
+}
+.waiting-card .wc-all {
+  margin-inline-start: auto; font-size: 12px; font-weight: 700;
+  color: var(--brand-dark); text-decoration: none;
+}
+.waiting-list { display: flex; flex-direction: column; gap: 8px; }
+.waiting-item {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: #fff; border: 1px solid #F1EDE7; border-radius: 14px; padding: 10px 14px;
+}
+.waiting-item .wi-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.waiting-item .wi-code { font-weight: 800; font-size: 12.5px; color: var(--brand-dark); text-decoration: none; direction: ltr; align-self: flex-start; }
+.waiting-item .wi-name { font-size: 12px; font-weight: 700; }
+.waiting-item .wi-meta { font-size: 10.5px; color: var(--muted); }
+.waiting-item .wi-total { font-size: 12.5px; font-weight: 800; white-space: nowrap; }
+.waiting-item .wi-actions { display: flex; gap: 6px; margin-inline-start: auto; }
+
+/* ---------- نمودار مراحل سفارش ---------- */
+.status-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.status-flow {
+  display: flex; align-items: flex-start; gap: 4px;
+  margin-bottom: 16px; padding: 4px 0; overflow-x: auto;
+}
+.sf-step { flex: 1 1 0; min-width: 74px; text-align: center; position: relative; }
+.sf-step::before {
+  content: ''; position: absolute; top: 13px; inset-inline-end: 50%;
+  width: 100%; height: 2px; background: #F1EDE7; border-radius: 2px;
+}
+.sf-step:first-child::before { display: none; }
+.sf-dot {
+  width: 26px; height: 26px; border-radius: 50%; background: #F5F5F4; color: var(--muted);
+  border: 2px solid #E7E0D8; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; position: relative; z-index: 1; margin: 0 auto 6px;
+}
+.sf-step.done .sf-dot { background: var(--green); border-color: var(--green); color: #fff; }
+.sf-step.current .sf-dot { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: 0 0 0 4px rgba(249,115,22,.18); }
+.sf-label { font-size: 10.5px; font-weight: 700; color: var(--muted); display: block; }
+.sf-step.done .sf-label { color: var(--green); }
+.sf-step.current .sf-label { color: var(--brand-dark); }
+
+/* ---------- تاریخچه وضعیت سفارش ---------- */
+.hist-list { display: flex; flex-direction: column; }
+.hist-item { display: flex; gap: 10px; padding: 8px 0; }
+.hist-dot {
+  width: 9px; height: 9px; border-radius: 50%; background: var(--brand);
+  flex-shrink: 0; margin-top: 6px; box-shadow: 0 0 0 3px rgba(249,115,22,.14);
+}
+.hist-dot.bad { background: var(--danger); box-shadow: 0 0 0 3px rgba(220,38,38,.14); }
+.hist-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hist-body b { font-size: 12.5px; }
+.hist-note { font-size: 11.5px; color: #57534E; }
+.hist-meta { font-size: 10.5px; color: var(--muted); }
+
+/* ---------- نمودار داشبورد ---------- */
+.chart-scroll { width: 100%; }
+.donut-svg { width: 130px; height: 130px; flex-shrink: 0; }
 
 /* ---------- Forms ---------- */
 .a-card { background: #fff; border: 1px solid #EFE9E2; border-radius: 18px; padding: 22px; margin-bottom: 16px; }
@@ -336,7 +436,7 @@
 
 /* Responsive admin */
 @media (max-width: 1100px) {
-  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dash-grid { grid-template-columns: 1fr; }
 
   /* سایدبار از عرض ۱۱۰۰px به‌پایین به‌صورت منوی کشویی (hamburger) می‌شود
@@ -389,4 +489,58 @@
   .mini-list-item b { font-size: 12px; }
   .data-table { border-radius: 12px; }
   .page-nav .btn { padding: 9px 14px; font-size: 12px; }
+}
+
+/* ---------- اصلاحات نمایشی موبایل ---------- */
+/* نمودار فروش در عرض کم، به‌جای فشرده‌شدن، اسکرول افقی داخل کارت می‌گیرد */
+@media (max-width: 900px) {
+  .chart-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .chart-scroll > svg { min-width: 520px; }
+  .chart-labels { min-width: 520px; }
+}
+
+@media (max-width: 680px) {
+  /* کارت‌های آماری فشرده تا عدد و آیکون در دو ستون جا شوند */
+  .stat-grid { gap: 10px; }
+  .stat-card { padding: 12px 14px; gap: 10px; border-radius: 15px; }
+  .stat-ic { width: 40px; height: 40px; border-radius: 12px; }
+  .stat-ic svg { width: 19px; height: 19px; }
+  .stat-v { font-size: 15px; }
+  .stat-v small { font-size: 10px; }
+  .stat-l { font-size: 10.5px; line-height: 1.5; }
+  .approval-banner { padding: 12px 14px; gap: 10px; }
+  .approval-banner .ab-ic { width: 38px; height: 38px; }
+  .approval-banner .ab-txt { min-width: 140px; }
+  .approval-banner .btn { margin-inline-start: 0; width: 100%; justify-content: center; }
+  .waiting-item { padding: 10px 12px; }
+  .waiting-item .wi-main { flex: 1 1 100%; }
+  .waiting-item .wi-actions { margin-inline-start: 0; width: 100%; }
+  .waiting-item .wi-actions .btn { flex: 1; justify-content: center; }
+}
+
+@media (max-width: 560px) {
+  #admin-view { padding: 14px 11px 80px; }
+  /* نوار ابزار: جستجو تمام‌عرض و فیلترها کنار هم */
+  .toolbar { gap: 8px; }
+  .toolbar .search-inp { flex: 1 1 100%; min-width: 0; }
+  .filter-sel { flex: 1; }
+  .status-actions .btn { flex: 1 1 auto; justify-content: center; padding: 9px 12px; }
+  .sf-step { min-width: 62px; }
+  .sf-label { font-size: 9.5px; }
+  .mini-list-item b[style] { max-width: none !important; }
+}
+
+@media (max-width: 480px) {
+  /* نمودار دایره‌ای و راهنمای آن زیر هم قرار می‌گیرند */
+  .donut-row { flex-direction: column; align-items: center; gap: 14px; }
+  .donut-svg { width: 118px; height: 118px; }
+  .donut-legend { width: 100%; }
+  .waiting-card .wc-all { margin-inline-start: 0; }
+  .dash-card h3 { flex-wrap: wrap; }
+}
+
+@media (max-width: 430px) {
+  /* در گوشی‌های کوچک، کارت‌های آماری تک‌ستونه می‌شوند تا عدد نشکند */
+  .stat-grid { grid-template-columns: 1fr; }
+  .page-nav { flex-wrap: wrap; }
 }

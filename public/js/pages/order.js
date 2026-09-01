@@ -60,7 +60,7 @@ export async function render(params) {
             <div class="sum-row"><span>ارسال</span><span class="val">${order.shipping ? price(order.shipping) + ' تومان' : 'رایگان'}</span></div>
             <div class="sum-row grand"><span>مبلغ نهایی</span><span class="val">${price(order.total)} تومان</span></div>
           </div>
-          ${['pending', 'paid'].includes(order.status) ? `<button class="btn btn-outline btn-block" style="margin-top:14px;color:var(--danger);border-color:var(--danger)" data-cancel>لغو سفارش</button>` : ''}
+          ${['pending', 'confirmed'].includes(order.status) ? `<button class="btn btn-outline btn-block" style="margin-top:14px;color:var(--danger);border-color:var(--danger)" data-cancel>لغو سفارش</button>` : ''}
         </div>
       </div>
     </div>

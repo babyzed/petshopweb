@@ -42,13 +42,28 @@ export function statCard(icon, cls, value, label) {
     </div>`;
 }
 
-export function statusBadge(status) {
+// نشان وضعیت سفارش
+// paymentMethod اختیاری است: سفارش «پرداخت در محل» در حالت pending
+// یعنی «در انتظار تایید فروشگاه» (نه در انتظار پرداخت) — همان چیزی که مشتری می‌بیند.
+export function statusBadge(status, paymentMethod) {
   const labels = {
-    pending: 'در انتظار پرداخت', paid: 'پرداخت شده', shipped: 'ارسال شده',
+    pending: 'در انتظار پرداخت', confirmed: 'تایید شده', paid: 'پرداخت شده', shipped: 'ارسال شده',
     delivered: 'تحویل شده', cancelled: 'لغو شده', approved: 'تایید شده', rejected: 'رد شده', active: 'فعال', inactive: 'غیرفعال',
     draft: 'پیش‌نویس',
   };
+  if (status === 'pending' && paymentMethod === 'cod') {
+    return `<span class="s-badge s-awaiting">در انتظار تایید</span>`;
+  }
   return `<span class="s-badge s-${status}">${labels[status] || status}</span>`;
+}
+
+// عنوان سادهٔ وضعیت (بدون HTML) — برای select و دکمه‌ها
+export function statusLabel(status, paymentMethod) {
+  if (status === 'pending' && paymentMethod === 'cod') return 'در انتظار تایید';
+  return {
+    pending: 'در انتظار پرداخت', confirmed: 'تایید شده', paid: 'پرداخت شده', shipped: 'ارسال شده',
+    delivered: 'تحویل شده', cancelled: 'لغو شده',
+  }[status] || status;
 }
 
 // نشان پرداخت — وضعیت پرداخت آنلاین/در محل
@@ -83,7 +98,7 @@ export function renderSidebar() {
       { route: 'products', match: 'products', icon: ic('package', 18), label: 'محصولات', perm: 'products.manage' },
       { route: 'categories', icon: ic('grid', 18), label: 'دسته‌بندی‌ها', perm: 'categories.manage' },
       { route: 'brands', icon: ic('tag', 18), label: 'برندها', perm: 'brands.manage' },
-      { route: 'orders', match: 'orders', icon: ic('receipt', 18), label: 'سفارش‌ها', perm: 'orders.manage' },
+      { route: 'orders', match: 'orders', icon: ic('receipt', 18), label: 'سفارش‌ها', perm: 'orders.manage', badge: 'pending-orders' },
       { route: 'users', match: 'users', icon: ic('users', 18), label: 'کاربران', perm: 'users.manage' },
       { route: 'reviews', icon: ic('star', 18), label: 'نظرات محصولات', perm: 'reviews.manage' },
       { route: 'coupons', icon: ic('percent', 18), label: 'کدهای تخفیف', perm: 'coupons.manage' },
@@ -113,6 +128,7 @@ export function renderSidebar() {
         ${g.items.filter(i => i.perm ? p(i.perm) : true).map(i => `
           <a class="as-link" href="#/${i.route}" data-route="${i.route}" data-match="${i.match || ''}">
             <span class="as-link-icon">${i.icon}</span> ${i.label}
+            ${i.badge ? `<span class="al-badge" data-badge="${i.badge}" hidden title=""></span>` : ''}
           </a>`).join('')}
       `).join('')}
     </nav>
@@ -121,6 +137,23 @@ export function renderSidebar() {
       <a href="/" target="_blank"><span class="as-link-icon">${ic('externalLink', 16)}</span> مشاهده فروشگاه</a>
     </div>`;
   el.querySelector('[data-sidebar-close]')?.addEventListener('click', closeSidebar);
+  refreshOrdersBadge(el);
+}
+
+// به‌روزرسانی نشان «سفارش‌های در انتظار تایید» کنار آیتم سفارش‌ها
+// (غیرهمزمان — رندر منو را بلاک نمی‌کند و در صورت خطا بی‌صدا نادیده گرفته می‌شود)
+export function refreshOrdersBadge(root = document) {
+  if (!AdminAPI.hasPerm('orders.manage')) return;
+  AdminAPI.get('/admin/orders/pending-count')
+    .then(d => {
+      const b = root.querySelector('[data-badge="pending-orders"]');
+      if (!b) return;
+      const n = Number(d.count) || 0;
+      b.textContent = faNum(n);
+      b.hidden = n === 0;
+      b.title = `${faNum(n)} سفارش در انتظار تایید`;
+    })
+    .catch(() => {});
 }
 
 // ---------- سایدبار موبایل ----------

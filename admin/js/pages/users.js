@@ -153,11 +153,11 @@ export async function detailRender(params) {
           <thead><tr><th>کد</th><th>تاریخ</th><th>مبلغ</th><th>وضعیت</th></tr></thead>
           <tbody>
             ${user.orders?.length ? user.orders.map(o => `
-              <tr style="cursor:pointer" data-href="#/orders/${o.id}"">
+              <tr style="cursor:pointer" data-href="#/orders/${o.id}">
                 <td><b style="color:var(--brand-dark)">${o.code}</b></td>
                 <td style="font-size:11px">${faDate(o.created_at)}</td>
                 <td>${price(o.total)} تومان</td>
-                <td>${statusBadge(o.status)}</td>
+                <td>${statusBadge(o.status, o.payment_method)}</td>
               </tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted)">سفارشی ثبت نشده است.</td></tr>'}
           </tbody>
         </table>

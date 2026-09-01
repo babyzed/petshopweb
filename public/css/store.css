@@ -1236,6 +1236,7 @@ input, select, textarea { font-family: inherit; color: inherit; }
   background: var(--bg); color: var(--text-2);
 }
 .os-pending { background: #FFF4DC; color: #B07B0A; }
+.os-confirmed { background: #EDE9FE; color: #6D28D9; }
 .os-paid { background: var(--green-soft); color: var(--green); }
 .os-shipped { background: var(--brand-soft); color: var(--brand-dark); }
 .os-delivered { background: var(--green-soft); color: var(--green); }

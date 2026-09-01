@@ -1,9 +1,12 @@
 // admin/pages/dashboard.js — داشبورد آماری با نمودار SVG
-import { AdminAPI, price, faNum, faDate } from '../api.js';
-import { statCard, statusBadge } from '../components.js';
+import { AdminAPI, price, faNum, faDate, escHtml } from '../api.js';
+import { statCard, statusBadge, toast } from '../components.js';
 import { ic } from '../icons.js';
 
-const STATUS_COLORS = { pending: '#F59E0B', paid: '#3B82F6', shipped: '#6366F1', delivered: '#10B981', cancelled: '#EF4444' };
+const STATUS_COLORS = {
+  pending: '#F59E0B', confirmed: '#8B5CF6', paid: '#3B82F6',
+  shipped: '#6366F1', delivered: '#10B981', cancelled: '#EF4444',
+};
 
 export async function render() {
   const d = await AdminAPI.get('/admin/dashboard');
@@ -35,6 +38,10 @@ export async function render() {
     return seg;
   }).join('');
 
+  // سفارش‌های «پرداخت در محل» در انتظار تایید — تایید سریع از داشبورد
+  const waiting = d.pendingApproval || [];
+  const waitingCount = Number(d.pendingApprovalCount) || 0;
+
   return `
   <div class="stat-grid">
     ${statCard(ic('dollarSign', 22), 'o', price(d.revenue) + ' <small style="font-size:11px">تومان</small>', 'مجموع درآمد (بدون لغو)')}
@@ -43,18 +50,51 @@ export async function render() {
     ${statCard(ic('trendUp', 22), 'p', price(d.todayRevenue) + ' <small style="font-size:11px">تومان</small>', 'درآمد امروز (' + faNum(d.todayOrders) + ' سفارش)')}
   </div>
 
+  ${waitingCount > 0 ? `
+  <div class="dash-card waiting-card">
+    <h3>${ic('bell', 18)} سفارش‌های در انتظار تایید
+      <span class="wc-count">${faNum(waitingCount)} سفارش</span>
+      <a class="wc-all" href="#/orders?status=pending">مشاهده همه</a>
+    </h3>
+    <p class="hint" style="margin:-6px 0 12px">این سفارش‌ها «پرداخت در محل» هستند و تا تایید نشوند، ارسال ثبت نمی‌شود.</p>
+    <div class="waiting-list">
+      ${waiting.map(o => {
+        const c = JSON.parse(o.customer_json || '{}');
+        return `
+        <div class="waiting-item">
+          <div class="wi-main">
+            <a class="wi-code" href="#/orders/${o.id}">${o.code}</a>
+            <span class="wi-name">${escHtml(c.full_name || '—')}</span>
+            <span class="wi-meta">${faNum(o.item_count)} کالا — ${faDate(o.created_at)}</span>
+          </div>
+          <span class="wi-total">${price(o.total)} تومان</span>
+          <div class="wi-actions">
+            <button class="btn btn-primary btn-xs" data-approve="${o.id}">${ic('check', 13)} تایید</button>
+            <button class="btn btn-ghost btn-xs btn-cancel" data-reject="${o.id}">${ic('x', 13)} لغو</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    ${waitingCount > waiting.length ? `<p class="hint" style="margin-top:10px">و ${faNum(waitingCount - waiting.length)} سفارش دیگر…</p>` : ''}
+  </div>` : `
+  <div class="dash-card waiting-card ok">
+    <h3>${ic('check', 18)} سفارش در انتظار تایید ندارید</h3>
+  </div>`}
+
   <div class="dash-grid">
     <div>
       <div class="dash-card">
         <h3>${ic('chartBar', 18)} فروش ۳۰ روز اخیر</h3>
-        <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto" role="img" aria-label="نمودار فروش ۳۰ روز">
-          ${gridLines}
-          <polygon points="${area}" fill="rgba(249,115,22,.08)"/>
-          <polyline points="${line}" fill="none" stroke="#F97316" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          ${pts.map((p, i) => (i % 5 === 0 || i === pts.length - 1) ? `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#fff" stroke="#F97316" stroke-width="2"><title>${faDate(chart[i].day)} — ${price(chart[i].revenue)} تومان</title></circle>` : '').join('')}
-        </svg>
-        <div class="chart-labels">
-          ${chart.filter((_, i) => i % 5 === 0 || i === chart.length - 1).map(c => `<span>${c.day.slice(5)}</span>`).join('')}
+        <div class="chart-scroll">
+          <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto" role="img" aria-label="نمودار فروش ۳۰ روز">
+            ${gridLines}
+            <polygon points="${area}" fill="rgba(249,115,22,.08)"/>
+            <polyline points="${line}" fill="none" stroke="#F97316" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            ${pts.map((p, i) => (i % 5 === 0 || i === pts.length - 1) ? `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#fff" stroke="#F97316" stroke-width="2"><title>${faDate(chart[i].day)} — ${price(chart[i].revenue)} تومان</title></circle>` : '').join('')}
+          </svg>
+          <div class="chart-labels">
+            ${chart.filter((_, i) => i % 5 === 0 || i === chart.length - 1).map(c => `<span>${c.day.slice(5)}</span>`).join('')}
+          </div>
         </div>
       </div>
 
@@ -63,7 +103,7 @@ export async function render() {
         ${d.bestsellers.length ? d.bestsellers.map(b => `
           <div class="mini-list-item">
             ${b.image ? `<img src="${b.image}" alt="">` : `<span style="font-size:18px;color:var(--brand)">${ic('package', 22)}</span>`}
-            <span class="mli-name">${b.name}</span>
+            <span class="mli-name">${escHtml(b.name)}</span>
             <span style="color:var(--muted);font-size:11px">${faNum(b.sold)} فروش</span>
             <span class="mli-val">${price(b.total)}</span>
           </div>`).join('') : '<p style="color:var(--muted);font-size:12.5px">هنوز فروشی ثبت نشده.</p>'}
@@ -76,11 +116,11 @@ export async function render() {
           <tbody>
             ${d.recent.slice(0, 6).map(o => {
               const c = JSON.parse(o.customer_json || '{}');
-              return `<tr style="cursor:pointer" data-href="#/orders/${o.id}"">
+              return `<tr style="cursor:pointer" data-href="#/orders/${o.id}">
                 <td><b style="color:var(--brand-dark)">${o.code}</b></td>
-                <td class="t-name">${c.full_name || '—'}</td>
+                <td class="t-name">${escHtml(c.full_name || '—')}</td>
                 <td>${price(o.total)} تومان</td>
-                <td>${statusBadge(o.status)}</td>
+                <td>${statusBadge(o.status, o.payment_method)}</td>
                 <td style="font-size:11px">${faDate(o.created_at)}</td>
               </tr>`;
             }).join('')}
@@ -93,7 +133,7 @@ export async function render() {
       <div class="dash-card">
         <h3>${ic('grid', 18)} وضعیت سفارش‌ها</h3>
         <div class="donut-row">
-          <svg viewBox="0 0 120 120" style="width:130px;height:130px" role="img" aria-label="نمودار وضعیت سفارش‌ها">
+          <svg viewBox="0 0 120 120" class="donut-svg" role="img" aria-label="نمودار وضعیت سفارش‌ها">
             ${donutSegs}
             <text x="60" y="58" text-anchor="middle" font-size="17" font-weight="800" fill="#292524">${faNum(d.orderCount)}</text>
             <text x="60" y="74" text-anchor="middle" font-size="9" fill="#8A817C">سفارش</text>
@@ -101,10 +141,10 @@ export async function render() {
           <div class="donut-legend">
             ${statusDist.map(s => `
               <div class="dl-item">
-                <span class="dl-dot" style="background:${STATUS_COLORS[s.status]}"></span>
+                <span class="dl-dot" style="background:${STATUS_COLORS[s.status] || '#999'}"></span>
                 <span>${statusBadge(s.status).replace(/<[^>]*>/g, '')}</span>
                 <span class="dl-n">${faNum(s.c)}</span>
-              </div>`).join('')}
+              </div>`).join('') || '<p style="color:var(--muted);font-size:12px">هنوز سفارشی ثبت نشده.</p>'}
           </div>
         </div>
       </div>
@@ -115,8 +155,8 @@ export async function render() {
           const max = Math.max(...d.catSales.map(x => x.total), 1);
           return `
           <div style="margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:5px">
-              <span>${c.name || 'بدون دسته'}</span><span>${price(c.total)}</span>
+            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:5px;gap:8px">
+              <span>${escHtml(c.name || 'بدون دسته')}</span><span>${price(c.total)}</span>
             </div>
             <div style="height:9px;background:#F1EDE7;border-radius:6px;overflow:hidden">
               <div style="height:100%;width:${Math.round(c.total / max * 100)}%;background:linear-gradient(90deg,#10B981,#059669);border-radius:6px"></div>
@@ -130,10 +170,29 @@ export async function render() {
         ${d.lowStock.length ? d.lowStock.map(p => `
           <div class="mini-list-item">
             ${p.image ? `<img src="${p.image}" alt="">` : `<span style="font-size:18px;color:var(--brand)">${ic('package', 22)}</span>`}
-            <span class="mli-name">${p.name}</span>
+            <span class="mli-name">${escHtml(p.name)}</span>
             <span class="s-badge ${p.stock === 0 ? 's-cancelled' : 's-pending'}" style="flex-shrink:0">${faNum(p.stock)} عدد</span>
           </div>`).join('') : '<p style="color:var(--muted);font-size:12.5px">همه محصولات موجودی کافی دارند ✅</p>'}
       </div>
     </div>
   </div>`;
+}
+
+// تایید/لغو سریع سفارش‌های در انتظار — بدون رفتن به صفحهٔ دیگر
+export function after() {
+  const run = async (btn, status, okMsg) => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try {
+      const id = btn.dataset.approve || btn.dataset.reject;
+      const r = await AdminAPI.put('/admin/orders/' + id + '/status', { status });
+      toast(r.message || okMsg);
+      setTimeout(() => location.reload(), 500);
+    } catch (err) { btn.disabled = false; toast(err.message, 'err'); }
+  };
+  document.querySelectorAll('[data-approve]').forEach(b => b.addEventListener('click', () => run(b, 'confirmed', 'سفارش تایید شد ✅')));
+  document.querySelectorAll('[data-reject]').forEach(b => b.addEventListener('click', () => {
+    if (!confirm('این سفارش لغو و موجودی آن به انبار برمی‌گردد. مطمئن هستید؟')) return;
+    run(b, 'cancelled', 'سفارش لغو شد');
+  }));
 }

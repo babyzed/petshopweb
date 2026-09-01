@@ -22,7 +22,7 @@ import { toast } from './components.js';
 
 const routes = {
   'login': { title: 'ورود مدیر', render: () => login.render(), after: () => login.after() },
-  'dashboard': { title: 'داشبورد', perm: 'dashboard.view', render: () => dashboard.render() },
+  'dashboard': { title: 'داشبورد', perm: 'dashboard.view', render: () => dashboard.render(), after: () => dashboard.after() },
   'products': { title: 'محصولات', perm: 'products.manage', render: () => products.render(), after: () => products.after() },
   'products/new': { title: 'محصول جدید', perm: 'products.manage', render: () => products.formRender(), after: () => products.formAfter(null) },
   'products/:id': { title: 'ویرایش محصول', perm: 'products.manage', render: (p) => products.formRender(p.id), after: (p) => products.formAfter(p.id) },
@@ -48,7 +48,10 @@ const routes = {
 };
 
 export async function navigate() {
-  const raw = (location.hash || '#/dashboard').replace(/^#\/?/, '');
+  // بخش query هَش (مثل #/orders?status=pending) از مسیر جدا می‌شود
+  // تا مسیرها درست مچ شوند و صفحات بتوانند فیلتر را از هَش بخوانند
+  const full = (location.hash || '#/dashboard').replace(/^#\/?/, '');
+  const raw = full.split('?')[0];
   const segs = raw.split('/').filter(Boolean);
   const view = document.getElementById('admin-view');
 

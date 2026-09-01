@@ -92,6 +92,9 @@ const TEMPLATES = {
   // ارسال سفارش
   ORDER_SHIPPED: (code) => `پت‌شاپ\nسفارش ${code} ارسال شد.\nبه زودی به دست شما می‌رسد.`,
 
+  // تایید سفارش توسط فروشگاه (مرحله تایید سفارش‌های پرداخت در محل)
+  ORDER_APPROVED: (code) => `پت‌شاپ\nسفارش ${code} توسط فروشگاه تایید شد و در حال آماده‌سازی است.`,
+
   // تحویل سفارش
   ORDER_DELIVERED: (code) => `پت‌شاپ\nسفارش ${code} تحویل داده شد.\nامیدواریم از خریدتان راضی باشید!`,
 
@@ -120,6 +123,10 @@ async function sendOrderSMS(order, type) {
       break;
     case 'shipped':
       message = TEMPLATES.ORDER_SHIPPED(order.code);
+      break;
+    case 'approved':
+    case 'confirmed':
+      message = TEMPLATES.ORDER_APPROVED(order.code);
       break;
     case 'delivered':
       message = TEMPLATES.ORDER_DELIVERED(order.code);

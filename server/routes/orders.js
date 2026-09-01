@@ -11,6 +11,7 @@ const router = express.Router();
 
 const STATUS_LABELS = {
   pending: 'در انتظار پرداخت',
+  confirmed: 'تایید شده',
   paid: 'پرداخت شده',
   processing: 'در حال پردازش',
   shipped: 'ارسال شده',
@@ -31,11 +32,12 @@ function statusLabel(order) {
 
 // مراحل پیگیری سفارش — بسته به روش پرداخت متفاوت است:
 // آنلاین: ثبت سفارش → پرداخت → ارسال → تحویل
-// در محل: ثبت سفارش → ارسال → تحویل → پرداخت در محل (هنگام تحویل)
+// در محل: ثبت سفارش → تایید فروشگاه → ارسال → تحویل → پرداخت در محل (هنگام تحویل)
 function buildStatusTimeline(order) {
   if (order.payment_method === 'cod') {
     return [
       { key: 'pending', label: 'ثبت سفارش', done: true },
+      { key: 'confirmed', label: 'تایید فروشگاه', done: ['confirmed', 'shipped', 'delivered'].includes(order.status) },
       { key: 'shipped', label: 'ارسال', done: ['shipped', 'delivered'].includes(order.status) },
       { key: 'delivered', label: 'تحویل', done: order.status === 'delivered' },
       { key: 'paid', label: 'پرداخت در محل', done: order.payment_status === 'paid' },
@@ -560,8 +562,10 @@ router.post('/orders/my/:id/cancel', authRequired, (req, res) => {
 
   const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(orderId, req.user.id);
   if (!order) return res.status(404).json({ error: 'سفارش یافت نشد.' });
-  if (!['pending'].includes(order.status)) {
-    return res.status(400).json({ error: 'فقط سفارش‌های در انتظار پرداخت قابل لغو هستند.' });
+  // تا پیش از ارسال، مشتری می‌تواند سفارش را لغو کند
+  // (pending = در انتظار پرداخت/تایید، confirmed = تایید شده ولی هنوز ارسال نشده)
+  if (!['pending', 'confirmed'].includes(order.status)) {
+    return res.status(400).json({ error: 'این سفارش ارسال یا نهایی شده و قابل لغو نیست. برای پیگیری با پشتیبانی تماس بگیرید.' });
   }
 
   db.transaction(() => {
