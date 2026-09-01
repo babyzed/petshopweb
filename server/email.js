@@ -143,7 +143,7 @@ function orderConfirmationEmail(order, customer) {
 
       <!-- دکمه -->
       <div style="text-align:center;margin:24px 0">
-        <a href="${process.env.SAMAN_CALLBACK_URL || 'http://localhost:3000'}/#/orders"
+        <a href="${process.env.SITE_URL || 'http://localhost:3000'}/#/orders"
            style="display:inline-block;background:#F97316;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:bold">
           مشاهده سفارش‌ها
         </a>

@@ -1,5 +1,5 @@
 // pages/order.js — جزئیات و پیگیری سفارش
-import { API, price, faNum, timeFa } from '../api.js';
+import { API, price, faNum, timeFa, escHtml } from '../api.js';
 import { Session } from '../store.js';
 import { toast } from '../components.js';
 import { ic } from '../icons.js';
@@ -44,13 +44,13 @@ export async function render(params) {
       <div>
         <div class="checkout-card">
           <h3>${ic('truck', 17)} اطلاعات گیرنده</h3>
-          <div class="c-info-row"><span class="ci-ic">${ic('user', 17)}</span><div><span class="ci-l">نام</span><span class="ci-v">${order.customer.full_name}</span></div></div>
-          <div class="c-info-row"><span class="ci-ic">${ic('phone', 16)}</span><div><span class="ci-l">موبایل</span><span class="ci-v" dir="ltr">${order.customer.phone}</span></div></div>
-          <div class="c-info-row"><span class="ci-ic">${ic('pin', 16)}</span><div><span class="ci-l">آدرس</span><span class="ci-v">${order.customer.address || '—'}</span></div></div>
+          <div class="c-info-row"><span class="ci-ic">${ic('user', 17)}</span><div><span class="ci-l">نام</span><span class="ci-v">${escHtml(order.customer.full_name)}</span></div></div>
+          <div class="c-info-row"><span class="ci-ic">${ic('phone', 16)}</span><div><span class="ci-l">موبایل</span><span class="ci-v" dir="ltr">${escHtml(order.customer.phone)}</span></div></div>
+          <div class="c-info-row"><span class="ci-ic">${ic('pin', 16)}</span><div><span class="ci-l">آدرس</span><span class="ci-v">${escHtml(order.customer.address || '—')}</span></div></div>
           <div class="c-info-row"><span class="ci-ic">${ic('card', 16)}</span><div><span class="ci-l">پرداخت</span><span class="ci-v">${order.payment_method === 'online'
             ? (order.payment_status === 'paid' ? 'آنلاین (پرداخت شده)' : order.payment_status === 'unpaid' ? 'آنلاین (در انتظار پرداخت)' : 'آنلاین (پرداخت ناموفق)')
             : (order.payment_status === 'paid' ? 'در محل (دریافت شده)' : 'در محل (دریافت هنگام تحویل)')}</span></div></div>
-          ${order.note ? `<div class="c-info-row"><span class="ci-ic">${ic('pen', 16)}</span><div><span class="ci-l">یادداشت</span><span class="ci-v">${order.note}</span></div></div>` : ''}
+          ${order.note ? `<div class="c-info-row"><span class="ci-ic">${ic('pen', 16)}</span><div><span class="ci-l">یادداشت</span><span class="ci-v">${escHtml(order.note)}</span></div></div>` : ''}
         </div>
         <div class="checkout-card">
           <h3>${ic('cash', 17)} مبالغ</h3>

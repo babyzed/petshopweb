@@ -20,7 +20,10 @@ function match(hash) {
     const params = {};
     let ok = true;
     for (let i = 0; i < parts.length; i++) {
-      if (parts[i].startsWith(':')) params[parts[i].slice(1)] = decodeURIComponent(segments[i]);
+      if (parts[i].startsWith(':')) {
+        try { params[parts[i].slice(1)] = decodeURIComponent(segments[i]); }
+        catch { params[parts[i].slice(1)] = segments[i]; }
+      }
       else if (parts[i] !== segments[i]) { ok = false; break; }
     }
     if (ok) return { def: r.def, params, query, path: pathPart };
@@ -49,7 +52,10 @@ export async function navigate() {
   view.scrollTop = 0;
   window.scrollTo({ top: 0 });
 
-  if (m.def.title) document.title = m.def.title(m.params, m.query) + ' | پت‌شاپ';
+  if (m.def.title) {
+    const t = m.def.title(m.params, m.query) || '';
+    document.title = t.includes('پت‌شاپ') ? t : (t ? t + ' | پت‌شاپ' : 'پت‌شاپ');
+  }
 
   // skeleton
   view.innerHTML = '<div class="loading-wrap"><div class="spinner"></div><div>در حال بارگذاری...</div></div>';

@@ -8,12 +8,16 @@ function bootstrap() {
     renderSidebar();
     renderTopbar();
     document.body.classList.add('logged-in');
-    // بستن سایدبار موبایل با کلیک روی لینک
+    // بستن سایدبار موبایل با کلیک روی لینک، کلید Escape یا تغییر مسیر
     document.addEventListener('click', (e) => {
       if (e.target.closest('.as-link')) {
         closeSidebar();
       }
     });
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeSidebar();
+    });
+    window.addEventListener('hashchange', () => closeSidebar());
   } else {
     document.getElementById('admin-sidebar').innerHTML = '';
     document.getElementById('admin-topbar').innerHTML = '';

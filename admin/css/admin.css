@@ -342,11 +342,22 @@
   /* سایدبار از عرض ۱۱۰۰px به‌پایین به‌صورت منوی کشویی (hamburger) می‌شود
      تا در تبلت و موبایل مزاحم محتوای داشبورد/سفارش‌ها نشود */
   #admin-sidebar {
-    position: fixed; inset-inline-start: 0; top: 0; z-index: 90;
-    transform: translateX(-100%); box-shadow: 20px 0 50px rgba(0,0,0,.3);
+    position: fixed; top: 0; bottom: 0; z-index: 90;
+    left: 0; right: auto;
+    width: 256px; max-width: 86vw;
+    transform: translateX(-105%);
+    visibility: hidden;
+    box-shadow: 20px 0 50px rgba(0,0,0,.3);
+    transition: transform .3s ease, visibility .3s ease;
   }
-  [dir="rtl"] #admin-sidebar { transform: translateX(100%); }
-  #admin-sidebar.open { transform: translateX(0); }
+  [dir="rtl"] #admin-sidebar {
+    left: auto; right: 0;
+    transform: translateX(105%);
+  }
+  #admin-sidebar.open {
+    transform: translateX(0);
+    visibility: visible;
+  }
   .admin-sidebar-backdrop {
     display: block; position: fixed; inset: 0; z-index: 85;
     background: rgba(28,25,23,.55); opacity: 0; pointer-events: none;

@@ -29,6 +29,8 @@ export const API = {
 };
 
 // ---------- ابزار فرمت فارسی ----------
+// escape امن برای متن‌های کاربرمحور (جلوگیری از XSS هنگام تزریق در HTML)
+export const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const faNum = (n) => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
 export const price = (n) => faNum(Number(n || 0).toLocaleString('en-US'));
 export const dateFa = (iso) => {

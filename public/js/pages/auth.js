@@ -163,8 +163,8 @@ export function mount(el) {
         API.setToken(r.token);
         Session.setUser(r.user);
         toast('خوش آمدید!');
-        location.hash = r.user.is_admin ? '#/account' : '#/account';
-        if (r.user.is_admin) setTimeout(() => { if (confirm('به پنل مدیریت بروید؟')) location.hash = '/admin/'; }, 600);
+        location.hash = '#/account';
+        if (r.user.is_admin) setTimeout(() => { if (confirm('به پنل مدیریت بروید؟')) location.href = '/admin/'; }, 600);
       } else if (mode === 'register') {
         const r = await API.post('/auth/register', body);
         API.setToken(r.token);

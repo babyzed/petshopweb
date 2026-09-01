@@ -247,7 +247,9 @@ export function mount(el) {
       }
     }
 
-    const payment = el.querySelector('input[name="pay"]:checked').value;
+    const payRadio = el.querySelector('input[name="pay"]:checked');
+    if (!payRadio) { toast('هیچ روش پرداختی فعال نیست. با پشتیبانی تماس بگیرید.', 'err'); return; }
+    const payment = payRadio.value;
     btn.disabled = true;
     btn.textContent = '⏳ در حال ثبت سفارش...';
     try {

@@ -1,5 +1,5 @@
 // admin/pages/reviews.js — مدیریت نظرات محصولات
-import { AdminAPI, faNum, faDate } from '../api.js';
+import { AdminAPI, faNum, faDate, escHtml } from '../api.js';
 import { toast, confirmModal, statusBadge } from '../components.js';
 import { ic } from '../icons.js';
 
@@ -25,10 +25,10 @@ export async function render() {
     <tbody>
       ${d.reviews.map(r => `
         <tr>
-          <td><b>${r.user_name}</b></td>
-          <td><a href="#/products/${r.product_id}" class="t-name" style="color:var(--brand-dark)">${r.product_name}</a></td>
+          <td><b>${escHtml(r.user_name)}</b></td>
+          <td><a href="#/products/${r.product_id}" class="t-name" style="color:var(--brand-dark)">${escHtml(r.product_name)}</a></td>
           <td>${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</td>
-          <td style="max-width:260px"><b style="font-size:12px">${r.title || ''}</b><div class="t-sub">${r.comment}</div></td>
+          <td style="max-width:260px"><b style="font-size:12px">${escHtml(r.title || '')}</b><div class="t-sub">${escHtml(r.comment)}</div></td>
           <td style="font-size:11px">${faDate(r.created_at)}</td>
           <td>${statusBadge(r.status)}</td>
           <td style="white-space:nowrap">

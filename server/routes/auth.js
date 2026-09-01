@@ -158,7 +158,7 @@ router.post('/forgot', (req, res) => {
     // ارسال از طریق ایمیل/پیامک (غیرهمزمان)
     setImmediate(() => {
       const { sendEmail } = require('../email');
-      const resetLink = `${process.env.SAMAN_CALLBACK_URL || 'http://localhost:3000'}/#/reset-password?email=${encodeURIComponent(user.email)}&code=${code}`;
+      const resetLink = `${process.env.SITE_URL || 'http://localhost:3000'}/#/reset-password?email=${encodeURIComponent(user.email)}&code=${code}`;
       sendEmail(user.email, 'بازیابی رمز عبور — پت‌شاپ', `
         <div dir="rtl" style="font-family:Tahoma,sans-serif;max-width:400px;margin:20px auto;padding:20px;background:#f9f9f9;border-radius:12px">
           <h2 style="text-align:center;color:#333">بازیابی رمز عبور</h2>

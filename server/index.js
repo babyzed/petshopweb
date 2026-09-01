@@ -153,8 +153,8 @@ app.use((req, res, next) => {
   const gaId = getGaId();
   if (gaId && gaId.startsWith('G-')) {
     scriptSrc.push('https://www.googletagmanager.com', 'https://www.google-analytics.com');
-    connectSrc.push('https://www.google-analytics.com', 'https://analytics.google.com');
-    imgSrc.push('https://www.google-analytics.com');
+    connectSrc.push('https://www.google-analytics.com', 'https://analytics.google.com', 'https://region1.google-analytics.com');
+    imgSrc.push('https://www.google-analytics.com', 'https://region1.google-analytics.com');
   }
   csp.splice(1, 0, `script-src ${scriptSrc.join(' ')}`);
   csp.push(`img-src ${imgSrc.join(' ')}`);
@@ -390,7 +390,13 @@ Sitemap: ${req.protocol}://${req.get('host')}/sitemap.xml
 });
 
 // ---------- اپلیکیشن‌ها ----------
-app.use('/admin', express.static(path.join(__dirname, '..', 'admin')));
+app.use('/admin', express.static(path.join(__dirname, '..', 'admin'), {
+  setHeaders: (res, filePath) => {
+    if (/\.(html?|js|css|json)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+}));
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   setHeaders: (res, filePath) => {
     if (/\.(html?|js|css|json)$/i.test(filePath)) {

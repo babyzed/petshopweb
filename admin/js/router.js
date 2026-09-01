@@ -58,7 +58,10 @@ export async function navigate() {
     if (parts.length !== segs.length) continue;
     let ok = true; const prm = {};
     for (let i = 0; i < parts.length; i++) {
-      if (parts[i].startsWith(':')) prm[parts[i].slice(1)] = decodeURIComponent(segs[i]);
+      if (parts[i].startsWith(':')) {
+        try { prm[parts[i].slice(1)] = decodeURIComponent(segs[i]); }
+        catch { prm[parts[i].slice(1)] = segs[i]; }
+      }
       else if (parts[i] !== segs[i]) { ok = false; break; }
     }
     if (ok) { def = d; params = prm; break; }

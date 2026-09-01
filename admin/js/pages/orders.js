@@ -1,5 +1,5 @@
 // admin/pages/orders.js — مدیریت سفارش‌ها
-import { AdminAPI, price, faNum, faDate } from '../api.js';
+import { AdminAPI, price, faNum, faDate, escHtml } from '../api.js';
 import { toast, statusBadge, paymentBadge } from '../components.js';
 import { ic } from '../icons.js';
 
@@ -118,15 +118,15 @@ export async function detailRender(params) {
     <div>
       <div class="dash-card">
         <h3>${ic('truck', 18)} اطلاعات مشتری و تحویل</h3>
-        <div class="mini-list-item">${ic('user', 16)}<span class="mli-name">نام</span><b>${c.full_name || '—'}</b></div>
-        <div class="mini-list-item">${ic('phone', 16)}<span class="mli-name">موبایل</span><b dir="ltr">${c.phone || '—'}</b></div>
-        <div class="mini-list-item">${ic('home', 16)}<span class="mli-name">آدرس</span><b style="max-width:180px">${c.address || '—'}</b></div>
-        ${c.postal_code ? `<div class="mini-list-item">${ic('pin', 16)}<span class="mli-name">کد پستی</span><b dir="ltr">${c.postal_code}</b></div>` : ''}
+        <div class="mini-list-item">${ic('user', 16)}<span class="mli-name">نام</span><b>${escHtml(c.full_name || '—')}</b></div>
+        <div class="mini-list-item">${ic('phone', 16)}<span class="mli-name">موبایل</span><b dir="ltr">${escHtml(c.phone || '—')}</b></div>
+        <div class="mini-list-item">${ic('home', 16)}<span class="mli-name">آدرس</span><b style="max-width:180px">${escHtml(c.address || '—')}</b></div>
+        ${c.postal_code ? `<div class="mini-list-item">${ic('pin', 16)}<span class="mli-name">کد پستی</span><b dir="ltr">${escHtml(c.postal_code)}</b></div>` : ''}
         <div class="mini-list-item">${ic('card', 16)}<span class="mli-name">روش پرداخت</span><b>${order.payment_method === 'online' ? 'آنلاین' : 'در محل'}</b></div>
         <div class="mini-list-item">${ic('card', 16)}<span class="mli-name">وضعیت پرداخت</span>${paymentBadge(order.payment_method, order.payment_status)}</div>
-        ${order.transaction_id ? `<div class="mini-list-item">${ic('clipboard', 16)}<span class="mli-name">شناسه تراکنش</span><b dir="ltr">${order.transaction_id}</b></div>` : ''}
+        ${order.transaction_id ? `<div class="mini-list-item">${ic('clipboard', 16)}<span class="mli-name">شناسه تراکنش</span><b dir="ltr">${escHtml(order.transaction_id)}</b></div>` : ''}
         <div class="mini-list-item">${ic('clock', 16)}<span class="mli-name">تاریخ ثبت</span><b>${faDate(order.created_at)}</b></div>
-        ${order.note ? `<div class="mini-list-item">${ic('file', 16)}<span class="mli-name">یادداشت</span><b style="max-width:180px">${order.note}</b></div>` : ''}
+        ${order.note ? `<div class="mini-list-item">${ic('file', 16)}<span class="mli-name">یادداشت</span><b style="max-width:180px">${escHtml(order.note)}</b></div>` : ''}
       </div>
       ${user ? `
       <div class="dash-card">

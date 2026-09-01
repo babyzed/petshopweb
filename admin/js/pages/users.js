@@ -1,5 +1,5 @@
 // admin/pages/users.js — مدیریت کاربران
-import { AdminAPI, price, faNum, faDate } from '../api.js';
+import { AdminAPI, price, faNum, faDate, escHtml } from '../api.js';
 import { toast, statusBadge, openModal, initials } from '../components.js';
 import { ic } from '../icons.js';
 
@@ -22,8 +22,8 @@ export async function render() {
             <div style="display:flex;align-items:center;gap:10px">
               <span class="at-avatar" style="width:36px;height:36px;font-size:13px">${initials(u.name)}</span>
               <div>
-                <div class="t-name">${u.name}</div>
-                <div class="t-sub" dir="ltr">${u.email}</div>
+                <div class="t-name">${escHtml(u.name)}</div>
+                <div class="t-sub" dir="ltr">${escHtml(u.email)}</div>
               </div>
             </div>
           </td>
@@ -33,7 +33,7 @@ export async function render() {
           <td>${u.status === 'active' ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">غیرفعال</span>'}</td>
           <td style="white-space:nowrap">
             <a class="btn btn-ghost" href="#/users/${u.id}" style="padding:7px 12px;font-size:11.5px">${ic('eye', 14)} مشاهده</a>
-            <button class="btn btn-ghost" data-edit='${JSON.stringify({ id: u.id, name: u.name, role_id: u.role_id, role_title: u.role_title })}' style="padding:7px 12px;font-size:11.5px">${ic('edit', 14)} ویرایش</button>
+            <button class="btn btn-ghost" data-edit="${escHtml(JSON.stringify({ id: u.id, name: u.name, role_id: u.role_id, role_title: u.role_title }))}" style="padding:7px 12px;font-size:11.5px">${ic('edit', 14)} ویرایش</button>
           </td>
         </tr>`).join('')}
     </tbody>
@@ -101,7 +101,7 @@ async function openEdit(u) {
   const { roles } = await AdminAPI.get('/admin/roles');
   const isSuper = AdminAPI.isSuper();
   const { close, body } = openModal(`
-    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${ic('edit', 18)} ویرایش کاربر ${u.name}</h3>
+    <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${ic('edit', 18)} ویرایش کاربر ${escHtml(u.name)}</h3>
     <div class="form-grid">
       <div class="field full"><label>وضعیت حساب</label>
         <select data-status>
@@ -115,7 +115,7 @@ async function openEdit(u) {
           ${roleOptions(roles, u.role_id)}
         </select>
         <span class="hint">فقط مدیر کل می‌تواند نقش را تغییر دهد؛ دست کم یک مدیر کل باید باقی بماند.</span>
-      </div>` : '<div class="field full"><label>نقش کاربر</label><input value="' + (u.role_title || '—') + '" disabled></div>'}
+      </div>` : '<div class="field full"><label>نقش کاربر</label><input value="' + escHtml(u.role_title || '—') + '" disabled></div>'}
     </div>
     <div style="display:flex;gap:10px;margin-top:18px">
       <button class="btn btn-primary" data-save style="flex:1">ذخیره</button>

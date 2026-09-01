@@ -171,6 +171,9 @@ CREATE TABLE IF NOT EXISTS coupon_usage (
 );
 CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_user ON coupon_usage(coupon_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_guest ON coupon_usage(coupon_id, guest_key);
+-- یکتایی برای جلوگیری از race در «هر کاربر فقط یک بار» (SQLite مقدار NULL را یکتا نمی‌شمارد)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_coupon_usage_coupon_user ON coupon_usage(coupon_id, user_id) WHERE user_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_coupon_usage_coupon_guest ON coupon_usage(coupon_id, guest_key) WHERE guest_key IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS banners (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

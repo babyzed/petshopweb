@@ -1,5 +1,5 @@
 // pages/product.js — جزئیات محصول: گالری، ویژگی‌ها، نظرات، مرتبط‌ها
-import { API, price, faNum, currentPrice, discountPct, dateFa } from '../api.js';
+import { API, price, faNum, currentPrice, discountPct, dateFa, escHtml } from '../api.js';
 import { Cart, Session } from '../store.js';
 import { productCard, productCardH, stars, toast, initials } from '../components.js';
 import { ic } from '../icons.js';
@@ -133,13 +133,13 @@ export async function render(params) {
           <div class="rev-user">
             <span class="rev-avatar">${initials(r.user_name)}</span>
             <div>
-              <div class="rev-name">${r.user_name}</div>
+              <div class="rev-name">${escHtml(r.user_name)}</div>
               <div class="rev-date">${dateFa(r.created_at)}</div>
             </div>
             <div style="margin-inline-start:auto">${stars(r.rating)}</div>
           </div>
-          ${r.title ? `<div class="rev-title">${r.title}</div>` : ''}
-          <p class="rev-comment">${r.comment}</p>
+          ${r.title ? `<div class="rev-title">${escHtml(r.title)}</div>` : ''}
+          <p class="rev-comment">${escHtml(r.comment)}</p>
         </div>`).join('') : '<p style="color:var(--muted);font-size:13px">هنوز نظری ثبت نشده؛ اولین نفر باشید!</p>'}
       ${reviewForm}
     </div>

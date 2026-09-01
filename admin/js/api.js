@@ -30,6 +30,8 @@ export const AdminAPI = {
 };
 
 export const faNum = (n) => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+// escape امن برای متن‌های کاربرمحور (جلوگیری از XSS هنگام تزریق در HTML)
+export const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const price = (n) => faNum(Number(n || 0).toLocaleString('en-US'));
 export const faDate = (iso) => { try { return new Date(iso).toLocaleString('fa-IR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return iso; } };
 

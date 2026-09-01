@@ -127,6 +127,9 @@ async function sendOrderSMS(order, type) {
     case 'cancelled':
       message = TEMPLATES.ORDER_CANCELLED(order.code);
       break;
+    case 'paid':
+      message = `پت‌شاپ\nسفارش ${order.code} پرداخت شد.\nمبلغ: ${order.total.toLocaleString('fa-IR')} تومان`;
+      break;
     default:
       return { ok: false, reason: 'unknown_type' };
   }
