@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { db } = require('../db');
 const { signToken, authRequired, withRole } = require('../auth');
+const { normalizePhone, isPlaceholderEmail } = require('../customer-account');
 
 const router = express.Router();
 
@@ -12,6 +13,16 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^09\d{9}$/;
 const PASSWORD_MIN = 6;
 const BCRYPT_ROUNDS = 12;
+
+// ورود/بازیابی با «ایمیل یا شماره موبایل»:
+// حساب‌هایی که هنگام خرید مهمان به‌صورت خودکار ساخته می‌شوند فقط شماره موبایل دارند.
+function findUserByIdentifier(identifier) {
+  const v = String(identifier || '').trim().toLowerCase();
+  const phone = normalizePhone(v);
+  if (phone) return db.prepare('SELECT * FROM users WHERE phone = ?').get(phone);
+  if (EMAIL_RE.test(v)) return db.prepare('SELECT * FROM users WHERE email = ?').get(v);
+  return null;
+}
 
 // ---------- Brute-Force Protection (In-Memory + DB) ----------
 const loginAttempts = new Map();
@@ -91,6 +102,22 @@ router.post('/register', (req, res) => {
     const role = db.prepare("SELECT id FROM roles WHERE name = 'customer'").get();
     const roleId = role ? role.id : db.prepare("SELECT id FROM roles ORDER BY id ASC LIMIT 1").get().id;
 
+    // === FIX: «ادعای» حساب مهمان ساخته‌شده هنگام خرید ===
+    // اگر همین کاربر قبلاً مهمان خرید کرده و حساب خودکار (با ایمیل موقت) دارد،
+    // به‌جای ساخت حساب تکراری، همان حساب با ایمیل و رمز جدید کامل می‌شود
+    const phoneDigits = normalizePhone(phone);
+    const guestUser = phoneDigits ? db.prepare('SELECT * FROM users WHERE phone = ?').get(phoneDigits) : null;
+    if (guestUser) {
+      if (isPlaceholderEmail(guestUser.email)) {
+        db.prepare("UPDATE users SET name = ?, email = ?, phone = ?, password_hash = ?, updated_at = datetime('now') WHERE id = ?")
+          .run(name.trim().slice(0, 100), cleanEmail, phoneDigits,
+            bcrypt.hashSync(password, BCRYPT_ROUNDS), guestUser.id);
+        const upgraded = db.prepare('SELECT * FROM users WHERE id = ?').get(guestUser.id);
+        return res.json({ token: signToken(upgraded), user: publicUser(upgraded), account_upgraded: true });
+      }
+      return res.status(409).json({ error: 'کاربری با این شماره موبایل قبلاً ثبت‌نام کرده است؛ با ورود، حساب‌تان را باز کنید.' });
+    }
+
     const hash = bcrypt.hashSync(password, BCRYPT_ROUNDS);
     const info = db.prepare(
       'INSERT INTO users (name, email, phone, password_hash, role_id) VALUES (?, ?, ?, ?, ?)'
@@ -104,31 +131,31 @@ router.post('/register', (req, res) => {
   }
 });
 
-// ---------- ورود ----------
+// ---------- ورود (ایمیل یا شماره موبایل) ----------
 router.post('/login', (req, res) => {
   try {
     const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ error: 'ایمیل و رمز عبور را وارد کنید.' });
+    if (!email || !password) return res.status(400).json({ error: 'ایمیل یا شماره موبایل و رمز عبور را وارد کنید.' });
 
-    const cleanEmail = String(email).trim().toLowerCase();
+    const identifier = String(email).trim().toLowerCase();
 
     // Brute-force check
-    const bruteCheck = checkLoginBruteForce(cleanEmail);
+    const bruteCheck = checkLoginBruteForce(identifier);
     if (bruteCheck.blocked) {
       return res.status(429).json({ error: `تعداد تلاش‌های ناموفق بیش از حد مجاز است. ${bruteCheck.remainingMinutes} دقیقه صبر کنید.` });
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(cleanEmail);
+    const user = findUserByIdentifier(identifier);
     if (!user || !bcrypt.compareSync(String(password), user.password_hash)) {
-      recordLoginAttempt(cleanEmail, false);
+      recordLoginAttempt(identifier, false);
       // پاسخ یکسان برای وجود/عدم وجود کاربر (عدم افشای اطلاعات)
-      return res.status(401).json({ error: 'ایمیل یا رمز عبور اشتباه است.' });
+      return res.status(401).json({ error: 'ایمیل/موبایل یا رمز عبور اشتباه است.' });
     }
     if (user.status !== 'active') {
       return res.status(403).json({ error: 'حساب شما غیرفعال شده است.' });
     }
 
-    recordLoginAttempt(cleanEmail, true);
+    recordLoginAttempt(identifier, true);
 
     res.json({ token: signToken(user), user: publicUser(user) });
   } catch (err) {
@@ -137,52 +164,62 @@ router.post('/login', (req, res) => {
   }
 });
 
-// ---------- فراموشی رمز عبور ----------
+// ---------- فراموشی رمز عبور (ایمیل یا شماره موبایل) ----------
 // CRITICAL: هرگز کد را در پاسخ یا لاگ نمایش نده
 router.post('/forgot', (req, res) => {
   try {
     const { email } = req.body || {};
-    if (!email || !EMAIL_RE.test(email)) return res.status(400).json({ error: 'ایمیل معتبر وارد کنید.' });
+    const identifier = String(email || '').trim().toLowerCase();
+    const phone = normalizePhone(identifier);
+    // اعتبارسنجی: ایمیل معتبر یا موبایل ۰۹...
+    if ((!phone && !EMAIL_RE.test(identifier))) {
+      return res.status(400).json({ error: 'ایمیل یا شماره موبایل معتبر وارد کنید.' });
+    }
 
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(String(email).trim().toLowerCase());
+    const user = findUserByIdentifier(identifier);
     // عدم افشای وجود کاربر — همیشه پاسخ یکسان
-    if (!user) return res.json({ ok: true, message: 'اگر ایمیل شما در سیستم ثبت شده باشد، کد بازیابی ارسال شده است.' });
+    if (!user) return res.json({ ok: true, message: 'اگر این اطلاعات در سیستم ثبت شده باشد، کد بازیابی ارسال شده است.' });
 
     // تولید کد امن (Cryptographically Secure)
     const code = String(crypto.randomInt(100000, 999999));
     const codeHash = crypto.createHash('sha256').update(code).digest('hex');
 
     db.prepare('INSERT INTO settings (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json')
-      .run('reset_' + user.email, JSON.stringify({ codeHash, created: Date.now(), used: false }));
+      .run('reset_' + identifier, JSON.stringify({ codeHash, created: Date.now(), used: false }));
 
-    // ارسال از طریق ایمیل/پیامک (غیرهمزمان)
+    // ارسال از طریق پیامک (برای حساب‌های موبایلی/مهمان) یا ایمیل (غیرهمزمان)
     setImmediate(() => {
-      const { sendEmail } = require('../email');
-      const resetLink = `${process.env.SITE_URL || 'http://localhost:3000'}/#/reset-password?email=${encodeURIComponent(user.email)}&code=${code}`;
-      sendEmail(user.email, 'بازیابی رمز عبور — پت‌شاپ', `
-        <div dir="rtl" style="font-family:Tahoma,sans-serif;max-width:400px;margin:20px auto;padding:20px;background:#f9f9f9;border-radius:12px">
-          <h2 style="text-align:center;color:#333">بازیابی رمز عبور</h2>
-          <p style="text-align:center;color:#666">کد بازیابی شما:</p>
-          <div style="text-align:center;font-size:32px;font-weight:bold;color:#C2410C;letter-spacing:8px;margin:20px 0">${code}</div>
-          <p style="text-align:center;color:#999;font-size:12px">این کد تا ۱۵ دقیقه معتبر است.</p>
-          <p style="text-align:center;color:#999;font-size:12px">اگر شما درخواست بازیابی نکرده‌اید، این ایمیل را نادیده بگیرید.</p>
-        </div>
-      `).catch(() => {});
+      if (phone) {
+        const { sendSMS } = require('../sms');
+        sendSMS(phone, `پت‌شاپ\nکد بازیابی رمز عبور شما: ${code}\nاین کد تا ۱۵ دقیقه معتبر است.`)
+          .catch(() => {});
+      } else {
+        const { sendEmail } = require('../email');
+        sendEmail(user.email, 'بازیابی رمز عبور — پت‌شاپ', `
+          <div dir="rtl" style="font-family:Tahoma,sans-serif;max-width:400px;margin:20px auto;padding:20px;background:#f9f9f9;border-radius:12px">
+            <h2 style="text-align:center;color:#333">بازیابی رمز عبور</h2>
+            <p style="text-align:center;color:#666">کد بازیابی شما:</p>
+            <div style="text-align:center;font-size:32px;font-weight:bold;color:#C2410C;letter-spacing:8px;margin:20px 0">${code}</div>
+            <p style="text-align:center;color:#999;font-size:12px">این کد تا ۱۵ دقیقه معتبر است.</p>
+            <p style="text-align:center;color:#999;font-size:12px">اگر شما درخواست بازیابی نکرده‌اید، این ایمیل را نادیده بگیرید.</p>
+          </div>
+        `).catch(() => {});
+      }
     });
 
     // در محیط توسعه، کد را در لاگ نشان بده (فقط dev)
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`[RESET-CODE] ${user.email}: ${code}`);
+      console.log(`[RESET-CODE] ${identifier}: ${code}`);
     }
 
-    res.json({ ok: true, message: 'اگر ایمیل شما در سیستم ثبت شده باشد، کد بازیابی ارسال شده است.' });
+    res.json({ ok: true, message: 'اگر این اطلاعات در سیستم ثبت شده باشد، کد بازیابی ارسال شده است.' });
   } catch (err) {
     console.error('[Auth] Forgot error:', err.message);
     res.status(500).json({ error: 'خطا در پردازش درخواست.' });
   }
 });
 
-// ---------- بازیابی رمز با کد ----------
+// ---------- بازیابی رمز با کد (ایمیل یا شماره موبایل) ----------
 router.post('/reset', (req, res) => {
   try {
     const { email, code, password } = req.body || {};
@@ -192,7 +229,11 @@ router.post('/reset', (req, res) => {
     const pwError = validatePassword(password);
     if (pwError) return res.status(400).json({ error: pwError });
 
-    const row = db.prepare('SELECT value_json FROM settings WHERE key = ?').get('reset_' + String(email).trim().toLowerCase());
+    const identifier = String(email).trim().toLowerCase();
+    const user = findUserByIdentifier(identifier);
+    if (!user) return res.status(400).json({ error: 'ابتدا درخواست بازیابی بدهید.' });
+
+    const row = db.prepare('SELECT value_json FROM settings WHERE key = ?').get('reset_' + identifier);
     if (!row) return res.status(400).json({ error: 'ابتدا درخواست بازیابی بدهید.' });
 
     const data = JSON.parse(row.value_json);
@@ -203,12 +244,10 @@ router.post('/reset', (req, res) => {
     const codeHash = crypto.createHash('sha256').update(String(code)).digest('hex');
     if (codeHash !== data.codeHash) return res.status(400).json({ error: 'کد وارد شده صحیح نیست.' });
 
-    // بروزرسانی رمز + علامت‌گذاری کد به عنوان استفاده شده
-    db.prepare('UPDATE users SET password_hash = ?, updated_at = datetime(\'now\') WHERE email = ?')
-      .run(bcrypt.hashSync(String(password), BCRYPT_ROUNDS), String(email).trim().toLowerCase());
-
-    // علامت‌گذاری کد به عنوان استفاده شده (یکبار مصرف)
-    db.prepare('DELETE FROM settings WHERE key = ?').run('reset_' + String(email).trim().toLowerCase());
+    // بروزرسانی رمز + حذف کد (یکبار مصرف)
+    db.prepare("UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(bcrypt.hashSync(String(password), BCRYPT_ROUNDS), user.id);
+    db.prepare('DELETE FROM settings WHERE key = ?').run('reset_' + identifier);
 
     res.json({ ok: true, message: 'رمز عبور با موفقیت تغییر کرد.' });
   } catch (err) {

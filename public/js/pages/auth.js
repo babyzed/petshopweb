@@ -9,6 +9,8 @@ let mode = 'login'; // login | register | forgot
 export function title() { return 'ورود | پت‌شاپ'; }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^09\d{9}$/;
+const isIdentifier = (v) => EMAIL_RE.test(v.trim()) || PHONE_RE.test(v.trim());
 
 export function render() {
   return `
@@ -21,7 +23,7 @@ export function render() {
       <div class="auth-pet" data-auth-pet>${ic('paw', 56)}</div>
       <h1 class="auth-title" data-auth-title>${mode === 'login' ? 'خوش برگشتید!' : mode === 'register' ? 'به خانواده پت‌شاپ بپیوندید' : 'بازیابی رمز عبور'}</h1>
       <p class="auth-sub" data-auth-sub>
-        ${mode === 'login' ? 'برای ادامه، وارد حساب‌تان شوید' : mode === 'register' ? 'ثبت‌نام فقط ۳۰ ثانیه طول می‌کشد' : 'کد بازیابی را به ایمیل‌تان ارسال می‌کنیم'}
+        ${mode === 'login' ? 'برای ادامه، وارد حساب‌تان شوید' : mode === 'register' ? 'ثبت‌نام فقط ۳۰ ثانیه طول می‌کشد' : 'کد بازیابی به ایمیل یا پیامک شما ارسال می‌شود'}
       </p>
 
       <div class="auth-tabs" data-auth-tabs>
@@ -52,6 +54,7 @@ function fieldsHtml(m) {
       <label>شماره موبایل</label>
       <input type="tel" name="phone" dir="ltr" placeholder="09xxxxxxxxx" autocomplete="tel">
       <span class="err-msg" data-err="phone"></span>
+      <span style="font-size:11px;color:var(--muted)">اگر قبلاً با این شماره خرید کرده‌اید، سفارش‌های قبلی به حساب شما متصل می‌شود.</span>
     </div>
     <div class="field">
       <label>ایمیل *</label>
@@ -65,14 +68,14 @@ function fieldsHtml(m) {
     </div>`;
   if (m === 'forgot') return `
     <div class="field">
-      <label>ایمیل حساب شما *</label>
-      <input type="email" name="email" dir="ltr" placeholder="you@example.com">
+      <label>ایمیل یا شماره موبایل *</label>
+      <input type="text" name="email" dir="ltr" placeholder="you@example.com یا 09xxxxxxxxx" autocomplete="username">
       <span class="err-msg" data-err="email"></span>
     </div>`;
   return `
     <div class="field">
-      <label>ایمیل *</label>
-      <input type="email" name="email" dir="ltr" placeholder="you@example.com" autocomplete="email">
+      <label>ایمیل یا شماره موبایل *</label>
+      <input type="text" name="email" dir="ltr" placeholder="you@example.com یا 09xxxxxxxxx" autocomplete="username">
       <span class="err-msg" data-err="email"></span>
     </div>
     <div class="field">
@@ -95,7 +98,7 @@ export function mount(el) {
   const setMode = (m) => {
     mode = m;
     const title = { login: 'خوش برگشتید!', register: 'به خانواده پت‌شاپ بپیوندید', forgot: 'بازیابی رمز عبور' }[m];
-    const sub = { login: 'برای ادامه، وارد حساب‌تان شوید', register: 'ثبت‌نام فقط ۳۰ ثانیه طول می‌کشد', forgot: 'کد بازیابی را به ایمیل‌تان ارسال می‌کنیم' }[m];
+    const sub = { login: 'برای ادامه، وارد حساب‌تان شوید', register: 'ثبت‌نام فقط ۳۰ ثانیه طول می‌کشد', forgot: 'کد بازیابی به ایمیل یا پیامک شما ارسال می‌شود' }[m];
     card.querySelector('[data-auth-title]').textContent = title;
     card.querySelector('[data-auth-sub]').textContent = sub;
     card.querySelectorAll('.auth-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === m));
@@ -132,12 +135,12 @@ export function mount(el) {
     const body = Object.fromEntries(fd);
     const errs = {};
 
-    // اعتبارسنجی
+    // اعتبارسنجی (ایمیل یا شماره موبایل)
     if (mode !== 'forgot') {
-      if (!body.email || !EMAIL_RE.test(body.email)) errs.email = 'ایمیل معتبر وارد کنید.';
+      if (!body.email || !isIdentifier(body.email)) errs.email = 'ایمیل یا شماره موبایل معتبر وارد کنید.';
       if (!body.password || body.password.length < 6) errs.password = 'رمز عبور حداقل ۶ کاراکتر باشد.';
     } else {
-      if (!body.email || !EMAIL_RE.test(body.email)) errs.email = 'ایمیل معتبر وارد کنید.';
+      if (!body.email || !isIdentifier(body.email)) errs.email = 'ایمیل یا شماره موبایل معتبر وارد کنید.';
     }
     if (mode === 'register') {
       if (!body.name?.trim()) errs.name = 'نام و نام خانوادگی را وارد کنید.';
@@ -173,10 +176,10 @@ export function mount(el) {
         location.hash = '#/account';
       } else {
         const r = await API.post('/auth/forgot', { email: body.email });
-        // نمایش کد دمو
+        // نمایش فرم کد + رمز جدید
         card.querySelector('[data-fields]').innerHTML = `
           <div class="field">
-            <label>کد بازیابی (ارسال‌شده به ایمیل) *</label>
+            <label>کد بازیابی (ارسال‌شده به ایمیل/پیامک) *</label>
             <input type="text" name="code" dir="ltr" placeholder="۶ رقم">
             <span class="err-msg" data-err="code"></span>
           </div>

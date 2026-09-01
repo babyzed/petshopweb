@@ -42,13 +42,15 @@ export async function render() {
   const waiting = d.pendingApproval || [];
   const waitingCount = Number(d.pendingApprovalCount) || 0;
 
+  const pendingRevenue = Number(d.pendingRevenue) || 0;
   return `
   <div class="stat-grid">
-    ${statCard(ic('dollarSign', 22), 'o', price(d.revenue) + ' <small style="font-size:11px">تومان</small>', 'مجموع درآمد (بدون لغو)')}
+    ${statCard(ic('dollarSign', 22), 'o', price(d.revenue) + ' <small style="font-size:11px">تومان</small>', 'مجموع درآمد (پرداخت‌شده)')}
     ${statCard(ic('receipt', 22), 'b', faNum(d.orderCount), 'تعداد سفارش‌ها')}
     ${statCard(ic('users', 22), 'g', faNum(d.userCount), 'کاربران (جدید: ' + faNum(d.newUsers) + ')')}
     ${statCard(ic('trendUp', 22), 'p', price(d.todayRevenue) + ' <small style="font-size:11px">تومان</small>', 'درآمد امروز (' + faNum(d.todayOrders) + ' سفارش)')}
   </div>
+  ${pendingRevenue > 0 ? `<p class="hint" style="margin:-6px 0 14px">💡 درآمد فقط سفارش‌های پرداخت‌شده است؛ ${price(pendingRevenue)} تومان سفارش فعال هنوز پرداخت نشده است.</p>` : ''}
 
   ${waitingCount > 0 ? `
   <div class="dash-card waiting-card">

@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { db } = require('./db');
 const { seed } = require('./seed');
+const { backfillGuestOrders } = require('./customer-account');
 const { getSetting } = require('./db');
 const { initTransporter } = require('./email');
 
@@ -106,6 +107,13 @@ app.use((req, res, next) => {
 
 // ---------- Seed در اولین اجرا ----------
 seed();
+
+// اتصال سفارش‌های مهمان قدیمی (user_id = NULL) به حساب کاربری — رفع باگ پیگیری سفارش
+try {
+  backfillGuestOrders();
+} catch (err) {
+  console.error('[Accounts] Backfill error:', err.message);
+}
 
 app.use(express.json({ limit: '2mb' }));
 

@@ -263,6 +263,13 @@ export function mount(el) {
         note: el.querySelector('[data-c-note]').value.trim(),
       });
 
+      // === حساب خودکار: اگر فروشگاه برای مهمان حساب ساخته است،
+      // همان لحظه وارد می‌شویم تا سفارش قابل پیگیری باشد ===
+      if (r.token && r.user) {
+        API.setToken(r.token);
+        Session.setUser(r.user);
+      }
+
       // پرداخت آنلاین
       if (r.needsPayment) {
         Cart.clear();
@@ -271,13 +278,13 @@ export function mount(el) {
           return; // منتظر ریدایرکت بانک باش
         }
         // درگاه پرداخت فعال نیست — سفارش ثبت شده ولی پرداخت pending
-        renderSuccess(el, r.order, payment);
+        renderSuccess(el, r.order, payment, r.accountCreated);
         return;
       }
 
       // پرداخت در محل: ثبت سفارش موفق
       Cart.clear();
-      renderSuccess(el, r.order, payment);
+      renderSuccess(el, r.order, payment, r.accountCreated);
     } catch (err) {
       toast(err.message, 'err');
       btn.disabled = false;
@@ -286,12 +293,15 @@ export function mount(el) {
   });
 }
 
-async function renderSuccess(el, order, payment) {
+async function renderSuccess(el, order, payment, accountCreated) {
   let extra = '';
   if (payment === 'online') {
     extra = `<p style="font-size:13px;color:#92400E;background:#FEF3C7;padding:10px 14px;border-radius:10px;margin-bottom:14px">⚠️ پرداخت آنلاین در حال حاضر فعال نیست. سفارش شما ثبت شده و در انتظار پرداخت است. لطفاً با پشتیبانی تماس بگیرید.</p>`;
   } else {
     extra = `<p style="font-size:13px;color:#065F46;background:#D1FAE5;padding:10px 14px;border-radius:10px;margin-bottom:14px">💵 پرداخت در محل: مبلغ سفارش را هنگام تحویل پرداخت می‌کنید. سفارش شما پس از <b>تایید فروشگاه</b> وارد مرحله ارسال می‌شود.</p>`;
+  }
+  if (accountCreated) {
+    extra += `<p style="font-size:13px;color:#1E40AF;background:#DBEAFE;padding:10px 14px;border-radius:10px;margin-bottom:14px">🧾 حساب کاربری با شماره موبایل شما ساخته شد و وارد آن شدید؛ از این به بعد همه سفارش‌ها در بخش «سفارش‌های من» قابل پیگیری هستند. برای ورودهای بعدی، با همین شماره موبایل و «بازیابی رمز» وارد شوید.</p>`;
   }
   const root = el.querySelector('.container') || el;
   root.innerHTML = `

@@ -2,7 +2,8 @@
 // Production-Ready: Transactional orders, atomic stock, idempotent payments
 const express = require('express');
 const { db, getSetting } = require('../db');
-const { authRequired, requirePerm, optionalAuth } = require('../auth');
+const { authRequired, requirePerm, optionalAuth, signToken, withRole } = require('../auth');
+const { ensureCustomerUser } = require('../customer-account');
 const { createPayment, verifyPayment, getErrorMessage, testConnection, SAMAN_SANDBOX } = require('../payment');
 const { sendOrderConfirmation, sendOrderShipped } = require('../email');
 const { sendOrderSMS } = require('../sms');
@@ -174,10 +175,23 @@ router.post('/orders', optionalAuth, (req, res) => {
     let subtotal = 0;
     const finalItems = [];
     // در اسکوپ بیرونی تعریف می‌شود تا هم داخل transaction و هم در مسیر پرداخت آنلاین در دسترس باشد
-    const userId = req.user ? req.user.id : null;
+    let userId = req.user ? req.user.id : null;
+    let autoAccount = null;
+    let customerData = null;
 
     // استفاده از Transaction برای اطمینان از Atomic بودن
     const createOrder = db.transaction(() => {
+      // === FIX: ساخت/اتصال خودکار حساب برای مهمان‌ها ===
+      // تا سفارش‌ها همیشه قابل پیگیری در «سفارش‌های من» باشند
+      customerData = { ...customer, address: address || '' };
+      // حذف فیلدهای حساس از customer_json
+      delete customerData.password;
+      delete customerData.token;
+      if (!userId) {
+        autoAccount = ensureCustomerUser(customerData, { createAddress: true });
+        userId = autoAccount.user ? autoAccount.user.id : null;
+      }
+
       for (const it of items) {
         const productId = Number(it.product_id);
         if (!productId || productId < 1) {
@@ -243,11 +257,6 @@ router.post('/orders', optionalAuth, (req, res) => {
       const orderStatus = 'pending';
       const paymentStatus = 'unpaid';
 
-      const customerData = { ...customer, address: address || '' };
-      // حذف فیلدهای حساس از customer_json
-      delete customerData.password;
-      delete customerData.token;
-
       const info = db.prepare(`
         INSERT INTO orders (code, user_id, customer_json, status, subtotal, discount, shipping, total, coupon_code, payment_method, payment_status, note)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
@@ -283,6 +292,16 @@ router.post('/orders', optionalAuth, (req, res) => {
     order.items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
     order.customer = JSON.parse(order.customer_json || '{}');
 
+    // === برای مهمان‌هایی که حساب برای‌شان ساخته/متصل شد، جلسه (توکن) برمی‌گردانیم
+    // تا مشتری بلافاصله بتواند سفارش را در «سفارش‌های من» پیگیری کند
+    let sessionUser = null;
+    if (autoAccount && autoAccount.user && !req.user) {
+      const full = withRole(autoAccount.user);
+      delete full.password_hash;
+      sessionUser = full;
+    }
+    const sessionToken = sessionUser ? signToken(withRole(autoAccount.user)) : null;
+
     // ارسال اطلاع‌رسانی (غیرهمزمان — نباید باعث Rollback شود)
     setImmediate(() => {
       sendOrderConfirmation(order).catch(err => console.error('[Email] Order confirmation error:', err.message));
@@ -290,7 +309,7 @@ router.post('/orders', optionalAuth, (req, res) => {
     });
 
     // لاگ امنیتی
-    addAuditLog(req.user?.id || null, 'order.created', 'order', orderId, { total: order.total, payment }, req);
+    addAuditLog(userId || null, 'order.created', 'order', orderId, { total: order.total, payment, auto_account: !!(autoAccount && autoAccount.created) }, req);
 
     // === اگر پرداخت آنلاین است، لینک پرداخت بانکی بساز ===
     if (payment === 'online') {
@@ -306,12 +325,12 @@ router.post('/orders', optionalAuth, (req, res) => {
           // ذخیره رکورد پرداخت
           db.prepare('INSERT INTO payments (order_id, user_id, amount, gateway, authority, status) VALUES (?,?,?,?,?,?)')
             .run(orderId, userId, order.total, 'saman', '', 'pending');
-          res.json({ ok: true, order, needsPayment: true, paymentUrl: result.paymentUrl, message: 'سفارش ثبت شد. در حال انتقال به درگاه پرداخت...' });
+          res.json({ ok: true, order, needsPayment: true, paymentUrl: result.paymentUrl, message: 'سفارش ثبت شد. در حال انتقال به درگاه پرداخت...', accountCreated: !!(autoAccount && autoAccount.created), token: sessionToken || undefined, user: sessionUser || undefined });
         } else {
           // درگاه پرداخت تنظیم نشده — سفارش ثبت می‌شود ولی پرداخت pending می‌ماند
           // هیچ پرداخت جعلی ثبت نمی‌شود
           console.log('[Payment] Gateway not available:', result.error || result.errorCode);
-          res.json({ ok: true, order, needsPayment: true, paymentUnavailable: true, message: 'سفارش ثبت شد. پرداخت آنلاین در حال حاضر فعال نیست. لطفاً با پشتیبانی تماس بگیرید.' });
+          res.json({ ok: true, order, needsPayment: true, paymentUnavailable: true, message: 'سفارش ثبت شد. پرداخت آنلاین در حال حاضر فعال نیست. لطفاً با پشتیبانی تماس بگیرید.', accountCreated: !!(autoAccount && autoAccount.created), token: sessionToken || undefined, user: sessionUser || undefined });
         }
       }).catch(err => {
         console.error('[Payment] Error:', err.message);
@@ -325,6 +344,9 @@ router.post('/orders', optionalAuth, (req, res) => {
       ok: true,
       order,
       message: 'سفارش شما ثبت شد؛ مبلغ را هنگام تحویل پرداخت می‌کنید.',
+      accountCreated: !!(autoAccount && autoAccount.created),
+      token: sessionToken || undefined,
+      user: sessionUser || undefined,
     });
 
   } catch (err) {

@@ -32,27 +32,68 @@ function addOrderHistory(orderId, oldStatus, newStatus, userId, note = '') {
 // ============================================================
 // داشبورد
 // ============================================================
-router.get('/dashboard', requirePerm('dashboard.view'), (req, res) => {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const daysAgo = n => { const d = new Date(today); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+// زمانبندی: SQLite ها را UTC ذخیره می‌کند؛ برای «امروز» و نمودار باید
+// مرز روز به وقت ایران (UTC+3:30) محاسبه شود، نه UTC.
+const TZ_OFFSET_MIN = Number(process.env.APP_TZ_OFFSET_MIN || 210); // تهران +03:30
 
+// شروع روز تهران (چند روز قبل) به صورت رشته UTC قابل مقایسه با created_at
+function tehranDayStartUTC(dayOffset = 0) {
+  const tehranMs = Date.now() + TZ_OFFSET_MIN * 60000;
+  const t = new Date(tehranMs);
+  const dayStartTehranMs = Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()) + dayOffset * 86400000;
+  return new Date(dayStartTehranMs - TZ_OFFSET_MIN * 60000).toISOString().slice(0, 19).replace('T', ' ');
+}
+
+// کلید تاریخ (YYYY-MM-DD) به وقت تهران برای یک رشته datetime ذخیره‌شده در DB
+function tehranDayKey(utcDateTime) {
+  const ms = Date.parse(String(utcDateTime || '').replace(' ', 'T') + 'Z');
+  if (isNaN(ms)) return String(utcDateTime || '').slice(0, 10);
+  const t = new Date(ms + TZ_OFFSET_MIN * 60000);
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`;
+}
+
+router.get('/dashboard', requirePerm('dashboard.view'), (req, res) => {
   // فیلتر داده‌های واقعی (حذف demo)
   const real = 'is_demo = 0';
 
-  const revenue = db.prepare(`SELECT COALESCE(SUM(total),0) AS s FROM orders WHERE status NOT IN ('cancelled') AND ${real}`).get().s;
-  const paidRevenue = db.prepare(`SELECT COALESCE(SUM(total),0) AS s FROM orders WHERE status IN ('paid','shipped','delivered') AND ${real}`).get().s;
-  const orderCount = db.prepare(`SELECT COUNT(*) AS c FROM orders WHERE status NOT IN ('cancelled') AND ${real}`).get().c;
-  const userCount = db.prepare("SELECT COUNT(*) AS c FROM users WHERE is_demo = 0 AND role_id NOT IN (SELECT id FROM roles WHERE name IN ('super_admin','admin','content','support'))").get().c;
-  const newUsers = db.prepare('SELECT COUNT(*) AS c FROM users WHERE is_demo = 0 AND date(created_at) >= ?').get(daysAgo(6)).c;
-  const todayOrders = db.prepare(`SELECT COUNT(*) AS c FROM orders WHERE date(created_at) = ? AND ${real}`).get(daysAgo(0)).c;
-  const todayRevenue = db.prepare(`SELECT COALESCE(SUM(total),0) AS s FROM orders WHERE date(created_at) = ? AND status NOT IN ('cancelled') AND ${real}`).get(daysAgo(0)).s;
+  // === FIX: «درآمد» فقط سفارش‌های پرداخت‌شده است ===
+  // قبل از این اصلاح، سفارش‌های pending/unpaid (حتی پرداخت در محل که هنوز
+  // تحویل نشده) جزو درآمد شمرده می‌شدند و آمار واقعی نبود.
+  const revenueFilter = `payment_status = 'paid' AND status NOT IN ('cancelled','refunded','failed') AND ${real}`;
+  const activeFilter = `status NOT IN ('cancelled') AND ${real}`;
 
-  // نمودار ۳۰ روز اخیر (فقط داده واقعی)
+  const revenue = db.prepare(`SELECT COALESCE(SUM(total),0) AS s FROM orders WHERE ${revenueFilter}`).get().s;
+  const paidRevenue = revenue; // هر دو = درآمد قطعی‌شده (پرداخت موفق)
+  // درآمد هنوز وصول‌نشده (سفارش فعال ولی پرداخت نشده) — برای شفافیت مدیریت
+  const pendingRevenue = db.prepare(`SELECT COALESCE(SUM(total),0) AS s FROM orders WHERE payment_status != 'paid' AND ${activeFilter}`).get().s;
+  const orderCount = db.prepare(`SELECT COUNT(*) AS c FROM orders WHERE ${activeFilter}`).get().c;
+  const userCount = db.prepare("SELECT COUNT(*) AS c FROM users WHERE is_demo = 0 AND role_id NOT IN (SELECT id FROM roles WHERE name IN ('super_admin','admin','content','support'))").get().c;
+  const newUsers = db.prepare('SELECT COUNT(*) AS c FROM users WHERE is_demo = 0 AND created_at >= ?').get(tehranDayStartUTC(-6)).c;
+
+  const todayStart = tehranDayStartUTC(0);
+  const tomorrowStart = tehranDayStartUTC(1);
+  const todayOrders = db.prepare(`SELECT COUNT(*) AS c FROM orders WHERE created_at >= ? AND created_at < ? AND ${activeFilter}`).get(todayStart, tomorrowStart).c;
+  const todayRevenue = db.prepare(`SELECT COALESCE(SUM(total),0) AS s FROM orders WHERE created_at >= ? AND created_at < ? AND ${revenueFilter}`).get(todayStart, tomorrowStart).s;
+
+  // نمودار فروش ۳۰ روز اخیر (فقط سفارش‌های پرداخت‌شده، به تفکیک روز تهران)
+  const chartFrom = tehranDayStartUTC(-29);
+  const dayRows = db.prepare(`
+    SELECT created_at, total FROM orders
+    WHERE created_at >= ? AND ${revenueFilter}
+  `).all(chartFrom);
+
+  const byDay = {};
+  for (const r of dayRows) {
+    const k = tehranDayKey(r.created_at);
+    if (!byDay[k]) byDay[k] = { revenue: 0, orders: 0 };
+    byDay[k].revenue += r.total;
+    byDay[k].orders += 1;
+  }
+
   const chart = [];
   for (let i = 29; i >= 0; i--) {
-    const day = daysAgo(i);
-    const row = db.prepare(`SELECT COALESCE(SUM(total),0) AS s, COUNT(*) AS c FROM orders WHERE date(created_at) = ? AND status NOT IN ('cancelled') AND ${real}`).get(day);
-    chart.push({ day, revenue: row.s, orders: row.c });
+    const day = tehranDayKey(tehranDayStartUTC(-i));
+    chart.push({ day, revenue: byDay[day]?.revenue || 0, orders: byDay[day]?.orders || 0 });
   }
 
   const bestsellers = db.prepare(`
@@ -93,7 +134,7 @@ router.get('/dashboard', requirePerm('dashboard.view'), (req, res) => {
   `).all();
 
   res.json({
-    revenue, paidRevenue, orderCount, userCount, newUsers, todayOrders, todayRevenue,
+    revenue, paidRevenue, pendingRevenue, orderCount, userCount, newUsers, todayOrders, todayRevenue,
     chart, bestsellers, recent, lowStock, statusDist, catSales,
     pendingApproval, pendingApprovalCount,
   });

@@ -189,6 +189,7 @@ async function runTests() {
 
   // ---------- 5. Order Creation ----------
   section('Order Creation');
+  let guestPendingTotal = 0;
   {
     // سبد خالی
     const empty = await request('POST', '/api/orders', {
@@ -204,7 +205,7 @@ async function runTests() {
     });
     assert(noName.status === 400, 'Missing name rejected');
 
-    // سفارش COD موفق
+    // سفارش COD موفق (مهمان — باید حساب خودکار ساخته شود)
     const products = await request('GET', '/api/products?per_page=1&in_stock=1');
     if (products.body.products.length > 0) {
       const p = products.body.products[0];
@@ -217,6 +218,56 @@ async function runTests() {
       assert(order.body.ok === true, 'Order ok = true');
       assert(order.body.order.status === 'pending', 'COD order status is pending');
       assert(order.body.order.payment_status === 'unpaid', 'COD order payment is unpaid');
+
+      // === FIX: ساخت خودکار حساب برای مهمان + قابلیت پیگیری سفارش ===
+      assert(order.body.accountCreated === true, 'Guest checkout auto-creates an account');
+      assert(!!order.body.token && !!order.body.user, 'Auto-created session token returned');
+      const guestOrders = await request('GET', '/api/orders/my', null, order.body.token);
+      assert(guestOrders.status === 200, 'Guest can access "my orders" after auto-login');
+      assert(guestOrders.body.orders.some(o => o.id === order.body.order.id), 'Guest order is trackable in "my orders"');
+
+      // سفارش دوم مهمان با همان موبایل → به همان حساب متصل می‌شود (حساب تکراری ساخته نمی‌شود)
+      const order2 = await request('POST', '/api/orders', {
+        customer: { full_name: 'خریدار تست ۲', phone: '09123456789' },
+        items: [{ product_id: p.id, quantity: 1, image: p.image }],
+        payment_method: 'cod',
+      });
+      assert(order2.status === 200, 'Second guest order created');
+      assert(order2.body.accountCreated === false, 'Second order links to the SAME account (no duplicate)');
+      const guestOrders2 = await request('GET', '/api/orders/my', null, order2.body.token);
+      assert(Array.isArray(guestOrders2.body.orders) && guestOrders2.body.orders.length >= 2, 'Both orders visible under one account');
+
+      // مجموع سفارش‌های مهمان پرداخت‌نشده (برای تست آمار داشبورد)
+      guestPendingTotal += Number(order.body.order.total) + Number(order2.body.order.total);
+
+      // سفارش مهمان بدون ایمیل → حساب با ایمیل موقت + امکان «ادعا» هنگام ثبت‌نام
+      const order3 = await request('POST', '/api/orders', {
+        customer: { full_name: 'خریدار بدون ایمیل', phone: '09350000001' },
+        items: [{ product_id: p.id, quantity: 1, image: p.image }],
+        payment_method: 'cod',
+      });
+      assert(order3.status === 200 && order3.body.accountCreated === true, 'Guest without email also gets an account');
+      guestPendingTotal += Number(order3.body.order.total);
+      const claimEmail = `claim${Date.now()}@example.com`;
+      const claim = await request('POST', '/api/auth/register', {
+        name: 'خریدار بدون ایمیل', email: claimEmail, phone: '09350000001', password: 'ClaimPass123!',
+      });
+      assert(claim.status === 200 && claim.body.account_upgraded === true, 'Registering with same phone claims the guest account');
+      const phoneLogin = await request('POST', '/api/auth/login', {
+        email: '09350000001', password: 'ClaimPass123!',
+      });
+      assert(phoneLogin.status === 200 && !!phoneLogin.body.token, 'Login with phone number works after claim');
+      const claimedOrders = await request('GET', '/api/orders/my', null, phoneLogin.body.token);
+      assert(claimedOrders.body.orders.some(o => o.id === order3.body.order.id), 'Claimed account keeps previous order history');
+      const emailLogin = await request('POST', '/api/auth/login', {
+        email: claimEmail, password: 'ClaimPass123!',
+      });
+      assert(emailLogin.status === 200, 'Login with the new email works after claim');
+
+      // بازیابی رمز با شماره موبایل (بدون افشای کد)
+      const forgotByPhone = await request('POST', '/api/auth/forgot', { email: '09350000001' });
+      assert(forgotByPhone.status === 200, 'Password reset by phone returns 200');
+      assert(!forgotByPhone.body.demo_code, 'No demo code in forgot response');
     }
   }
 
@@ -233,6 +284,14 @@ async function runTests() {
     assert(typeof dash.body.revenue === 'number', 'Revenue is number');
     assert(typeof dash.body.orderCount === 'number', 'Order count is number');
     assert(Array.isArray(dash.body.chart), 'Chart is array');
+    assert(dash.body.chart.length === 30, 'Chart has 30 days');
+
+    // === FIX: درآمد فقط سفارش‌های پرداخت‌شده است ===
+    // سفارش‌های COD ثبت‌شده در بخش قبلی هنوز پرداخت نشده‌اند:
+    assert(dash.body.revenue === 0, 'Unpaid orders are NOT counted as revenue');
+    assert(dash.body.pendingRevenue > 0, 'Unpaid revenue is tracked separately');
+    assert(dash.body.todayRevenue === 0, 'Today revenue excludes unpaid orders');
+    assert(dash.body.chart.reduce((s, c) => s + c.revenue, 0) === 0, '30-day chart excludes unpaid orders');
   }
 
   // ---------- 7. Admin Products ----------
@@ -329,6 +388,14 @@ async function runTests() {
     assert(Array.isArray(dash.body.pendingApproval), 'Dashboard returns pendingApproval list');
     const badge = await request('GET', '/api/admin/orders/pending-count', null, adminToken);
     assert(badge.status === 200 && typeof badge.body.count === 'number', 'Pending-approval count endpoint works');
+
+    // === FIX آمار درآمد: فقط سفارش تحویل‌شده (پرداخت‌شده) در درآمد است ===
+    // سفارش‌های مهمانِ پرداخت‌نشده بخش ۵ داخل pendingRevenue می‌مانند
+    const dash2 = await request('GET', '/api/admin/dashboard', null, adminToken);
+    assert(dash2.body.revenue === created.body.order.total, 'Revenue counts only PAID orders');
+    assert(dash2.body.pendingRevenue === guestPendingTotal, 'Unpaid orders tracked as pending revenue, not earned');
+    assert(dash2.body.chart.reduce((s, c) => s + c.revenue, 0) === created.body.order.total, '30-day chart shows only paid sales');
+    assert(dash2.body.chart.some(c => c.revenue === created.body.order.total), 'Today (Tehran) appears in the 30-day chart');
 
     // --- سفارش آنلاین مرحله تایید جداگانه ندارد ---
     const online = await request('POST', '/api/orders', {
