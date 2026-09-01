@@ -112,6 +112,7 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_method TEXT DEFAULT 'cod',
   payment_status TEXT DEFAULT 'unpaid',
   note TEXT DEFAULT '',
+  tracking_code TEXT DEFAULT '',
   is_demo INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
@@ -282,6 +283,7 @@ const migrations = [
   "ALTER TABLE products ADD COLUMN seo_description TEXT DEFAULT ''",
   "ALTER TABLE users ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))",
   "ALTER TABLE orders ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))",
+  "ALTER TABLE orders ADD COLUMN tracking_code TEXT DEFAULT ''",
 ];
 
 migrations.forEach(sql => {

@@ -7,6 +7,7 @@ const { authRequired, requirePerm, withRole } = require('../auth');
 const { PERMISSION_CATALOG, hasPermission } = require('../permissions');
 const { upload, toWebp } = require('../upload');
 const { sendOrderSMS } = require('../sms');
+const { sendOrderShipped } = require('../email');
 const { sanitizeHtml } = require('../sanitize');
 
 const router = express.Router();
@@ -369,11 +370,23 @@ router.get('/orders/:id', requirePerm('orders.manage'), (req, res) => {
 
 router.put('/orders/:id/status', requirePerm('orders.manage'), (req, res) => {
   try {
-    const { status, note } = req.body || {};
+    const { status, note, tracking_code } = req.body || {};
     const valid = ['pending', 'confirmed', 'paid', 'shipped', 'delivered', 'cancelled'];
     if (!valid.includes(status)) return res.status(400).json({ error: 'وضعیت نامعتبر است.' });
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
     if (!order) return res.status(404).json({ error: 'سفارش یافت نشد.' });
+
+    // کد رهگیری پستی: هنگام ارسال الزامی است تا در همان لحظه برای مشتری پیامک شود
+    let newTrackingCode = order.tracking_code || '';
+    if (status === 'shipped') {
+      newTrackingCode = String(tracking_code || '').trim();
+      if (!newTrackingCode) {
+        return res.status(400).json({ error: 'برای ارسال سفارش، کد رهگیری پستی را وارد کنید.' });
+      }
+      if (newTrackingCode.length > 100) {
+        return res.status(400).json({ error: 'کد رهگیری پستی بیش از حد طولانی است.' });
+      }
+    }
     // جلوگیری از تغییر وضعیت سفارش‌های لغو/تحویل شده
     if (['cancelled', 'delivered'].includes(order.status) && status !== order.status) {
       return res.status(400).json({ error: `سفارش ${order.status === 'cancelled' ? 'لغو' : 'تحویل'} شده و قابل تغییر نیست.` });
@@ -409,7 +422,7 @@ router.put('/orders/:id/status', requirePerm('orders.manage'), (req, res) => {
     }
 
     db.transaction(() => {
-      db.prepare("UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, order.id);
+      db.prepare("UPDATE orders SET status = ?, tracking_code = ?, updated_at = datetime('now') WHERE id = ?").run(status, newTrackingCode, order.id);
       // آنلاین: تایید پرداخت به‌صورت دستی توسط مدیر → ثبت پرداخت
       if (isOnline && status === 'paid' && order.payment_status !== 'paid') {
         db.prepare("UPDATE orders SET payment_status = 'paid' WHERE id = ?").run(order.id);
@@ -431,11 +444,15 @@ router.put('/orders/:id/status', requirePerm('orders.manage'), (req, res) => {
     })();
     // لاگ امنیتی
     auditLog(req.user.id, 'order.status_changed', 'order', order.id, req);
-    // ارسال پیامک اطلاع‌رسانی
+    // ارسال اطلاع‌رسانی (با آخرین وضعیت و کد رهگیری ذخیره‌شده)
     if (['confirmed', 'shipped', 'delivered', 'cancelled'].includes(status)) {
       // نوع پیامک تایید سفارش «approved» است (قالب جداگانه در sms.js)
       const smsType = status === 'confirmed' ? 'approved' : status;
-      sendOrderSMS(order, smsType).catch(err => console.error('[SMS] Status change error:', err.message));
+      const updatedOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id);
+      sendOrderSMS(updatedOrder, smsType).catch(err => console.error('[SMS] Status change error:', err.message));
+      if (status === 'shipped') {
+        sendOrderShipped(updatedOrder).catch(err => console.error('[Email] Shipping error:', err.message));
+      }
     }
     res.json({ ok: true, status, message: `وضعیت سفارش به «${ORDER_STATUS_FA[status] || status}» تغییر کرد.` });
   } catch (err) {

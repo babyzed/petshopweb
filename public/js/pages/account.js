@@ -3,6 +3,7 @@ import { API, price, faNum, dateFa, timeFa } from '../api.js';
 import { Session, Cart } from '../store.js';
 import { toast, initials, productCard, productCardH } from '../components.js';
 import { ic } from '../icons.js';
+import { hasPlaceholderEmail, openAccountCompletionModal } from '../account-complete.js';
 
 export function title() { return 'حساب کاربری | پت‌شاپ'; }
 
@@ -93,10 +94,17 @@ export async function render(params, query) {
       </div>`;
   } else {
     tabContent = `
+      ${hasPlaceholderEmail(u) ? `
+      <div class="auth-note" style="margin-bottom:14px;border:1px solid #FED7AA;background:#FFF7ED">
+        <span class="an-ic">${ic('userPlus', 14)}</span>
+        <span>حساب شما هنوز ناقص است. ایمیل و رمز واقعی را مشخص کنید تا واردهای بعدی راحت‌تر شود.</span>
+        <button class="btn btn-primary" data-open-account-complete style="padding:7px 14px;font-size:12px;margin-inline-start:auto;flex-shrink:0">تکمیل ثبت‌نام</button>
+      </div>
+      ` : ''}
       <div class="form-grid" style="max-width:520px">
         <div class="field"><label>نام و نام خانوادگی *</label><input value="${u.name || ''}" data-p-name></div>
         <div class="field"><label>شماره موبایل</label><input value="${u.phone || ''}" dir="ltr" data-p-phone></div>
-        <div class="field"><label>ایمیل</label><input value="${u.email || ''}" dir="ltr" disabled style="opacity:.6"></div>
+        <div class="field"><label>ایمیل</label><input type="email" value="${u.email || ''}" dir="ltr" data-p-email placeholder="you@example.com"><span class="err-msg" data-err="email"></span></div>
         <div class="field full"><button class="btn btn-primary" data-save-profile>ذخیره تغییرات</button></div>
       </div>
       <div class="auth-note" style="margin-top:18px">
@@ -151,11 +159,18 @@ export function mount(el, params, query) {
   });
 
   if (tab === 'profile') {
+    el.querySelector('[data-open-account-complete]')?.addEventListener('click', () => openAccountCompletionModal({ onDone: () => setTimeout(() => location.reload(), 300) }));
     el.querySelector('[data-save-profile]')?.addEventListener('click', async () => {
+      const email = el.querySelector('[data-p-email]')?.value.trim() || '';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        toast('ایمیل معتبر وارد کنید', 'err');
+        return;
+      }
       try {
         const r = await API.put('/auth/profile', {
           name: el.querySelector('[data-p-name]').value.trim(),
           phone: el.querySelector('[data-p-phone]').value.trim(),
+          email,
         });
         Session.setUser(r.user);
         toast('پروفایل به‌روزرسانی شد');

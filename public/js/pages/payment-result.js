@@ -1,8 +1,17 @@
 // pages/payment-result.js — نتیجه پرداخت آنلاین (بعد از ریدایرکت بانک)
 import { API, price } from '../api.js';
 import { ic } from '../icons.js';
+import { hasPendingAccountCompletion, openAccountCompletionModal } from '../account-complete.js';
 
 export function title() { return 'نتیجه پرداخت | پت‌شاپ'; }
+
+export function mount() {
+  // اگر هنگام ثبت سفارش مهمان، حساب خودکار ساخته شد و نتوانسته‌ایم قبل از درگاه
+  // پنجره تکمیل را نشان دهیم، بعد از بازگشت از پرداخت باز می‌کنیم.
+  if (hasPendingAccountCompletion()) {
+    setTimeout(() => openAccountCompletionModal(), 400);
+  }
+}
 
 export async function render(params, queryStr) {
   const q = new URLSearchParams(queryStr);
