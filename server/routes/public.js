@@ -166,14 +166,20 @@ router.get('/home', (req, res) => {
   });
 });
 
-// ---------- تنظیمات عمومی (فوتر، تماس) ----------
+// ---------- تنظیمات عمومی (فوتر، تماس، سئو) ----------
 router.get('/settings/public', (req, res) => {
+  const seo = getSetting('seo', {}) || {};
   res.json({
     contact: getSetting('contact', {}),
     socials: getSetting('socials', {}),
     footer: getSetting('footer', {}),
     shipping: getSetting('shipping', { cost: 75000, free_over: 2000000 }),
     site: getSetting('site', { name: 'پت‌شاپ' }),
+    seo: {
+      site_name: seo.site_name || 'پت‌شاپ',
+      title: seo.title || '',
+      description: seo.description || '',
+    },
     payment: (() => {
       const pay = getSetting('payment', { online_enabled: true, cod_enabled: true });
       // اگر درگاه سامان تنظیم نشده، پرداخت آنلاین غیرفعال باشه

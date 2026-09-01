@@ -2,6 +2,7 @@
 import { API } from '../api.js';
 import { ic } from '../icons.js';
 import { Settings } from '../store.js';
+import { setMeta } from '../meta.js';
 
 export function title(params) {
   const t = { about: 'درباره ما', contact: 'تماس با ما', faq: 'سوالات متداول', rules: 'قوانین و مقررات' }[params.key] || 'صفحه';
@@ -13,6 +14,7 @@ export async function render(params, query) {
 
   if (key === 'faq') {
     const { faqs } = await API.get('/faqs');
+    setMeta({ title: 'سوالات متداول', path: '#/page/faq' });
     return `
     <div class="container">
       <nav class="breadcrumb"><a href="#/">خانه</a><span class="sep">/</span><span>سوالات متداول</span></nav>
@@ -34,6 +36,7 @@ export async function render(params, query) {
     const s = await Settings.get();
     const c = s.contact || {};
     const soc = s.socials || {};
+    setMeta({ title: 'تماس با ما', path: '#/page/contact' });
     return `
     <div class="container">
       <nav class="breadcrumb"><a href="#/">خانه</a><span class="sep">/</span><span>تماس با ما</span></nav>
@@ -69,6 +72,11 @@ export async function render(params, query) {
 
   // about / rules
   const { page } = await API.get('/pages/' + (key === 'about' ? 'about_page' : 'rules_page'));
+  setMeta({
+    title: page.title || (key === 'about' ? 'درباره ما' : 'قوانین و مقررات'),
+    image: page.image || '',
+    path: '#/page/' + key,
+  });
   return `
   <div class="container">
     <nav class="breadcrumb"><a href="#/">خانه</a><span class="sep">/</span><span>${page.title || ''}</span></nav>

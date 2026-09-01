@@ -6,6 +6,8 @@ import { ic } from '../icons.js';
 export async function render() {
   const s = await AdminAPI.get('/admin/settings');
   const c = s.contact || {}, soc = s.socials || {}, f = s.footer || {}, sh = s.shipping || {}, site = s.site || {}, pay = s.payment || { online_enabled: true, cod_enabled: true };
+  const seo = s.seo || {}, torob = s.torob || {}, sms = s.sms || {};
+  const feedBase = window.location.origin;
   return `
   <div class="a-card">
     <h3>${ic('store', 18)} اطلاعات پایه</h3>
@@ -90,10 +92,71 @@ export async function render() {
     </div>
   </div>
 
+  <div class="a-card">
+    <h3>${ic('megaphone', 18)} سئو (متاتگ‌ها و کلمات کلیدی)</h3>
+    <p class="hint" style="margin-bottom:14px">این مقادیر در <b>متاتگ‌های صفحه اصلی</b> (title، description، keywords، Open Graph و لینک canonical) تزریق می‌شوند. محصولات و مقالات هم به‌صورت خودکار متاتگ اختصاصی می‌گیرند.</p>
+    <div class="form-grid">
+      <div class="field full"><label>عنوان سایت (title)</label><input data-seo-title value="${seo.title || ''}"></div>
+      <div class="field full"><label>توضیحات متا (meta description)</label><textarea data-seo-desc rows="2">${seo.description || ''}</textarea></div>
+      <div class="field full"><label>کلمات کلیدی (با کاما جدا کنید)</label><input data-seo-keywords value="${seo.keywords || ''}"></div>
+      <div class="field"><label>نام سایت (og:site_name)</label><input data-seo-sitename value="${seo.site_name || ''}"></div>
+      <div class="field"><label>تصویر اشتراک‌گذاری (og:image)</label><input data-seo-ogimage value="${seo.og_image || ''}" dir="ltr" placeholder="/assets/img/og-cover.jpg"></div>
+      <div class="field"><label>آدرس اصلی سایت (canonical)</label><input data-seo-canonical value="${seo.canonical_url || ''}" dir="ltr" placeholder="https://petshop.ir"></div>
+      <div class="field"><label>شناسه گوگل آنالیتیکس (GA4)</label><input data-seo-ga value="${seo.ga_measurement_id || ''}" dir="ltr" placeholder="G-XXXXXXXXXX"></div>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <h3>${ic('chat', 18)} اتصال سرویس پیامکی (کاوه‌نگار)</h3>
+    <p class="hint" style="margin-bottom:14px">با تنظیم کلید API، پیامک‌های تأیید سفارش، ارسال و تغییر وضعیت از همین سرویس ارسال می‌شوند.</p>
+    ${sms.has_key ? '<p style="background:#D1FAE5;border:1px solid #A7F3D0;border-radius:10px;padding:10px 14px;font-size:12px;color:#065F46;margin-bottom:14px">✅ سرویس پیامکی متصل است.</p>' : '<p style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:14px">⚠️ کلید API تنظیم نشده است.</p>'}
+    <div class="form-grid">
+      <div class="field"><label>کلید API کاوه‌نگار</label><input type="password" data-sms-key value="" dir="ltr" placeholder="••••••••"><p class="hint" style="margin-top:4px">${sms.has_key ? 'کلید قبلی ذخیره شده است؛ فقط برای تغییر، مقدار جدید وارد کنید.' : 'کلید را از پنل کاوه‌نگار دریافت کنید.'}</p></div>
+      <div class="field"><label>شماره خط فرستنده</label><input data-sms-sender value="${sms.sender || ''}" dir="ltr" placeholder="1000xxx"></div>
+      <div class="field"><label>شماره برای پیامک آزمایشی</label><input data-sms-test dir="ltr" placeholder="09123456789"></div>
+      <div class="field" style="align-items:flex-start"><button class="btn btn-ghost" data-sms-test-btn style="margin-top:22px">${ic('mail', 15)} ارسال پیامک آزمایشی</button></div>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <h3>${ic('shoppingBag', 18)} اتصال به فروشگاه ترب (Torob)</h3>
+    <p class="hint" style="margin-bottom:14px">آدرس فید محصولات را در پنل ترب ثبت کنید تا محصولات به‌صورت خودکار همگام شوند.</p>
+    <div class="form-grid">
+      <div class="field"><label class="sf-check"><input type="checkbox" data-torob-enabled ${torob.enabled === false ? '' : 'checked'}> فید ترب فعال باشد</label></div>
+      <div class="field"><label>عنوان فروشگاه در فید</label><input data-torob-title value="${torob.title || ''}"></div>
+      <div class="field full">
+        <label>آدرس فید XML</label>
+        <div style="display:flex;gap:8px">
+          <input value="${feedBase}/api/torob/feed.xml" dir="ltr" readonly data-torob-url>
+          <button class="btn btn-ghost" data-copy-torob type="button">${ic('clipboard', 15)} کپی</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <button class="btn btn-primary btn-lg" data-save style="width:100%">${ic('settings', 16)} ذخیره همه تنظیمات</button>`;
 }
 
 export function after() {
+  // کپی لینک فید ترب
+  document.querySelector('[data-copy-torob]')?.addEventListener('click', () => {
+    const input = document.querySelector('[data-torob-url]');
+    navigator.clipboard?.writeText(input.value).then(() => toast('لینک فید کپی شد'));
+  });
+
+  // ارسال پیامک آزمایشی
+  document.querySelector('[data-sms-test-btn]')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const to = document.querySelector('[data-sms-test]').value.trim();
+    if (!/^09\d{9}$/.test(to)) { toast('شماره موبایل معتبر وارد کنید', 'err'); return; }
+    btn.disabled = true;
+    try {
+      await AdminAPI.post('/admin/sms/test', { to });
+      toast('پیامک آزمایشی ارسال شد ✅');
+    } catch (err) { toast(err.message, 'err'); }
+    btn.disabled = false;
+  });
+
   document.querySelector('[data-badge-add]').addEventListener('click', () => {
     const row = document.createElement('div');
     row.className = 'feat-row';
@@ -136,6 +199,23 @@ export function after() {
         cod_enabled: document.querySelector('[data-pay-cod]').checked,
       },
       footer: { description: document.querySelector('[data-footer-desc]').value.trim(), badges },
+      seo: {
+        title: document.querySelector('[data-seo-title]').value.trim(),
+        description: document.querySelector('[data-seo-desc]').value.trim(),
+        keywords: document.querySelector('[data-seo-keywords]').value.trim(),
+        site_name: document.querySelector('[data-seo-sitename]').value.trim(),
+        og_image: document.querySelector('[data-seo-ogimage]').value.trim(),
+        canonical_url: document.querySelector('[data-seo-canonical]').value.trim(),
+        ga_measurement_id: document.querySelector('[data-seo-ga]').value.trim(),
+      },
+      torob: {
+        enabled: document.querySelector('[data-torob-enabled]').checked,
+        title: document.querySelector('[data-torob-title]').value.trim(),
+      },
+      sms: {
+        sender: document.querySelector('[data-sms-sender]').value.trim(),
+        api_key: document.querySelector('[data-sms-key]').value.trim(),
+      },
     };
     // آمار اولیه
     const initialStats = {

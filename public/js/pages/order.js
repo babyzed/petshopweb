@@ -49,7 +49,7 @@ export async function render(params) {
           <div class="c-info-row"><span class="ci-ic">${ic('pin', 16)}</span><div><span class="ci-l">آدرس</span><span class="ci-v">${order.customer.address || '—'}</span></div></div>
           <div class="c-info-row"><span class="ci-ic">${ic('card', 16)}</span><div><span class="ci-l">پرداخت</span><span class="ci-v">${order.payment_method === 'online'
             ? (order.payment_status === 'paid' ? 'آنلاین (پرداخت شده)' : order.payment_status === 'unpaid' ? 'آنلاین (در انتظار پرداخت)' : 'آنلاین (پرداخت ناموفق)')
-            : 'در محل'}</span></div></div>
+            : (order.payment_status === 'paid' ? 'در محل (دریافت شده)' : 'در محل (دریافت هنگام تحویل)')}</span></div></div>
           ${order.note ? `<div class="c-info-row"><span class="ci-ic">${ic('pen', 16)}</span><div><span class="ci-l">یادداشت</span><span class="ci-v">${order.note}</span></div></div>` : ''}
         </div>
         <div class="checkout-card">

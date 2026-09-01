@@ -6,6 +6,10 @@ import { ic } from '../icons.js';
 
 export function title() { return 'حساب کاربری | پت‌شاپ'; }
 
+// نگه‌داری موقت آدرس‌ها برای ویرایش (بین render و mount)
+let addrStore = [];
+let editingAddrId = null;
+
 export async function render(params, query) {
   if (!Session.isLoggedIn) {
     return `
@@ -50,16 +54,20 @@ export async function render(params, query) {
       : emptyState(ic('heart', 30), 'علاقه‌مندی‌ها خالی است', 'روی قلب محصولات بزنید تا اینجا ذخیره شوند');
   } else if (tab === 'addresses') {
     const { addresses } = await API.get('/auth/addresses');
+    addrStore = addresses;
     tabContent = `
       <div id="addr-box">
         ${addresses.length ? addresses.map(a => `
           <div class="order-card" style="align-items:flex-start">
-            <div>
+            <div style="flex:1;min-width:0">
               <div style="font-weight:800;font-size:13.5px">${a.title || 'آدرس'} ${a.is_default ? '<span class="order-status os-delivered" style="margin-inline-start:8px">پیش‌فرض</span>' : ''}</div>
               <div style="font-size:12.5px;color:var(--muted);margin-top:4px">${a.full_name} — ${a.phone}</div>
               <div style="font-size:12.5px;color:var(--muted)">${a.province} ${a.city} — ${a.address} — ${a.postal_code}</div>
             </div>
-            <button class="btn btn-ghost" data-del-addr="${a.id}" style="font-size:12px;padding:8px 14px">حذف</button>
+            <div style="display:flex;gap:8px;flex-shrink:0">
+              <button class="btn btn-outline" data-edit-addr="${a.id}" style="font-size:12px;padding:8px 14px">ویرایش</button>
+              <button class="btn btn-ghost" data-del-addr="${a.id}" style="font-size:12px;padding:8px 14px;color:var(--danger)">حذف</button>
+            </div>
           </div>`).join('') : emptyState(ic('pin', 30), 'آدرسی ثبت نشده', 'آدرس جدید اضافه کنید')}
       </div>
       <button class="btn btn-primary" data-new-addr style="margin-top:10px">+ آدرس جدید</button>
@@ -71,7 +79,10 @@ export async function render(params, query) {
         <div class="field"><label>استان</label><input data-a-province placeholder="مثلاً: تهران"></div>
         <div class="field"><label>شهر</label><input data-a-city placeholder="مثلاً: تهران"></div>
         <div class="field full"><label>آدرس کامل *</label><textarea data-a-address rows="2" placeholder="خیابان، کوچه، پلاک..."></textarea></div>
-        <div class="field full"><button class="btn btn-primary" data-save-addr>ذخیره آدرس</button></div>
+        <div class="field full" style="display:flex;gap:10px">
+          <button class="btn btn-primary" data-save-addr>ذخیره آدرس</button>
+          <button class="btn btn-ghost" data-cancel-addr style="display:none">انصراف</button>
+        </div>
       </div>`;
   } else if (tab === 'password') {
     tabContent = `
@@ -165,27 +176,78 @@ export function mount(el, params, query) {
     });
   }
   if (tab === 'addresses') {
+    const form = el.querySelector('#addr-form');
+    const saveBtn = el.querySelector('[data-save-addr]');
+    const cancelBtn = el.querySelector('[data-cancel-addr]');
+    const fields = {
+      fullname: el.querySelector('[data-a-fullname]'),
+      phone: el.querySelector('[data-a-phonenum]'),
+      title: el.querySelector('[data-a-title]'),
+      postal: el.querySelector('[data-a-postal]'),
+      province: el.querySelector('[data-a-province]'),
+      city: el.querySelector('[data-a-city]'),
+      address: el.querySelector('[data-a-address]'),
+    };
+
+    const fillForm = (a) => {
+      fields.fullname.value = a.full_name || '';
+      fields.phone.value = a.phone || '';
+      fields.title.value = a.title || '';
+      fields.postal.value = a.postal_code || '';
+      fields.province.value = a.province || '';
+      fields.city.value = a.city || '';
+      fields.address.value = a.address || '';
+    };
+    const resetForm = () => {
+      Object.values(fields).forEach(f => f.value = '');
+      editingAddrId = null;
+      saveBtn.textContent = 'ذخیره آدرس';
+      cancelBtn.style.display = 'none';
+    };
+
     el.querySelector('[data-new-addr]')?.addEventListener('click', () => {
-      el.querySelector('#addr-form').style.display = 'grid';
+      resetForm();
+      form.style.display = 'grid';
+      window.scrollTo({ top: form.offsetTop - 90, behavior: 'smooth' });
     });
-    el.querySelector('[data-save-addr]')?.addEventListener('click', async () => {
-      const full_name = el.querySelector('[data-a-fullname]').value.trim();
-      const phone = el.querySelector('[data-a-phonenum]').value.trim();
-      const address = el.querySelector('[data-a-address]').value.trim();
+
+    el.querySelectorAll('[data-edit-addr]').forEach(b => b.addEventListener('click', () => {
+      const a = addrStore.find(x => String(x.id) === String(b.dataset.editAddr));
+      if (!a) return;
+      editingAddrId = a.id;
+      fillForm(a);
+      form.style.display = 'grid';
+      saveBtn.textContent = 'ذخیره تغییرات';
+      cancelBtn.style.display = 'inline-flex';
+      window.scrollTo({ top: form.offsetTop - 90, behavior: 'smooth' });
+    }));
+
+    cancelBtn?.addEventListener('click', () => { form.style.display = 'none'; resetForm(); });
+
+    saveBtn?.addEventListener('click', async () => {
+      const full_name = fields.fullname.value.trim();
+      const phone = fields.phone.value.trim();
+      const address = fields.address.value.trim();
       if (!full_name) { toast('نام و نام خانوادگی را وارد کنید', 'err'); return; }
       if (!phone) { toast('شماره تلفن را وارد کنید', 'err'); return; }
       if (!address) { toast('آدرس را وارد کنید', 'err'); return; }
+      const payload = {
+        full_name,
+        phone,
+        title: fields.title.value.trim(),
+        province: fields.province.value.trim(),
+        city: fields.city.value.trim(),
+        address,
+        postal_code: fields.postal.value.trim(),
+      };
       try {
-        await API.post('/auth/addresses', {
-          full_name,
-          phone,
-          title: el.querySelector('[data-a-title]').value.trim(),
-          province: el.querySelector('[data-a-province]').value.trim(),
-          city: el.querySelector('[data-a-city]').value.trim(),
-          address,
-          postal_code: el.querySelector('[data-a-postal]').value.trim(),
-        });
-        toast('آدرس ذخیره شد');
+        if (editingAddrId) {
+          await API.put('/auth/addresses/' + editingAddrId, payload);
+          toast('آدرس ویرایش شد');
+        } else {
+          await API.post('/auth/addresses', payload);
+          toast('آدرس ذخیره شد');
+        }
         setTimeout(() => location.reload(), 500);
       } catch (err) { toast(err.message, 'err'); }
     });

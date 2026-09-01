@@ -160,6 +160,18 @@ CREATE TABLE IF NOT EXISTS coupons (
   is_active INTEGER DEFAULT 1
 );
 
+-- سوابق استفاده از کد تخفیف به‌ازای هر کاربر (هر کاربر فقط یک بار می‌تواند از هر کد استفاده کند)
+CREATE TABLE IF NOT EXISTS coupon_usage (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  coupon_id INTEGER NOT NULL,
+  user_id INTEGER,
+  guest_key TEXT,
+  order_id INTEGER,
+  used_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_user ON coupon_usage(coupon_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_guest ON coupon_usage(coupon_id, guest_key);
+
 CREATE TABLE IF NOT EXISTS banners (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT NOT NULL,

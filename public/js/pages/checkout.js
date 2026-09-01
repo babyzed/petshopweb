@@ -173,7 +173,12 @@ export function mount(el) {
     const code = el.querySelector('[data-coupon-input]').value.trim();
     if (!code) { toast('کد تخفیف را وارد کنید', 'info'); return; }
     try {
-      const r = await API.post('/coupons/validate', { code, subtotal });
+      const r = await API.post('/coupons/validate', {
+        code,
+        subtotal,
+        phone: el.querySelector('[data-c-phone]')?.value || '',
+        email: Session.user?.email || '',
+      });
       if (r.valid) {
         coupon = r;
         refreshTotals();
@@ -283,6 +288,8 @@ async function renderSuccess(el, order, payment) {
   let extra = '';
   if (payment === 'online') {
     extra = `<p style="font-size:13px;color:#92400E;background:#FEF3C7;padding:10px 14px;border-radius:10px;margin-bottom:14px">⚠️ پرداخت آنلاین در حال حاضر فعال نیست. سفارش شما ثبت شده و در انتظار پرداخت است. لطفاً با پشتیبانی تماس بگیرید.</p>`;
+  } else {
+    extra = `<p style="font-size:13px;color:#065F46;background:#D1FAE5;padding:10px 14px;border-radius:10px;margin-bottom:14px">💵 پرداخت در محل: مبلغ سفارش را هنگام تحویل پرداخت می‌کنید.</p>`;
   }
   const root = el.querySelector('.container') || el;
   root.innerHTML = `

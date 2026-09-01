@@ -5,31 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#FAF4E9">
 
-  <!-- ========== SEO Meta Tags ========== -->
-  <title>پت‌شاپ | فروشگاه اینترنتی محصولات حیوانات خانگی — غذا، اسباب‌بازی، لوازم بهداشتی</title>
-  <meta name="description" content="پت‌شاپ؛ مرجع تخصصی محصولات حیوانات خانگی. خرید آنلاین غذای سگ و گربه، اسباب‌بازی، لوازم بهداشتی، قلاده، جای خواب و مکمل با ضمانت اصالت و ارسال سریع به سراسر کشور.">
-  <meta name="keywords" content="فروشگاه حیوانات خانگی, غذای سگ, غذای گربه, پت شاپ, خرید غذای خشک سگ, خرید غذای گربه, اسباب بازی سگ, قلاده سگ, جای خواب گربه, مکمل حیوانات, بهداشت سگ و گربه, فروشگاه پت, pet shop, dog food, cat food">
-  <meta name="author" content="پت‌شاپ">
+  <!-- ========== SEO Meta Tags (توسط سرور از تنظیمات پنل پر می‌شود) ========== -->
+  <title>{{SEO_TITLE}}</title>
+  <meta name="description" content="{{SEO_DESCRIPTION}}">
+  <meta name="keywords" content="{{SEO_KEYWORDS}}">
+  <meta name="author" content="{{SITE_NAME}}">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
-  <link rel="canonical" href="https://petshop.ir/">
+  <link rel="canonical" href="{{CANONICAL_URL}}">
 
   <!-- ========== Open Graph ========== -->
   <meta property="og:type" content="website">
   <meta property="og:locale" content="fa_IR">
-  <meta property="og:site_name" content="پت‌شاپ">
-  <meta property="og:title" content="پت‌شاپ | فروشگاه اینترنتی محصولات حیوانات خانگی">
-  <meta property="og:description" content="مرجع تخصصی محصولات حیوانات خانگی با ۱۲ سال تجربه. غذای سگ و گربه، اسباب‌بازی، لوازم بهداشتی با ضمانت اصالت.">
-  <meta property="og:url" content="https://petshop.ir/">
-  <meta property="og:image" content="https://petshop.ir/assets/img/og-cover.jpg">
+  <meta property="og:site_name" content="{{SITE_NAME}}">
+  <meta property="og:title" content="{{SEO_TITLE}}">
+  <meta property="og:description" content="{{SEO_DESCRIPTION}}">
+  <meta property="og:url" content="{{CANONICAL_URL}}">
+  <meta property="og:image" content="{{OG_IMAGE}}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="پت‌شاپ - فروشگاه محصولات حیوانات خانگی">
+  <meta property="og:image:alt" content="{{SITE_NAME}}">
 
   <!-- ========== Twitter Card ========== -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="پت‌شاپ | فروشگاه اینترنتی محصولات حیوانات خانگی">
-  <meta name="twitter:description" content="مرجع تخصصی محصولات حیوانات خانگی. غذای سگ و گربه، اسباب‌بازی، لوازم بهداشتی.">
-  <meta name="twitter:image" content="https://petshop.ir/assets/img/og-cover.jpg">
+  <meta name="twitter:title" content="{{SEO_TITLE}}">
+  <meta name="twitter:description" content="{{SEO_DESCRIPTION}}">
+  <meta name="twitter:image" content="{{OG_IMAGE}}">
 
   <!-- ========== Additional SEO ========== -->
   <meta name="geo.region" content="IR-30">
@@ -48,10 +48,10 @@
   {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "پت‌شاپ",
-    "url": "https://petshop.ir",
-    "logo": "https://petshop.ir/assets/img/logo.png",
-    "description": "مرجع تخصصی محصولات حیوانات خانگی",
+    "name": "{{SITE_NAME}}",
+    "url": "{{CANONICAL_URL}}",
+    "logo": "{{OG_IMAGE}}",
+    "description": "{{SEO_DESCRIPTION}}",
     "address": {
       "@type": "PostalAddress",
       "addressLocality": "تهران",
@@ -77,11 +77,11 @@
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "پت‌شاپ",
-    "url": "https://petshop.ir",
+    "name": "{{SITE_NAME}}",
+    "url": "{{CANONICAL_URL}}",
     "potentialAction": {
       "@type": "SearchAction",
-      "target": "https://petshop.ir/#/search?q={search_term_string}",
+      "target": "{{CANONICAL_URL}}#/search?q={search_term_string}",
       "query-input": "required name=search_term_string"
     }
   }
@@ -113,17 +113,8 @@
   <link rel="stylesheet" href="/css/store-desktop.css?v=6">
   <link rel="stylesheet" href="/css/store-mobile.css?v=6">
 
-  <!-- ========== Google Analytics (غیرفعال تا تنظیم GA_MEASUREMENT_ID) ========== -->
-  <!-- GA_MEASUREMENT_ID در .env تنظیم شود -->
-  <!--
-  <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'GA_MEASUREMENT_ID');
-  </script>
-  -->
+  <!-- ========== Google Analytics (توسط سرور تزریق می‌شود) ========== -->
+  {{GA_SNIPPET}}
 </head>
 <body>
   <div id="app">

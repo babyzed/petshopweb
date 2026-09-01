@@ -98,12 +98,20 @@ export async function detailRender(params) {
       <div class="dash-card">
         <h3>${ic('refreshCw', 18)} تغییر وضعیت سفارش</h3>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${['pending', 'paid', 'shipped', 'delivered', 'cancelled'].map(s => `
+          ${(order.payment_method === 'cod'
+            ? ['pending', 'shipped', 'delivered', 'cancelled']
+            : ['pending', 'paid', 'shipped', 'delivered', 'cancelled']
+          ).map(s => `
             <button class="btn ${order.status === s ? 'btn-primary' : 'btn-ghost'}" data-set-status="${s}" ${order.status === s ? 'disabled' : ''} style="padding:9px 18px;font-size:12px">
               ${statusBadge(s).replace(/<[^>]*>/g, '')}
             </button>`).join('')}
         </div>
-        <p class="hint" style="margin-top:10px">با «لغو شده» موجودی محصولات به انبار برمی‌گردد.</p>
+        <p class="hint" style="margin-top:10px">
+          ${order.payment_method === 'cod'
+            ? 'این سفارش «پرداخت در محل» است؛ وجه هنگام تحویل دریافت می‌شود و با تغییر وضعیت به «تحویل شده» پرداخت ثبت می‌شود.'
+            : 'برای سفارش آنلاین، ارسال فقط پس از تأیید پرداخت امکان‌پذیر است.'}
+        </p>
+        <p class="hint" style="margin-top:6px">با «لغو شده» موجودی محصولات به انبار برمی‌گردد.</p>
       </div>
     </div>
 
