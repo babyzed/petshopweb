@@ -52,7 +52,14 @@ function ensureCustomerUser(customer = {}, opts = {}) {
     // حساب غیرفعال قابل استفاده نیست؛ سفارش مهمان می‌ماند و ادمین از customer_json پیگیری می‌کند
     return { user: null, created: false, blocked: true };
   }
-  if (user) return { user, created: false };
+  if (user) {
+    // امنیت: سفارش مهمان هرگز نباید به حساب‌های مدیریتی (نقش‌دارای دسترسی) وصل شود
+    const role = db.prepare('SELECT permissions FROM roles WHERE id = ?').get(user.role_id);
+    let perms = [];
+    try { perms = JSON.parse((role && role.permissions) || '[]'); } catch { perms = []; }
+    if (perms.length > 0) return { user: null, created: false, blocked: true };
+    return { user, created: false };
+  }
 
   // ۲) ساخت حساب جدید با رمز تصادفی (کاربر با «بازیابی رمز» وارد می‌شود)
   const role = db.prepare("SELECT id FROM roles WHERE name = 'customer'").get();

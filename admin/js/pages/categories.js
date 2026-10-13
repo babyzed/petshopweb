@@ -1,5 +1,5 @@
 // admin/pages/categories.js — مدیریت دسته‌بندی‌ها (درختی)
-import { AdminAPI, faNum } from '../api.js';
+import { AdminAPI, faNum, escHtml } from '../api.js';
 import { toast, confirmModal, openModal } from '../components.js';
 import { ic } from '../icons.js';
 
@@ -11,7 +11,7 @@ export async function render() {
       <td>
         <div style="display:flex;align-items:center;gap:8px;padding-inline-start:${depth * 26}px">
           <span style="color:var(--brand);display:flex">${ic('grid', 20)}</span>
-          <b>${c.name}</b>
+          <b>${escHtml(c.name)}</b>
           ${c.children?.length ? `<span class="s-badge s-active" style="font-size:10px">${faNum(c.children.length)} زیردسته</span>` : ''}
         </div>
       </td>
@@ -20,7 +20,7 @@ export async function render() {
       <td>${c.is_active ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">غیرفعال</span>'}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-ghost" data-edit='${JSON.stringify({ id: c.id, name: c.name, icon: c.icon, parent_id: c.parent_id, sort_order: c.sort_order, is_active: c.is_active })}' style="padding:7px 12px;font-size:11.5px">${ic('edit', 14)} ویرایش</button>
-        <button class="btn btn-ghost" data-del="${c.id}" data-name="${c.name}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">${ic('trash', 14)} حذف</button>
+        <button class="btn btn-ghost" data-del="${c.id}" data-name="${escHtml(c.name)}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">${ic('trash', 14)} حذف</button>
       </td>
     </tr>
     ${c.children?.length ? treeHtml(c.children, depth + 1) : ''}`).join('');
@@ -50,7 +50,7 @@ export function after() {
     openForm(c, cats);
   }));
   document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
-    confirmModal('حذف دسته', `دسته «${b.dataset.name}» حذف شود؟`, async () => {
+    confirmModal('حذف دسته', `دسته «${escHtml(b.dataset.name)}» حذف شود؟`, async () => {
       try { await AdminAPI.del('/admin/categories/' + b.dataset.del); toast('دسته حذف شد'); setTimeout(() => location.reload(), 400); }
       catch (err) { toast(err.message, 'err'); }
     });
@@ -61,16 +61,16 @@ function openForm(cat, cats) {
   const { close, body } = openModal(`
     <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${cat ? ic('edit', 18) + ' ویرایش دسته' : ic('plus', 18) + ' دسته جدید'}</h3>
     <div class="form-grid">
-      <div class="field"><label>نام دسته *</label><input data-name value="${cat?.name || ''}"></div>
-      <div class="field"><label>آیکون (ایموجی)</label><input data-icon value="${cat?.icon || '🐾'}" maxlength="4"></div>
+      <div class="field"><label>نام دسته *</label><input data-name value="${escHtml(cat?.name || '')}"></div>
+      <div class="field"><label>آیکون (ایموجی)</label><input data-icon value="${escHtml(cat?.icon || '🐾')}" maxlength="4"></div>
       <div class="field"><label>دسته والد</label>
         <select data-parent>
           <option value="">بدون والد (دسته اصلی)</option>
-          ${cats.map(c => `<option value="${c.id}" ${cat?.parent_id == c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+          ${cats.map(c => `<option value="${escHtml(c.id)}" ${cat?.parent_id == c.id ? 'selected' : ''}>${escHtml(c.name)}</option>`).join('')}
         </select>
       </div>
-      <div class="field"><label>ترتیب نمایش</label><input type="number" data-sort value="${cat?.sort_order || 0}"></div>
-      <div class="field full"><label>تصویر (آدرس یا خالی)</label><input data-image value="${cat?.image || ''}" placeholder="/assets/img/categories/..."></div>
+      <div class="field"><label>ترتیب نمایش</label><input type="number" data-sort value="${escHtml(cat?.sort_order || 0)}"></div>
+      <div class="field full"><label>تصویر (آدرس یا خالی)</label><input data-image value="${escHtml(cat?.image || '')}" placeholder="/assets/img/categories/..."></div>
       <div class="field full"><label>وضعیت</label><button class="toggle ${cat?.is_active === false ? '' : 'on'}" data-active></button></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:18px">

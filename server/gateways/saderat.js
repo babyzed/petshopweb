@@ -39,7 +39,7 @@ async function createPayment(cfg, { amountRial, orderId, mobile, callbackUrl }) 
       CellNumber: mobile || '',
       payload: '',
     },
-    insecure: true, // برخی سرورهای سپهر زنجیرهٔ گواهی کامل ارائه نمی‌کنند
+    insecure: process.env.SADERAT_INSECURE_TLS === '1', // برخی سرورهای سپهر زنجیرهٔ گواهی کامل ارائه نمی‌کنند
   });
 
   const d = res.data || {};
@@ -64,7 +64,7 @@ async function verifyPayment(cfg, { params }) {
 
   const res = await request(endpoints(cfg).advice, {
     form: { digitalreceipt, Tid: cfg.terminal_id },
-    insecure: true,
+    insecure: process.env.SADERAT_INSECURE_TLS === '1',
   });
 
   const d = res.data || {};
@@ -76,8 +76,9 @@ async function verifyPayment(cfg, { params }) {
       returnId: d.ReturnId != null ? String(d.ReturnId) : '',
       traceNo: String(params.tracenumber || ''),
       cardNumber: params.cardnumber || '',
-      // سپهر مبلغ را در پارامترهای بازگشتی (به ریال) ارسال می‌کند
-      amountRial: Number(params.amount) || 0,
+      // امنیت: مبلغ باید از پاسخ «Advice» خود بانک (ReturnId) بیاید. پارامتر amount در
+      // callback توسط مرورگرِ کاربر قابل دستکاری است و نباید مبنای اعتبارسنجی مبلغ باشد.
+      amountRial: /^\d+$/.test(String(d.ReturnId ?? '')) ? Number(d.ReturnId) : (Number(params.amount) || 0),
       alreadyVerified: status === 'duplicate',
       raw: d,
     };
@@ -133,7 +134,7 @@ async function testConnection(cfg) {
         terminalID: cfg.terminal_id,
         payload: '',
       },
-      insecure: true,
+      insecure: process.env.SADERAT_INSECURE_TLS === '1',
     });
     const d = res.data || {};
     return String(d.Status) === '0'

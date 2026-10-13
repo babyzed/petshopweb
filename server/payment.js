@@ -229,9 +229,10 @@ async function verifyPayment({ gateway, params = {}, amount }) {
 // ============================================================
 // تفسیر کال‌بک بانک
 // ============================================================
-function parseCallback(req) {
+// forcedGateway: درگاهی که در رکورد پرداخت همان سفارش ثبت شده (از ورودی کاربر معتبرتر است)
+function parseCallback(req, forcedGateway) {
   const all = { ...(req.query || {}), ...(req.body || {}) };
-  let key = String(all.gw || all.gateway || '').trim();
+  let key = forcedGateway && GATEWAYS[forcedGateway] ? forcedGateway : String(all.gw || all.gateway || '').trim();
   if (!GATEWAYS[key]) {
     // تشخیص خودکار درگاه از روی پارامترهای بازگشتی
     if (all.digitalreceipt !== undefined || all.respcode !== undefined) key = 'saderat';

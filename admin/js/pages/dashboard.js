@@ -65,7 +65,7 @@ export async function render() {
         return `
         <div class="waiting-item">
           <div class="wi-main">
-            <a class="wi-code" href="#/orders/${o.id}">${o.code}</a>
+            <a class="wi-code" href="#/orders/${o.id}">${escHtml(o.code)}</a>
             <span class="wi-name">${escHtml(c.full_name || '—')}</span>
             <span class="wi-meta">${faNum(o.item_count)} کالا — ${faDate(o.created_at)}</span>
           </div>
@@ -119,7 +119,7 @@ export async function render() {
             ${d.recent.slice(0, 6).map(o => {
               const c = JSON.parse(o.customer_json || '{}');
               return `<tr style="cursor:pointer" data-href="#/orders/${o.id}">
-                <td><b style="color:var(--brand-dark)">${o.code}</b></td>
+                <td><b style="color:var(--brand-dark)">${escHtml(o.code)}</b></td>
                 <td class="t-name">${escHtml(c.full_name || '—')}</td>
                 <td>${price(o.total)} تومان</td>
                 <td>${statusBadge(o.status, o.payment_method)}</td>

@@ -1,5 +1,5 @@
 // components.js — کامپوننت‌های مشترک فروشگاه
-import { API, price, discountPct, currentPrice, faNum } from './api.js';
+import { API, price, discountPct, currentPrice, faNum, escHtml } from './api.js';
 import { ic, catIcon, emojiIcon } from './icons.js';
 import { Cart, Session } from './store.js';
 
@@ -21,7 +21,7 @@ export function productCard(p, opts = {}) {
   <article class="p-card" data-slug="${p.slug}">
     <div class="p-media">
       <a href="#/product/${p.slug}">
-        <img src="${p.image || '/assets/img/placeholder.webp'}" alt="${p.name}" loading="lazy">
+        <img src="${p.image || '/assets/img/placeholder.webp'}" alt="${escHtml(p.name)}" loading="lazy">
       </a>
       <div class="p-badges">
         ${off ? `<span class="p-badge off">٪${faNum(off)} تخفیف</span>` : ''}
@@ -32,8 +32,8 @@ export function productCard(p, opts = {}) {
       </button>
     </div>
     <div class="p-body">
-      <div class="p-brand">${p.brand_name || ''}</div>
-      <a class="p-name" href="#/product/${p.slug}">${p.name}</a>
+      <div class="p-brand">${escHtml(p.brand_name || '')}</div>
+      <a class="p-name" href="#/product/${p.slug}">${escHtml(p.name)}</a>
       <div class="p-rating">${stars(p.rating)} <span>${p.rating ? faNum(p.rating) : 'جدید'}</span>${p.review_count ? `<span>(${faNum(p.review_count)} نظر)</span>` : ''}</div>
       <div class="p-price-row">
         <div>
@@ -58,13 +58,13 @@ export function productCardH(p) {
   return `
   <article class="p-card hz" data-slug="${p.slug}">
     <div class="p-media">
-      <a href="#/product/${p.slug}"><img src="${p.image || '/assets/img/placeholder.webp'}" alt="${p.name}" loading="lazy"></a>
+      <a href="#/product/${p.slug}"><img src="${p.image || '/assets/img/placeholder.webp'}" alt="${escHtml(p.name)}" loading="lazy"></a>
       ${off ? `<span class="p-badge off">٪${faNum(off)}</span>` : ''}
       <button class="p-wish ${wished}" data-wish="${p.id}" aria-label="علاقه‌مندی"><span class="${wished ? 'heart-fill' : ''}">${ic('heart', 15)}</span></button>
     </div>
     <div class="p-body">
-      <div class="p-brand">${p.brand_name || ''}</div>
-      <a class="p-name" href="#/product/${p.slug}">${p.name}</a>
+      <div class="p-brand">${escHtml(p.brand_name || '')}</div>
+      <a class="p-name" href="#/product/${p.slug}">${escHtml(p.name)}</a>
       <div class="p-rating">${stars(p.rating)}</div>
       <div class="p-price-row">
         <div>
@@ -107,15 +107,15 @@ export async function renderHeader() {
   // ساخت منوی دسته با مگامنو (همه دسته‌های ریشه در ستون‌ها)
   const megaItems = cats.map(c => `
     <div>
-      <a href="#/category/${c.slug}" class="mega-sub">${catIcon(c, 14)} ${c.name}</a>
-      ${c.children.map(ch => `<a href="#/category/${ch.slug}"><span class="mi">${catIcon(ch, 12)}</span>${ch.name}</a>`).join('')}
+      <a href="#/category/${c.slug}" class="mega-sub">${catIcon(c, 14)} ${escHtml(c.name)}</a>
+      ${c.children.map(ch => `<a href="#/category/${ch.slug}"><span class="mi">${catIcon(ch, 12)}</span>${escHtml(ch.name)}</a>`).join('')}
     </div>`).join('');
 
   el.innerHTML = `
   <div class="top-bar">
     <div class="container">
       <div style="display:flex;gap:18px;align-items:center">
-        <span>${ic('phone', 14)} ${contact.phone || ''}</span>
+        <span>${ic('phone', 14)} ${escHtml(contact.phone || '')}</span>
         <span>${ic('clock', 14)} ${contact.work_hours || ''}</span>
       </div>
       <div class="socials">
@@ -238,11 +238,11 @@ function openDrawer(categories) {
         ${categories.map(c => `
           <div>
             <a class="dm-cat" href="#/category/${c.slug}" data-dm-close>
-              <span class="mi">${catIcon(c, 15)}</span> ${c.name}
+              <span class="mi">${catIcon(c, 15)}</span> ${escHtml(c.name)}
               <span class="cnt">${faNum(c.count)}</span>
               ${c.children.length ? '<span class="chev">◀</span>' : ''}
             </a>
-            ${c.children.length ? `<div class="dm-sub">${c.children.map(ch => `<a href="#/category/${ch.slug}" data-dm-close>${catIcon(ch, 13)} ${ch.name}</a>`).join('')}</div>` : ''}
+            ${c.children.length ? `<div class="dm-sub">${c.children.map(ch => `<a href="#/category/${ch.slug}" data-dm-close>${catIcon(ch, 13)} ${escHtml(ch.name)}</a>`).join('')}</div>` : ''}
           </div>`).join('')}
       </div>
       <div class="dm-links">
@@ -296,9 +296,9 @@ export function openCart(mobileFull = false) {
               <a class="btn btn-primary" href="#/shop" data-cart-close>مشاهده فروشگاه</a>
             </div>` : items.map(it => `
             <div class="cd-item">
-              <img src="${it.image}" alt="${it.name}" loading="lazy">
+              <img src="${it.image}" alt="${escHtml(it.name)}" loading="lazy">
               <div class="cd-info">
-                <div class="cd-name">${it.name}</div>
+                <div class="cd-name">${escHtml(it.name)}</div>
                 <div class="cd-price">${price(it.price)} تومان</div>
                 <div class="cd-qty">
                   <button data-qty="-1" data-id="${it.product_id}">−</button>
@@ -357,12 +357,12 @@ export function openSearch() {
           ${r.products.length ? `<div class="so-group"><h4>${ic('bag', 15)} محصولات</h4>${r.products.map(p => `
             <a class="so-item" href="#/product/${p.slug}" data-so-close>
               <img src="${p.image}" alt="" loading="lazy">
-              <div style="flex:1"><div class="so-name">${p.name}</div><div class="so-price">${price(currentPrice(p))} تومان</div></div>
+              <div style="flex:1"><div class="so-name">${escHtml(p.name)}</div><div class="so-price">${price(currentPrice(p))} تومان</div></div>
             </a>`).join('')}</div>` : ''}
           ${r.categories.length ? `<div class="so-group"><h4>${ic('grid', 15)} دسته‌ها</h4>${r.categories.map(c => `
-            <a class="so-item" href="#/category/${c.slug}" data-so-close><span style="font-size:24px">${catIcon(c, 22)}</span><div class="so-name">${c.name}</div></a>`).join('')}</div>` : ''}
+            <a class="so-item" href="#/category/${c.slug}" data-so-close><span style="font-size:24px">${catIcon(c, 22)}</span><div class="so-name">${escHtml(c.name)}</div></a>`).join('')}</div>` : ''}
           ${r.articles.length ? `<div class="so-group"><h4>${ic('book', 15)} مقالات</h4>${r.articles.map(a => `
-            <a class="so-item" href="#/blog/${a.slug}" data-so-close><span style="font-size:20px">${ic('file', 18)}</span><div class="so-name">${a.title}</div></a>`).join('')}</div>` : ''}
+            <a class="so-item" href="#/blog/${a.slug}" data-so-close><span style="font-size:20px">${ic('file', 18)}</span><div class="so-name">${escHtml(a.title)}</div></a>`).join('')}</div>` : ''}
           ${!r.products.length && !r.categories.length && !r.articles.length ? '<p style="color:var(--muted);text-align:center;padding:30px;font-size:13.5px">نتیجه‌ای پیدا نشد</p>' : ''}`;
         ov.querySelectorAll('[data-so-close]').forEach(b => b.addEventListener('click', closeSearch));
       } catch (e) { body.innerHTML = '<p style="color:var(--danger);text-align:center;padding:20px">خطا در جستجو</p>'; }
@@ -383,7 +383,7 @@ export function toast(message, type = 'ok') {
   const root = document.getElementById('toast-root');
   const t = document.createElement('div');
   t.className = 'toast ' + (type === 'err' ? 'err' : type === 'info' ? '' : 'ok');
-  t.innerHTML = `${type === 'err' ? ic('alert', 15) : type === 'info' ? ic('info', 15) : ic('check', 15)} ${message}`;
+  t.innerHTML = `${type === 'err' ? ic('alert', 15) : type === 'info' ? ic('info', 15) : ic('check', 15)} ${escHtml(message)}`;
   root.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 320); }, 2600);
 }
@@ -417,8 +417,8 @@ export async function renderFooter() {
             <span class="logo-icon">${ic('paw', 21)}</span>
             <span class="logo-text" style="color:#fff">پت‌شاپ</span>
           </div>
-          <p class="f-desc">${footer.description || 'پت‌شاپ؛ مرجع تخصصی محصولات حیوانات خانگی.'}</p>
-          ${footer.badges?.length ? `<div class="f-badges">${footer.badges.map(b => `<span class="f-badge">${emojiIcon(b.icon, 16, 'shield')} ${b.title}</span>`).join('')}</div>` : ''}
+          <p class="f-desc">${escHtml(footer.description || 'پت‌شاپ؛ مرجع تخصصی محصولات حیوانات خانگی.')}</p>
+          ${footer.badges?.length ? `<div class="f-badges">${footer.badges.map(b => `<span class="f-badge">${emojiIcon(b.icon, 16, 'shield')} ${escHtml(b.title)}</span>`).join('')}</div>` : ''}
         </div>
         <div class="f-col">
           <h4>دسترسی سریع</h4>
@@ -441,10 +441,10 @@ export async function renderFooter() {
         <div class="f-col">
           <h4>اطلاعات تماس</h4>
           <ul class="f-contact">
-            <li><span class="fc-ic">${ic('pin', 15)}</span><span>${contact.address || ''}</span></li>
-            <li><span class="fc-ic">${ic('phone', 15)}</span><span dir="ltr">${contact.phone || ''}</span></li>
+            <li><span class="fc-ic">${ic('pin', 15)}</span><span>${escHtml(contact.address || '')}</span></li>
+            <li><span class="fc-ic">${ic('phone', 15)}</span><span dir="ltr">${escHtml(contact.phone || '')}</span></li>
             <li><span class="fc-ic">${ic('phone', 15)}</span><span dir="ltr">${contact.mobile || ''}</span></li>
-            <li><span class="fc-ic">${ic('mail', 15)}</span><span dir="ltr">${contact.email || ''}</span></li>
+            <li><span class="fc-ic">${ic('mail', 15)}</span><span dir="ltr">${escHtml(contact.email || '')}</span></li>
             <li><span class="fc-ic">${ic('clock', 15)}</span><span>${contact.work_hours || ''}</span></li>
           </ul>
           <div class="f-socials">

@@ -10,7 +10,7 @@ export async function render() {
   const d = await AdminAPI.get('/admin/users?' + q);
   return `
   <div class="toolbar">
-    <input class="search-inp" placeholder="جستجو با نام، ایمیل یا موبایل..." value="${state.q}" data-search>
+    <input class="search-inp" placeholder="جستجو با نام، ایمیل یا موبایل..." value="${escHtml(state.q)}" data-search>
     ${AdminAPI.isSuper() ? `<button class="btn btn-primary" data-new-user style="margin-inline-start:auto;padding:9px 16px;font-size:12.5px">${ic('plus', 14)} کاربر جدید</button>` : ''}
   </div>
   <table class="data-table">
@@ -57,7 +57,7 @@ export function after() {
 }
 
 const roleOptions = (roles, selectedId) => roles
-  .map(r => `<option value="${r.id}" ${Number(selectedId) === Number(r.id) ? 'selected' : ''}>${r.title}</option>`).join('');
+  .map(r => `<option value="${escHtml(r.id)}" ${Number(selectedId) === Number(r.id) ? 'selected' : ''}>${escHtml(r.title)}</option>`).join('');
 
 // ساخت کاربر جدید (فقط مدیر کل)
 async function openNew() {
@@ -142,7 +142,7 @@ export async function detailRender(params) {
   return `
   <div class="toolbar">
     <a class="btn btn-ghost" href="#/users" style="padding:9px 16px;font-size:12.5px">${ic('arrowLeft', 16)} بازگشت</a>
-    <h3 style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px">${ic('user', 18)} ${user.name}</h3>
+    <h3 style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px">${ic('user', 18)} ${escHtml(user.name)}</h3>
     <span style="margin-inline-start:auto">${user.status === 'active' ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">غیرفعال</span>'}</span>
   </div>
   <div class="dash-grid">
@@ -154,7 +154,7 @@ export async function detailRender(params) {
           <tbody>
             ${user.orders?.length ? user.orders.map(o => `
               <tr style="cursor:pointer" data-href="#/orders/${o.id}">
-                <td><b style="color:var(--brand-dark)">${o.code}</b></td>
+                <td><b style="color:var(--brand-dark)">${escHtml(o.code)}</b></td>
                 <td style="font-size:11px">${faDate(o.created_at)}</td>
                 <td>${price(o.total)} تومان</td>
                 <td>${statusBadge(o.status, o.payment_method)}</td>
@@ -167,16 +167,16 @@ export async function detailRender(params) {
         ${user.addresses?.length ? user.addresses.map(a => `
           <div class="mini-list-item">
             ${ic('pin', 16)}
-            <div style="flex:1"><b>${a.full_name}</b> <span class="t-sub">${a.province} ${a.city} — ${a.address} — ${a.postal_code}</span></div>
+            <div style="flex:1"><b>${escHtml(a.full_name)}</b> <span class="t-sub">${escHtml(a.province)} ${escHtml(a.city)} — ${escHtml(a.address)} — ${escHtml(a.postal_code)}</span></div>
             ${a.is_default ? '<span class="s-badge s-active">پیش‌فرض</span>' : ''}
           </div>`).join('') : '<p class="hint">آدرسی ثبت نشده است.</p>'}
       </div>
     </div>
     <div class="dash-card" style="align-self:start">
       <h3>${ic('home', 18)} اطلاعات حساب</h3>
-      <div class="mini-list-item">${ic('user', 16)}<span class="mli-name">نام</span><b>${user.name}</b></div>
-      <div class="mini-list-item">${ic('mail', 16)}<span class="mli-name">ایمیل</span><b dir="ltr">${user.email}</b></div>
-      <div class="mini-list-item">${ic('phone', 16)}<span class="mli-name">موبایل</span><b dir="ltr">${user.phone || '—'}</b></div>
+      <div class="mini-list-item">${ic('user', 16)}<span class="mli-name">نام</span><b>${escHtml(user.name)}</b></div>
+      <div class="mini-list-item">${ic('mail', 16)}<span class="mli-name">ایمیل</span><b dir="ltr">${escHtml(user.email)}</b></div>
+      <div class="mini-list-item">${ic('phone', 16)}<span class="mli-name">موبایل</span><b dir="ltr">${escHtml(user.phone || '—')}</b></div>
       <div class="mini-list-item">${ic('shield', 16)}<span class="mli-name">نقش</span><b>${user.role_title || '—'}</b></div>
       <div class="mini-list-item">${ic('clock', 16)}<span class="mli-name">عضویت</span><b>${faDate(user.created_at)}</b></div>
     </div>

@@ -1,8 +1,17 @@
 // pages/payment-result.js — نتیجه پرداخت آنلاین (بعد از ریدایرکت بانک)
-import { API, price } from '../api.js';
+import { API, price, escHtml } from '../api.js';
 import { ic } from '../icons.js';
+import { hasPendingAccountCompletion, openAccountCompletionModal } from '../account-complete.js';
 
 export function title() { return 'نتیجه پرداخت | پت‌شاپ'; }
+
+export function mount() {
+  // اگر هنگام ثبت سفارش مهمان، حساب خودکار ساخته شد و نتوانسته‌ایم قبل از درگاه
+  // پنجره تکمیل را نشان دهیم، بعد از بازگشت از پرداخت باز می‌کنیم.
+  if (hasPendingAccountCompletion()) {
+    setTimeout(() => openAccountCompletionModal(), 400);
+  }
+}
 
 export async function render(params, queryStr) {
   const q = new URLSearchParams(queryStr);
@@ -17,7 +26,7 @@ export async function render(params, queryStr) {
     icon = ic('check', 52);
     heading = 'پرداخت با موفقیت انجام شد!';
     desc = RRN
-      ? `<p style="color:var(--muted);font-size:13.5px;margin-top:8px">کد پیگیری بانکی: <b style="direction:ltr;display:inline-block">${RRN}</b></p>`
+      ? `<p style="color:var(--muted);font-size:13.5px;margin-top:8px">کد پیگیری بانکی: <b style="direction:ltr;display:inline-block">${escHtml(RRN)}</b></p>`
       : '';
     btns = `
       <a class="btn btn-primary" href="#/account?tab=orders">مشاهده سفارش‌ها</a>
@@ -25,7 +34,7 @@ export async function render(params, queryStr) {
   } else if (status === 'failed') {
     icon = ic('alert', 52);
     heading = 'پرداخت ناموفق بود';
-    desc = `<p style="color:var(--muted);font-size:13.5px;margin-top:8px">${message || 'پرداخت انجام نشد. لطفاً دوباره تلاش کنید.'}</p>`;
+    desc = `<p style="color:var(--muted);font-size:13.5px;margin-top:8px">${message ? escHtml(message) : 'پرداخت انجام نشد. لطفاً دوباره تلاش کنید.'}</p>`;
     btns = orderCode
       ? `<a class="btn btn-primary" href="#/account?tab=orders">پرداخت مجدد</a>
          <a class="btn btn-outline" href="#/shop">بازگشت به فروشگاه</a>`
@@ -33,7 +42,7 @@ export async function render(params, queryStr) {
   } else {
     icon = ic('alert', 52);
     heading = 'خطا در پرداخت';
-    desc = `<p style="color:var(--muted);font-size:13.5px;margin-top:8px">${message || 'خطای غیرمنتظره‌ای رخ داد.'}</p>`;
+    desc = `<p style="color:var(--muted);font-size:13.5px;margin-top:8px">${message ? escHtml(message) : 'خطای غیرمنتظره‌ای رخ داد.'}</p>`;
     btns = `
       <a class="btn btn-primary" href="#/account?tab=orders">مشاهده سفارش‌ها</a>
       <a class="btn btn-outline" href="#/shop">بازگشت به فروشگاه</a>`;
@@ -45,7 +54,7 @@ export async function render(params, queryStr) {
       <div class="success-ic" style="margin-bottom:16px;${status === 'success' ? 'color:var(--green,#16a34a)' : 'color:var(--err,#ef4444)'}">${icon}</div>
       <h2 style="font-size:21px;font-weight:800">${heading}</h2>
       ${desc}
-      ${orderCode ? `<div class="success-code" style="margin-top:16px">کد سفارش: ${orderCode}</div>` : ''}
+      ${orderCode ? `<div class="success-code" style="margin-top:16px">کد سفارش: ${escHtml(orderCode)}</div>` : ''}
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px">
         ${btns}
       </div>

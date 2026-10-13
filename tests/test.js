@@ -24,6 +24,9 @@ function request(method, path, body = null, token = null) {
       headers: { 'Content-Type': 'application/json' },
     };
     if (token) options.headers['Authorization'] = `Bearer ${token}`;
+    // Node برای DELETE/GET بدنه را chunked نمی‌فرستد؛ بدون Content-Length بدنه نادیده گرفته می‌شود
+    // و بایت‌های اضافه اتصال را خراب می‌کند (ECONNRESET / socket hang up)
+    if (data) options.headers['Content-Length'] = Buffer.byteLength(data);
 
     const req = http.request(options, (res) => {
       let chunks = '';
@@ -234,7 +237,10 @@ async function runTests() {
       });
       assert(order2.status === 200, 'Second guest order created');
       assert(order2.body.accountCreated === false, 'Second order links to the SAME account (no duplicate)');
-      const guestOrders2 = await request('GET', '/api/orders/my', null, order2.body.token);
+      // امنیت: برای حساب موجود دیگر توکن صادر نمی‌شود (قبلاً هر کسی با دانستن شماره می‌توانست وارد حساب شود)
+      assert(!order2.body.token, 'Second guest order does NOT hand out a session token for an existing account');
+      // سفارش هر دو به همان حساب وصل است؛ با توکن همان مشتری (از سفارش اول) دیده می‌شوند
+      const guestOrders2 = await request('GET', '/api/orders/my', null, order.body.token);
       assert(Array.isArray(guestOrders2.body.orders) && guestOrders2.body.orders.length >= 2, 'Both orders visible under one account');
 
       // مجموع سفارش‌های مهمان پرداخت‌نشده (برای تست آمار داشبورد)
@@ -357,7 +363,7 @@ async function runTests() {
     assert(!!approvalStep && approvalStep.changed_by_name, 'Approval recorded in history with the admin name');
 
     // --- ارسال و تحویل ---
-    const ship = await request('PUT', `/api/admin/orders/${oid}/status`, { status: 'shipped' }, adminToken);
+    const ship = await request('PUT', `/api/admin/orders/${oid}/status`, { status: 'shipped', tracking_code: '2451000000000001' }, adminToken);
     assert(ship.status === 200, 'Shipping after approval works');
     const deliver = await request('PUT', `/api/admin/orders/${oid}/status`, { status: 'delivered' }, adminToken);
     assert(deliver.status === 200, 'Delivering works');
@@ -493,12 +499,102 @@ async function runTests() {
     }
   }
 
+
+  // ---------- Security regression tests (اصلاحات ممیزی امنیتی) ----------
+  section('Security regressions');
+  {
+    const prods = await request('GET', '/api/products?per_page=1');
+    const pid = prods.body.products[0].id;
+    const mkOrder = (customer, token) => request('POST', '/api/orders', {
+      customer, items: [{ product_id: pid, quantity: 1 }], address: 'تهران، خیابان آزمایش ۱', payment_method: 'cod',
+    }, token);
+
+    // 1) Account takeover: سفارش مهمان با ایمیل مدیر نباید توکن مدیر را برگرداند
+    const atk = await mkOrder({ full_name: 'مهاجم', phone: '09129990001', email: 'admin@petshop.ir' });
+    assert(atk.status === 200 && !atk.body.token && !atk.body.user, 'Guest order with admin email does NOT return a session token');
+
+    // 2) ... و با شمارهٔ یک مشتری موجود هم توکن داده نمی‌شود
+    const victimPhone = '0913' + String(Date.now()).slice(-7);
+    const victim = await request('POST', '/api/auth/register', {
+      name: 'قربانی', email: `victim${Date.now()}@test.com`, phone: victimPhone, password: 'Victim#2024x',
+    });
+    assert(victim.status === 200, 'Victim account registered');
+    const atk2 = await mkOrder({ full_name: 'مهاجم', phone: victimPhone });
+    assert(atk2.status === 200 && !atk2.body.token, 'Guest order with an existing customer phone does NOT return a token');
+
+    // 3) شمارهٔ جدید: حساب ساخته می‌شود و توکن داده می‌شود (رفتار مطلوب حفظ شده)
+    const freshPhone = '0914' + String(Date.now()).slice(-7);
+    const fresh = await mkOrder({ full_name: 'مشتری جدید', phone: freshPhone });
+    assert(fresh.status === 200 && fresh.body.accountCreated === true && !!fresh.body.token, 'Guest order with a NEW phone still creates an account + token');
+
+    // 4) شمارهٔ نامعتبر سمت سرور رد می‌شود
+    const badPhone = await mkOrder({ full_name: 'x', phone: 'abc' });
+    assert(badPhone.status === 400, 'Invalid phone number is rejected by the server');
+
+    // 5) /auth/complete فقط برای حساب‌های مهمان (ایمیل موقت)
+    const comp = await request('PUT', '/api/auth/complete', {
+      name: 'x', email: 'evil@test.com', phone: '09120000000', password: 'Hacked#12345',
+    }, adminToken);
+    assert(comp.status === 403, '/auth/complete is refused for a normal/admin account');
+    const compV = await request('PUT', '/api/auth/complete', {
+      name: 'x', email: `evil${Date.now()}@test.com`, phone: victimPhone, password: 'Hacked#12345',
+    }, victim.body.token);
+    assert(compV.status === 403, '/auth/complete is refused for a completed customer account');
+    const compG = await request('PUT', '/api/auth/complete', {
+      name: 'مشتری جدید', email: `guest${Date.now()}@test.com`, phone: freshPhone, password: 'Guest#2024xyz',
+    }, fresh.body.token);
+    assert(compG.status === 200 && compG.body.account_completed === true, '/auth/complete still works for an auto-created guest account');
+
+    // 6) پرداخت: کاربر دیگر نمی‌تواند سفارش کسی را تایید/پرداخت کند
+    const other = await request('POST', '/api/auth/register', {
+      name: 'کاربر دیگر', email: `other${Date.now()}@test.com`, phone: '0915' + String(Date.now()).slice(-7), password: 'Other#2024xy',
+    });
+    const vOrder = await mkOrder({ full_name: 'قربانی', phone: victimPhone }, victim.body.token);
+    const vCode = vOrder.body.order && vOrder.body.order.code;
+    const vr = await request('POST', '/api/payments/verify', { orderCode: vCode, RRN: '123456' }, other.body.token);
+    assert(vr.status === 403, "Another user cannot verify someone else's payment");
+
+    // 7) کوپن: درصد >۱۰۰ و کد تکراری رد می‌شود
+    const cp1 = await request('POST', '/api/admin/coupons', { code: 'BADPCT' + Date.now() % 1000, type: 'percent', value: 150 }, adminToken);
+    assert(cp1.status === 400, 'Coupon with percent > 100 is rejected');
+    const cpCode = 'DUP' + (Date.now() % 100000);
+    const cp2 = await request('POST', '/api/admin/coupons', { code: cpCode, type: 'fixed', value: 1000 }, adminToken);
+    const cp3 = await request('POST', '/api/admin/coupons', { code: cpCode, type: 'fixed', value: 1000 }, adminToken);
+    assert(cp2.status === 200 && cp3.status === 409, 'Duplicate coupon code returns 409 (not 500)');
+
+    // 8) صفحات محتوایی: HTML خطرناک ذخیره/نمایش پاکسازی می‌شود
+    await request('PUT', '/api/admin/pages/about_page', {
+      title: 'درباره ما', content: '<p>سلام</p><img src=x onerror=alert(1)><script>alert(2)</script>', image: '', evil_field: 'x',
+    }, adminToken);
+    const pg = await request('GET', '/api/pages/about_page');
+    const pgc = (pg.body.page && pg.body.page.content) || '';
+    assert(pgc.includes('<p>سلام</p>') && !/onerror|<script/i.test(pgc), 'Public page content is sanitized');
+    assert(pg.body.page.evil_field === undefined, 'Page settings store only whitelisted fields');
+
+    // 9) ارسال سفارش بدون کد رهگیری رد می‌شود (پس از تایید)
+    const cod = await mkOrder({ full_name: 'تست ارسال', phone: '0916' + String(Date.now()).slice(-7) });
+    const cid = cod.body.order.id;
+    await request('PUT', `/api/admin/orders/${cid}/status`, { status: 'confirmed' }, adminToken);
+    const noTrack = await request('PUT', `/api/admin/orders/${cid}/status`, { status: 'shipped' }, adminToken);
+    assert(noTrack.status === 400, 'Shipping without a tracking code is rejected');
+    const dupStatus = await request('PUT', `/api/admin/orders/${cid}/status`, { status: 'confirmed' }, adminToken);
+    assert(dupStatus.status === 400, 'Repeating the same status is rejected');
+
+    // 11) اسکریپت مقداردهی GA هم‌مبدأ سرو می‌شود (CSP اسکریپت درون‌خطی را می‌بندد)
+    const ga = await request('GET', '/ga-init.js');
+    assert(ga.status === 200 && typeof ga.body === 'string', 'GA init script is served same-origin as JavaScript');
+
+    // 10) پاکسازی داده بدون تأیید صریح رد می‌شود
+    const noConfirm = await request('DELETE', '/api/admin/cleanup-test-data', null, adminToken);
+    assert(noConfirm.status === 400, 'Data cleanup requires explicit confirmation');
+  }
+
   // ---------- Cleanup: حذف داده‌های تست ----------
   section('Cleanup');
   {
     console.log('  🧹 حذف داده‌های تست...');
     // حذف سفارش‌های تست
-    try { await request('DELETE', '/api/admin/cleanup-test-data', null, adminToken); } catch {}
+    try { await request('DELETE', '/api/admin/cleanup-test-data', { confirm: 'DELETE_ALL_DATA' }, adminToken); } catch {}
     // لاگ وضعیت نهایی
     const dash = await request('GET', '/api/admin/dashboard', null, adminToken);
     if (dash.status === 200) {

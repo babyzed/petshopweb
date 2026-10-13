@@ -40,7 +40,7 @@ async function bootstrap() {
   register('blog/:slug', { render: (p) => blog.render(p) });
   register('page/:key', { render: (p) => pages.render(p), mount: (el, p) => pages.mount(el, p) });
   register('search/:q', { render: (p) => search.render(p) });
-  register('payment-result', { render: (p, q) => paymentResult.render(p, q) });
+  register('payment-result', { render: (p, q) => paymentResult.render(p, q), mount: (el, p, q) => paymentResult.mount(el, p, q) });
 
   // ---------- رویدادهای سراسری ----------
   bindGlobalEvents();

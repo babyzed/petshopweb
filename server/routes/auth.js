@@ -26,34 +26,38 @@ function findUserByIdentifier(identifier) {
 
 // ---------- Brute-Force Protection (In-Memory + DB) ----------
 const loginAttempts = new Map();
-const MAX_LOGIN_ATTEMPTS = 5;
+const MAX_LOGIN_ATTEMPTS = 5;          // برای هر جفت (شناسه + IP)
+const MAX_LOGIN_ATTEMPTS_GLOBAL = 30;  // برای هر شناسه از همهٔ IPها (جلوگیری از brute-force توزیع‌شده)
 const LOCKOUT_DURATION = 15 * 60 * 1000; // ۱۵ دقیقه
 
-function checkLoginBruteForce(email) {
-  const key = email.toLowerCase();
-  const entry = loginAttempts.get(key);
-  if (!entry) return { blocked: false };
-  if (entry.count >= MAX_LOGIN_ATTEMPTS && Date.now() - entry.lastAttempt < LOCKOUT_DURATION) {
-    const remaining = Math.ceil((LOCKOUT_DURATION - (Date.now() - entry.lastAttempt)) / 60000);
-    return { blocked: true, remainingMinutes: remaining };
-  }
-  // پاکسازی بعد از منقضی شدن
-  if (Date.now() - entry.lastAttempt >= LOCKOUT_DURATION) {
-    loginAttempts.delete(key);
+// قفل فقط روی «شناسه + IP» اعمال می‌شود تا مهاجم نتواند با چند درخواست اشتباه،
+// حساب مدیر را برای همه قفل کند (DoS). سقف بالاتری هم برای کل IPها وجود دارد.
+function checkLoginBruteForce(email, ip = '') {
+  const id = email.toLowerCase();
+  for (const [key, max] of [[id + '|' + ip, MAX_LOGIN_ATTEMPTS], [id, MAX_LOGIN_ATTEMPTS_GLOBAL]]) {
+    const entry = loginAttempts.get(key);
+    if (!entry) continue;
+    if (Date.now() - entry.lastAttempt >= LOCKOUT_DURATION) { loginAttempts.delete(key); continue; }
+    if (entry.count >= max) {
+      const remaining = Math.ceil((LOCKOUT_DURATION - (Date.now() - entry.lastAttempt)) / 60000);
+      return { blocked: true, remainingMinutes: remaining };
+    }
   }
   return { blocked: false };
 }
 
-function recordLoginAttempt(email, success) {
-  const key = email.toLowerCase();
+function recordLoginAttempt(email, success, ip = '') {
+  const id = email.toLowerCase();
   if (success) {
-    loginAttempts.delete(key);
+    loginAttempts.delete(id + '|' + ip);
     return;
   }
-  const entry = loginAttempts.get(key) || { count: 0, lastAttempt: 0 };
-  entry.count++;
-  entry.lastAttempt = Date.now();
-  loginAttempts.set(key, entry);
+  for (const key of [id + '|' + ip, id]) {
+    const entry = loginAttempts.get(key) || { count: 0, lastAttempt: 0 };
+    entry.count++;
+    entry.lastAttempt = Date.now();
+    loginAttempts.set(key, entry);
+  }
 }
 
 // پاکسازی دوره‌ای
@@ -140,14 +144,14 @@ router.post('/login', (req, res) => {
     const identifier = String(email).trim().toLowerCase();
 
     // Brute-force check
-    const bruteCheck = checkLoginBruteForce(identifier);
+    const bruteCheck = checkLoginBruteForce(identifier, req.ip);
     if (bruteCheck.blocked) {
       return res.status(429).json({ error: `تعداد تلاش‌های ناموفق بیش از حد مجاز است. ${bruteCheck.remainingMinutes} دقیقه صبر کنید.` });
     }
 
     const user = findUserByIdentifier(identifier);
     if (!user || !bcrypt.compareSync(String(password), user.password_hash)) {
-      recordLoginAttempt(identifier, false);
+      recordLoginAttempt(identifier, false, req.ip);
       // پاسخ یکسان برای وجود/عدم وجود کاربر (عدم افشای اطلاعات)
       return res.status(401).json({ error: 'ایمیل/موبایل یا رمز عبور اشتباه است.' });
     }
@@ -155,7 +159,7 @@ router.post('/login', (req, res) => {
       return res.status(403).json({ error: 'حساب شما غیرفعال شده است.' });
     }
 
-    recordLoginAttempt(identifier, true);
+    recordLoginAttempt(identifier, true, req.ip);
 
     res.json({ token: signToken(user), user: publicUser(user) });
   } catch (err) {
@@ -180,12 +184,23 @@ router.post('/forgot', (req, res) => {
     // عدم افشای وجود کاربر — همیشه پاسخ یکسان
     if (!user) return res.json({ ok: true, message: 'اگر این اطلاعات در سیستم ثبت شده باشد، کد بازیابی ارسال شده است.' });
 
-    // تولید کد امن (Cryptographically Secure)
-    const code = String(crypto.randomInt(100000, 999999));
+    // جلوگیری از SMS/Email bombing: حداقل ۶۰ ثانیه بین دو درخواست برای یک شناسه
+    const prev = db.prepare('SELECT value_json FROM settings WHERE key = ?').get('reset_' + identifier);
+    if (prev) {
+      try {
+        const p = JSON.parse(prev.value_json);
+        if (p.created && Date.now() - p.created < 60 * 1000) {
+          return res.json({ ok: true, message: 'اگر این اطلاعات در سیستم ثبت شده باشد، کد بازیابی ارسال شده است.' });
+        }
+      } catch { /* ignore */ }
+    }
+
+    // تولید کد امن (Cryptographically Secure) — بازهٔ کامل ۶ رقمی
+    const code = String(crypto.randomInt(100000, 1000000));
     const codeHash = crypto.createHash('sha256').update(code).digest('hex');
 
     db.prepare('INSERT INTO settings (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json')
-      .run('reset_' + identifier, JSON.stringify({ codeHash, created: Date.now(), used: false }));
+      .run('reset_' + identifier, JSON.stringify({ codeHash, created: Date.now(), used: false, attempts: 0 }));
 
     // ارسال از طریق پیامک (برای حساب‌های موبایلی/مهمان) یا ایمیل (غیرهمزمان)
     setImmediate(() => {
@@ -240,10 +255,21 @@ router.post('/reset', (req, res) => {
     const data = JSON.parse(row.value_json);
     if (data.used) return res.status(400).json({ error: 'این کد قبلاً استفاده شده است.' });
     if (Date.now() - data.created > 15 * 60 * 1000) return res.status(400).json({ error: 'کد بازیابی منقضی شده است.' });
+    // محدودیت حدس: پس از ۵ تلاش ناموفق کد باطل می‌شود (کد ۶ رقمی قابل brute-force نباشد)
+    if ((data.attempts || 0) >= 5) {
+      db.prepare('DELETE FROM settings WHERE key = ?').run('reset_' + identifier);
+      return res.status(429).json({ error: 'تعداد تلاش‌ها بیش از حد مجاز بود. کد جدید درخواست دهید.' });
+    }
 
-    // مقایسه هش (نه کد خام)
+    // مقایسه هش با زمان ثابت (نه کد خام)
     const codeHash = crypto.createHash('sha256').update(String(code)).digest('hex');
-    if (codeHash !== data.codeHash) return res.status(400).json({ error: 'کد وارد شده صحیح نیست.' });
+    const okCode = codeHash.length === data.codeHash.length &&
+      crypto.timingSafeEqual(Buffer.from(codeHash), Buffer.from(data.codeHash));
+    if (!okCode) {
+      data.attempts = (data.attempts || 0) + 1;
+      db.prepare('UPDATE settings SET value_json = ? WHERE key = ?').run(JSON.stringify(data), 'reset_' + identifier);
+      return res.status(400).json({ error: 'کد وارد شده صحیح نیست.' });
+    }
 
     // بروزرسانی رمز + حذف کد (یکبار مصرف)
     db.prepare("UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?")
@@ -265,20 +291,98 @@ router.get('/me', authRequired, (req, res) => {
 });
 
 // ---------- ویرایش پروفایل ----------
+// FIX: ایمیل حساب‌های مهمان/جدید دیگر غیرقابل‌تغییر نیست؛ کاربر می‌تواند
+// ایمیل موقت (guest-...@petshop.local) را با ایمیل واقعی خود جایگزین کند.
 router.put('/profile', authRequired, (req, res) => {
   try {
-    const { name, phone } = req.body || {};
-    if (!name || !name.trim()) return res.status(400).json({ error: 'نام را وارد کنید.' });
-    if (name.trim().length > 100) return res.status(400).json({ error: 'نام بیش از حد طولانی است.' });
-    if (phone && !PHONE_RE.test(phone.trim())) return res.status(400).json({ error: 'شماره موبایل نامعتبر است.' });
+    const current = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    if (!current) return res.status(404).json({ error: 'کاربر یافت نشد.' });
 
-    db.prepare("UPDATE users SET name = ?, phone = ?, updated_at = datetime('now') WHERE id = ?")
-      .run(name.trim().slice(0, 100), (phone || '').trim(), req.user.id);
+    const { name, phone, email } = req.body || {};
+    const newName = String(name || current.name || '').trim().slice(0, 100);
+    const rawPhone = phone === undefined || phone === '' ? current.phone : phone;
+    const newPhone = normalizePhone(rawPhone);
+    const newEmail = String(email === undefined ? current.email : email).trim().toLowerCase();
+
+    if (!newName) return res.status(400).json({ error: 'نام را وارد کنید.' });
+    if (newName.length > 100) return res.status(400).json({ error: 'نام بیش از حد طولانی است.' });
+    if (rawPhone && !newPhone) return res.status(400).json({ error: 'شماره موبایل نامعتبر است.' });
+    if (newPhone && !PHONE_RE.test(newPhone)) return res.status(400).json({ error: 'شماره موبایل نامعتبر است.' });
+    if (!newEmail || !EMAIL_RE.test(newEmail)) return res.status(400).json({ error: 'ایمیل معتبر وارد کنید.' });
+
+    // جلوگیری از تصاحب ایمیل/موبایل کاربر دیگر
+    const emailOwner = newEmail !== current.email
+      ? db.prepare('SELECT id FROM users WHERE email = ?').get(newEmail)
+      : null;
+    if (emailOwner) return res.status(409).json({ error: 'کاربری با این ایمیل قبلاً ثبت‌نام کرده است.' });
+    const phoneOwner = newPhone && newPhone !== current.phone
+      ? db.prepare('SELECT id FROM users WHERE phone = ?').get(newPhone)
+      : null;
+    if (phoneOwner) return res.status(409).json({ error: 'کاربری با این شماره موبایل قبلاً ثبت‌نام کرده است.' });
+
+    // اگر شماره در آدرس‌های ذخیره‌شده کاربر قدیمی است، آن را هم به‌روز می‌کنیم
+    if (newPhone && newPhone !== current.phone) {
+      db.prepare("UPDATE addresses SET phone = ? WHERE user_id = ? AND phone = ?").run(newPhone, req.user.id, current.phone);
+    }
+
+    db.prepare("UPDATE users SET name = ?, phone = ?, email = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(newName, newPhone, newEmail, req.user.id);
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
     res.json({ ok: true, user: publicUser(user) });
   } catch (err) {
     console.error('[Auth] Profile update error:', err.message);
     res.status(500).json({ error: 'خطا در بروزرسانی پروفایل.' });
+  }
+});
+
+// ---------- تکمیل ثبت‌نام حساب مهمان (ساخته‌شده هنگام خرید) ----------
+// بعد از خرید مهمان، حساب به‌صورت خودکار ساخته شده است؛ این مسیر اجازه می‌دهد
+// همان پنجره/فرم، مشخصات (نام، موبایل، ایمیل واقعی) و رمز عبور را تکمیل کند.
+router.put('/complete', authRequired, (req, res) => {
+  try {
+    const current = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    if (!current) return res.status(404).json({ error: 'کاربر یافت نشد.' });
+    // امنیت: این مسیر بدون «رمز فعلی» رمز/ایمیل را عوض می‌کند، پس فقط برای حساب‌های
+    // مهمانِ ساخته‌شده هنگام خرید (ایمیل موقت) مجاز است؛ وگرنه با یک توکن سرقت‌شده
+    // هر حسابی (حتی مدیر) قابل تصاحب دائمی بود.
+    if (!isPlaceholderEmail(current.email) || req.user.is_admin) {
+      return res.status(403).json({ error: 'این حساب قبلاً تکمیل شده است. برای تغییر رمز از «تغییر رمز عبور» استفاده کنید.' });
+    }
+
+    const { name, email, phone, password } = req.body || {};
+    const newName = String(name || current.name || '').trim().slice(0, 100);
+    const newPhone = normalizePhone(phone === undefined || phone === '' ? current.phone : phone);
+    const newEmail = String(email || '').trim().toLowerCase();
+
+    if (!newName) return res.status(400).json({ error: 'نام و نام خانوادگی را وارد کنید.' });
+    if (newName.length > 100) return res.status(400).json({ error: 'نام بیش از حد طولانی است.' });
+    if (!newPhone) return res.status(400).json({ error: 'شماره موبایل را وارد کنید (09...).' });
+    if (!PHONE_RE.test(newPhone)) return res.status(400).json({ error: 'شماره موبایل معتبر وارد کنید (09...).' });
+    if (!EMAIL_RE.test(newEmail)) return res.status(400).json({ error: 'ایمیل معتبر وارد کنید.' });
+
+    const pwError = validatePassword(password);
+    if (pwError) return res.status(400).json({ error: pwError });
+
+    const emailOwner = newEmail !== current.email
+      ? db.prepare('SELECT id FROM users WHERE email = ?').get(newEmail)
+      : null;
+    if (emailOwner) return res.status(409).json({ error: 'کاربری با این ایمیل قبلاً ثبت‌نام کرده است.' });
+    const phoneOwner = newPhone !== current.phone
+      ? db.prepare('SELECT id FROM users WHERE phone = ?').get(newPhone)
+      : null;
+    if (phoneOwner) return res.status(409).json({ error: 'کاربری با این شماره موبایل قبلاً ثبت‌نام کرده است.' });
+
+    if (newPhone !== current.phone) {
+      db.prepare("UPDATE addresses SET phone = ? WHERE user_id = ? AND phone = ?").run(newPhone, req.user.id, current.phone);
+    }
+
+    db.prepare("UPDATE users SET name = ?, email = ?, phone = ?, password_hash = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(newName, newEmail, newPhone, bcrypt.hashSync(String(password), BCRYPT_ROUNDS), req.user.id);
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    res.json({ ok: true, account_completed: true, user: publicUser(user) });
+  } catch (err) {
+    console.error('[Auth] Complete error:', err.message);
+    res.status(500).json({ error: 'خطا در تکمیل ثبت‌نام.' });
   }
 });
 

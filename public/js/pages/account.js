@@ -1,8 +1,9 @@
 // pages/account.js — پنل کاربری: پروفایل، آدرس‌ها، سفارش‌ها، علاقه‌مندی‌ها، رمز
-import { API, price, faNum, dateFa, timeFa } from '../api.js';
+import { API, price, faNum, dateFa, timeFa, escHtml } from '../api.js';
 import { Session, Cart } from '../store.js';
 import { toast, initials, productCard, productCardH } from '../components.js';
 import { ic } from '../icons.js';
+import { hasPlaceholderEmail, openAccountCompletionModal } from '../account-complete.js';
 
 export function title() { return 'حساب کاربری | پت‌شاپ'; }
 
@@ -32,7 +33,7 @@ export async function render(params, query) {
     tabContent = orders.length ? orders.map(o => `
       <a class="order-card" href="#/order/${o.id}">
         <div>
-          <div class="order-code">${o.code}</div>
+          <div class="order-code">${escHtml(o.code)}</div>
           <div class="order-date">${timeFa(o.created_at)} — ${faNum(o.item_count)} کالا</div>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
@@ -60,9 +61,9 @@ export async function render(params, query) {
         ${addresses.length ? addresses.map(a => `
           <div class="order-card" style="align-items:flex-start">
             <div style="flex:1;min-width:0">
-              <div style="font-weight:800;font-size:13.5px">${a.title || 'آدرس'} ${a.is_default ? '<span class="order-status os-delivered" style="margin-inline-start:8px">پیش‌فرض</span>' : ''}</div>
-              <div style="font-size:12.5px;color:var(--muted);margin-top:4px">${a.full_name} — ${a.phone}</div>
-              <div style="font-size:12.5px;color:var(--muted)">${a.province} ${a.city} — ${a.address} — ${a.postal_code}</div>
+              <div style="font-weight:800;font-size:13.5px">${escHtml(a.title || 'آدرس')} ${a.is_default ? '<span class="order-status os-delivered" style="margin-inline-start:8px">پیش‌فرض</span>' : ''}</div>
+              <div style="font-size:12.5px;color:var(--muted);margin-top:4px">${escHtml(a.full_name)} — ${escHtml(a.phone)}</div>
+              <div style="font-size:12.5px;color:var(--muted)">${escHtml(a.province)} ${escHtml(a.city)} — ${escHtml(a.address)} — ${escHtml(a.postal_code)}</div>
             </div>
             <div style="display:flex;gap:8px;flex-shrink:0">
               <button class="btn btn-outline" data-edit-addr="${a.id}" style="font-size:12px;padding:8px 14px">ویرایش</button>
@@ -94,9 +95,16 @@ export async function render(params, query) {
   } else {
     tabContent = `
       <div class="form-grid" style="max-width:520px">
-        <div class="field"><label>نام و نام خانوادگی *</label><input value="${u.name || ''}" data-p-name></div>
-        <div class="field"><label>شماره موبایل</label><input value="${u.phone || ''}" dir="ltr" data-p-phone></div>
-        <div class="field"><label>ایمیل</label><input value="${u.email || ''}" dir="ltr" disabled style="opacity:.6"></div>
+        <div class="field"><label>نام و نام خانوادگی *</label><input value="${escHtml(u.name || '')}" data-p-name></div>
+        <div class="field"><label>شماره موبایل</label><input value="${escHtml(u.phone || '')}" dir="ltr" data-p-phone></div>
+        ${hasPlaceholderEmail(u) ? `
+          <div class="auth-note" style="margin-bottom:14px;border:1px solid #FED7AA;background:#FFF7ED">
+            <span class="an-ic">${ic('userPlus', 14)}</span>
+            <span>حساب شما هنوز ناقص است. ایمیل و رمز واقعی را مشخص کنید تا واردهای بعدی راحت‌تر شود.</span>
+            <button class="btn btn-primary" data-open-account-complete style="padding:7px 14px;font-size:12px;margin-inline-start:auto;flex-shrink:0">تکمیل ثبت‌نام</button>
+          </div>
+        ` : ''}
+        <div class="field"><label>ایمیل</label><input type="email" value="${escHtml(u.email || '')}" dir="ltr" data-p-email placeholder="you@example.com"><span class="err-msg" data-err="email"></span></div>
         <div class="field full"><button class="btn btn-primary" data-save-profile>ذخیره تغییرات</button></div>
       </div>
       <div class="auth-note" style="margin-top:18px">
@@ -119,10 +127,10 @@ export async function render(params, query) {
     <div class="account-layout">
       <aside class="acct-nav">
         <div class="acct-user">
-          <span class="acct-avatar">${initials(u.name)}</span>
+          <span class="acct-avatar">${escHtml(initials(u.name))}</span>
           <div style="min-width:0">
-            <div style="font-weight:800;font-size:14px;overflow:hidden;text-overflow:ellipsis">${u.name}</div>
-            <div style="font-size:11px;color:var(--muted)" dir="ltr">${u.email}</div>
+            <div style="font-weight:800;font-size:14px;overflow:hidden;text-overflow:ellipsis">${escHtml(u.name)}</div>
+            <div style="font-size:11px;color:var(--muted)" dir="ltr">${escHtml(u.email)}</div>
           </div>
         </div>
         ${tabs.map(([k, ic, l]) => `<a href="#/account?tab=${k}" class="${tab === k ? 'active' : ''}"><span>${ic}</span>${l}</a>`).join('')}
@@ -151,11 +159,18 @@ export function mount(el, params, query) {
   });
 
   if (tab === 'profile') {
+    el.querySelector('[data-open-account-complete]')?.addEventListener('click', () => openAccountCompletionModal({ onDone: () => setTimeout(() => location.reload(), 300) }));
     el.querySelector('[data-save-profile]')?.addEventListener('click', async () => {
+      const email = el.querySelector('[data-p-email]')?.value.trim() || '';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        toast('ایمیل معتبر وارد کنید', 'err');
+        return;
+      }
       try {
         const r = await API.put('/auth/profile', {
           name: el.querySelector('[data-p-name]').value.trim(),
           phone: el.querySelector('[data-p-phone]').value.trim(),
+          email,
         });
         Session.setUser(r.user);
         toast('پروفایل به‌روزرسانی شد');

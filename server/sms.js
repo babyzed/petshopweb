@@ -247,11 +247,14 @@ const TEMPLATES = {
     const payNote = method === 'cod'
       ? 'پرداخت در محل: مبلغ هنگام تحویل دریافت می‌شود.'
       : 'پرداخت آنلاین: پس از پرداخت، سفارش تایید می‌شود.';
-    return `پت‌شاپ\nسفارش ${code} ثبت شد.\nمبلغ: ${total.toLocaleString('fa-IR')} تومان\n${payNote}`;
+    return `پت‌شاپ\nسفارش شما با موفقیت ثبت شد.\nکد پیگیری: ${code}\nمبلغ: ${total.toLocaleString('fa-IR')} تومان\n${payNote}`;
   },
 
-  // ارسال سفارش
-  ORDER_SHIPPED: (code) => `پت‌شاپ\nسفارش ${code} ارسال شد.\nبه زودی به دست شما می‌رسد.`,
+  // ارسال سفارش — کد رهگیری پستی همزمان با ارسال پیامک می‌شود
+  ORDER_SHIPPED: (code, trackingCode) => {
+    const track = String(trackingCode || '').trim();
+    return `پت‌شاپ\nسفارش ${code} ارسال شد${track ? `\nکد رهگیری پستی: ${track}` : ''}\nوضعیت مرسوله را با همین کد در سامانه پست پیگیری کنید.`;
+  },
 
   // تایید سفارش توسط فروشگاه (مرحله تایید سفارش‌های پرداخت در محل)
   ORDER_APPROVED: (code) => `پت‌شاپ\nسفارش ${code} توسط فروشگاه تایید شد و در حال آماده‌سازی است.`,
@@ -283,7 +286,7 @@ async function sendOrderSMS(order, type) {
       message = TEMPLATES.ORDER_CONFIRM(order.code, order.total, order.payment_method);
       break;
     case 'shipped':
-      message = TEMPLATES.ORDER_SHIPPED(order.code);
+      message = TEMPLATES.ORDER_SHIPPED(order.code, order.tracking_code);
       break;
     case 'approved':
     case 'confirmed':

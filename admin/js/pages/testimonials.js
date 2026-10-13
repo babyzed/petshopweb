@@ -1,5 +1,5 @@
 // admin/pages/testimonials.js — نظرات مشتریان (صفحه اصلی)
-import { AdminAPI, faNum } from '../api.js';
+import { AdminAPI, faNum, escHtml } from '../api.js';
 import { toast, confirmModal, openModal } from '../components.js';
 import { ic } from '../icons.js';
 
@@ -15,7 +15,7 @@ export async function render() {
     <tbody>
       ${testimonials.map(t => `
         <tr>
-          <td><b>${t.name}</b></td>
+          <td><b>${escHtml(t.name)}</b></td>
           <td class="t-sub">${t.role || ''}</td>
           <td class="t-sub" style="max-width:320px">${t.text}</td>
           <td>${'★'.repeat(t.rating)}${'☆'.repeat(5 - t.rating)}</td>
@@ -44,10 +44,10 @@ function openForm(t) {
   const { close, body } = openModal(`
     <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${t ? ic('edit', 18) + ' ویرایش' : ic('plus', 18) + ' نظر جدید'}</h3>
     <div class="form-grid">
-      <div class="field"><label>نام مشتری *</label><input data-name value="${t?.name || ''}"></div>
-      <div class="field"><label>نقش (مثلاً: صاحب گربه)</label><input data-role value="${t?.role || ''}"></div>
-      <div class="field full"><label>متن نظر *</label><textarea data-text rows="3">${t?.text || ''}</textarea></div>
-      <div class="field"><label>امتیاز (۱ تا ۵)</label><input type="number" min="1" max="5" data-rating value="${t?.rating || 5}"></div>
+      <div class="field"><label>نام مشتری *</label><input data-name value="${escHtml(t?.name || '')}"></div>
+      <div class="field"><label>نقش (مثلاً: صاحب گربه)</label><input data-role value="${escHtml(t?.role || '')}"></div>
+      <div class="field full"><label>متن نظر *</label><textarea data-text rows="3">${escHtml(t?.text || '')}</textarea></div>
+      <div class="field"><label>امتیاز (۱ تا ۵)</label><input type="number" min="1" max="5" data-rating value="${escHtml(t?.rating || 5)}"></div>
       <div class="field"><label>وضعیت</label><button class="toggle ${t?.is_active === false ? '' : 'on'}" data-active></button></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:18px">

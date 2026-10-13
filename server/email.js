@@ -176,6 +176,7 @@ function orderShippedEmail(order, customer) {
       <p style="color:#666;line-height:1.8">سفارش <strong>${order.code}</strong> ارسال شد و به زودی به دست شما می‌رسد.</p>
       <div style="background:#F0FDF4;border-radius:12px;padding:16px;margin:16px 0">
         <p style="margin:0;color:#166534;font-size:14px">کد پیگیری: <strong>${order.code}</strong></p>
+        ${order.tracking_code ? `<p style="margin:8px 0 0;color:#166534;font-size:14px">کد رهگیری پستی: <strong dir="ltr">${order.tracking_code}</strong></p>` : ''}
       </div>
     </div>
   </div>

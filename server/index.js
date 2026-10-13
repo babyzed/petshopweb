@@ -55,8 +55,19 @@ function escAttr(s) {
 function buildGaSnippet(gaId) {
   if (!gaId || !gaId.startsWith('G-')) return '';
   const safe = gaId.replace(/[^A-Z0-9-]/gi, '');
+  // باگ قبلی: مقداردهی gtag به‌صورت اسکریپت درون‌خطی بود و CSP (script-src بدون unsafe-inline) آن را
+  // مسدود می‌کرد؛ در نتیجه gtag('config') اجرا نمی‌شد و آنالیتیکس هیچ بازدیدی ثبت نمی‌کرد.
+  // اکنون همان کد از یک مسیر هم‌مبدأ (/ga-init.js) بارگذاری می‌شود و CSP سست نمی‌شود.
   return `<script async src="https://www.googletagmanager.com/gtag/js?id=${safe}"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${safe}');</script>`;
+<script src="/ga-init.js"></script>`;
+}
+
+// کد مقداردهی GA (هم‌مبدأ، مطابق CSP). بدون GA فعال، فایل خالی برمی‌گردد.
+function gaInitScript() {
+  const gaId = getGaId();
+  if (!gaId || !gaId.startsWith('G-')) return '/* GA disabled */';
+  const safe = gaId.replace(/[^A-Z0-9-]/gi, '');
+  return `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${safe}');`;
 }
 
 // اگر پشت reverse-proxy (مثل nginx) اجرا می‌شود TRUST_PROXY=1 قرار دهید
@@ -197,11 +208,12 @@ const RATE_LIMITS = {
   'default': { max: 200, window: 60 * 1000 },                // ۲۰۰ درخواست در دقیقه
 };
 
+// برمی‌گرداند { pattern, config } — شمارنده بر اساس «الگو» است نه مسیر کامل
 function findRateLimit(path) {
   for (const [pattern, config] of Object.entries(RATE_LIMITS)) {
-    if (pattern !== 'default' && path.startsWith(pattern)) return config;
+    if (pattern !== 'default' && path.startsWith(pattern)) return { pattern, config };
   }
-  return RATE_LIMITS.default;
+  return { pattern: 'default', config: RATE_LIMITS.default };
 }
 
 function rateLimit(req, res, next) {
@@ -209,12 +221,14 @@ function rateLimit(req, res, next) {
   // داخل middleware نصب‌شده با app.use، req.path نسبت به نقطه نصب است؛
   // مسیر کامل با baseUrl ساخته می‌شود تا الگوهای RATE_LIMITS درست match شوند
   const fullPath = (req.baseUrl || '') + req.path;
-  const config = findRateLimit(fullPath);
-  const key = `${ip}:${fullPath}`;
+  const { pattern, config } = findRateLimit(fullPath);
+  // باگ قبلی: کلید شامل مسیر کامل بود؛ در نتیجه /api/products/a و /api/products/b
+  // شمارندهٔ جداگانه داشتند و محدودیت عملاً با تغییر slug دور زده می‌شد (و Map بی‌نهایت رشد می‌کرد)
+  const key = `${ip}:${pattern}`;
   const now = Date.now();
 
   if (!rateLimitStore.has(key)) {
-    rateLimitStore.set(key, { count: 1, start: now });
+    rateLimitStore.set(key, { count: 1, start: now, window: config.window });
     return next();
   }
 
@@ -249,8 +263,10 @@ function rateLimit(req, res, next) {
 // پاکسازی دوره‌ای store
 setInterval(() => {
   const now = Date.now();
+  // باگ قبلی: همهٔ ورودی‌ها پس از ۳ دقیقه پاک می‌شدند، در حالی که پنجرهٔ login/forgot
+  // ۱۵ دقیقه است؛ پس محدودیت ورود زودتر از موعد ریست می‌شد. حالا پنجرهٔ خود هر ورودی ملاک است.
   for (const [key, entry] of rateLimitStore) {
-    if (now - entry.start > RATE_LIMIT_WINDOW * 3) rateLimitStore.delete(key);
+    if (now - entry.start > (entry.window || RATE_LIMIT_WINDOW)) rateLimitStore.delete(key);
   }
 }, 5 * 60 * 1000);
 
@@ -299,6 +315,12 @@ app.get('/api/torob/feed.json', (req, res) => {
 // ============================================================
 // Health Check Endpoint
 // ============================================================
+app.get('/ga-init.js', (req, res) => {
+  res.set('Content-Type', 'application/javascript; charset=utf-8');
+  res.set('Cache-Control', 'public, max-age=300');
+  res.send(gaInitScript());
+});
+
 app.get('/api/health', (req, res) => {
   try {
     // بررسی دیتابیس

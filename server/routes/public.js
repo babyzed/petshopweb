@@ -357,12 +357,17 @@ router.get('/pages/:key', (req, res) => {
   const key = req.params.key;
   const allowed = ['about_page', 'rules_page'];
   if (!allowed.includes(key)) return res.status(404).json({ error: 'صفحه یافت نشد.' });
-  res.json({ page: getSetting(key, { title: '', content: '', image: '' }) });
+  // محتوای HTML صفحه (Stored XSS توسط ادمین کم‌دسترسی) پیش از ارسال پاکسازی می‌شود
+  const page = { ...getSetting(key, { title: '', content: '', image: '' }) };
+  page.content = sanitizeHtml(page.content || '');
+  res.json({ page });
 });
 
 // ---------- سوالات متداول ----------
 router.get('/faqs', (req, res) => {
-  res.json({ faqs: db.prepare('SELECT * FROM faqs WHERE is_active = 1 ORDER BY sort_order ASC, id ASC').all() });
+  const faqs = db.prepare('SELECT * FROM faqs WHERE is_active = 1 ORDER BY sort_order ASC, id ASC').all()
+    .map(f => ({ ...f, answer: sanitizeHtml(f.answer || '') }));
+  res.json({ faqs });
 });
 
 // ---------- جستجوی سریع ----------

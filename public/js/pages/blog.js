@@ -1,5 +1,5 @@
 // pages/blog.js — مجله پت: لیست و جزئیات مقاله
-import { API, dateFa } from '../api.js';
+import { API, dateFa, escHtml } from '../api.js';
 import { ic } from '../icons.js';
 import { setMeta } from '../meta.js';
 
@@ -19,16 +19,16 @@ export async function render(params) {
     return `
     <div class="container">
       <nav class="breadcrumb">
-        <a href="#/">خانه</a><span class="sep">/</span><a href="#/blog">مجله پت</a><span class="sep">/</span><span>${article.title}</span>
+        <a href="#/">خانه</a><span class="sep">/</span><a href="#/blog">مجله پت</a><span class="sep">/</span><span>${escHtml(article.title)}</span>
       </nav>
       <article class="article-single">
-        <span class="as-cat">${article.category || 'پت‌شاپ'}</span>
-        <h1>${article.title}</h1>
+        <span class="as-cat">${escHtml(article.category || 'پت‌شاپ')}</span>
+        <h1>${escHtml(article.title)}</h1>
         <div class="as-meta">
           <span>${ic('calendar', 13)} ${dateFa(article.created_at)}</span>
           <span>⏱ ${faRead(article.content)} دقیقه مطالعه</span>
         </div>
-        ${article.image ? `<div class="as-img"><img src="${article.image}" alt="${article.title}"></div>` : ''}
+        ${article.image ? `<div class="as-img"><img src="${article.image}" alt="${escHtml(article.title)}"></div>` : ''}
         <div class="as-content">${article.content || ''}</div>
       </article>
       ${related.length ? `
@@ -38,7 +38,7 @@ export async function render(params) {
           ${related.map(a => `
             <a class="article-card" href="#/blog/${a.slug}">
               <div class="a-media">${a.image ? `<img src="${a.image}" alt="" loading="lazy">` : ''}<span class="a-cat">پت‌شاپ</span></div>
-              <div class="a-body"><h3 class="a-title">${a.title}</h3></div>
+              <div class="a-body"><h3 class="a-title">${escHtml(a.title)}</h3></div>
             </a>`).join('')}
         </div>
       </section>` : ''}
@@ -61,12 +61,12 @@ export async function render(params) {
       ${articles.map(a => `
         <a class="article-card" href="#/blog/${a.slug}">
           <div class="a-media">
-            ${a.image ? `<img src="${a.image}" alt="${a.title}" loading="lazy">` : ''}
-            <span class="a-cat">${a.category || 'پت‌شاپ'}</span>
+            ${a.image ? `<img src="${a.image}" alt="${escHtml(a.title)}" loading="lazy">` : ''}
+            <span class="a-cat">${escHtml(a.category || 'پت‌شاپ')}</span>
           </div>
           <div class="a-body">
-            <h3 class="a-title">${a.title}</h3>
-            <p class="a-excerpt">${a.excerpt || ''}</p>
+            <h3 class="a-title">${escHtml(a.title)}</h3>
+            <p class="a-excerpt">${escHtml(a.excerpt || '')}</p>
             <div class="a-meta"><span>${ic('calendar', 13)} ${dateFa(a.created_at)}</span><span>${ic('clock', 13)} ${faRead(a.content)} دقیقه</span></div>
           </div>
         </a>`).join('')}

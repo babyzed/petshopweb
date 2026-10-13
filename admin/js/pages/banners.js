@@ -1,5 +1,5 @@
 // admin/pages/banners.js — مدیریت بنرها
-import { AdminAPI, uploadImage } from '../api.js';
+import { AdminAPI, uploadImage, escHtml } from '../api.js';
 import { toast, confirmModal, openModal } from '../components.js';
 import { ic } from '../icons.js';
 
@@ -12,8 +12,8 @@ export async function render() {
       <div style="display:flex;gap:14px;align-items:center">
         ${b.image ? `<img src="${b.image}" style="width:130px;height:80px;border-radius:12px;object-fit:cover" alt="">` : `<div style="width:130px;height:80px;border-radius:12px;background:#FAF7F4;display:flex;align-items:center;justify-content:center">${ic('image', 28)}</div>`}
         <div style="flex:1;min-width:0">
-          <div style="font-weight:800;font-size:13.5px">${b.title}</div>
-          <div class="t-sub">${b.subtitle || ''}</div>
+          <div style="font-weight:800;font-size:13.5px">${escHtml(b.title)}</div>
+          <div class="t-sub">${escHtml(b.subtitle || '')}</div>
           <div style="margin-top:6px">${b.is_active ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">غیرفعال</span>'} <span class="s-badge s-paid" style="background:#F5F3FF;color:#6D28D9">ترتیب: ${b.sort_order}</span></div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
@@ -55,16 +55,16 @@ function openForm(b) {
   const { close, body } = openModal(`
     <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${b ? ic('edit', 18) + ' ویرایش بنر' : ic('plus', 18) + ' بنر جدید'}</h3>
     <div class="form-grid">
-      <div class="field full"><label>عنوان بنر *</label><input data-title value="${b?.title || ''}"></div>
-      <div class="field full"><label>زیرعنوان</label><input data-subtitle value="${b?.subtitle || ''}"></div>
+      <div class="field full"><label>عنوان بنر *</label><input data-title value="${escHtml(b?.title || '')}"></div>
+      <div class="field full"><label>زیرعنوان</label><input data-subtitle value="${escHtml(b?.subtitle || '')}"></div>
       <div class="field"><label>موقعیت</label>
         <select data-position>
           <option value="hero" ${b?.position === 'hero' ? 'selected' : ''}>اسلایدر Hero</option>
           <option value="promo" ${b?.position === 'promo' ? 'selected' : ''}>بنر تبلیغاتی</option>
         </select>
       </div>
-      <div class="field"><label>ترتیب نمایش</label><input type="number" data-sort value="${b?.sort_order || 0}"></div>
-      <div class="field full"><label>لینک (مثلاً /#/shop)</label><input data-link value="${b?.link || ''}" dir="ltr"></div>
+      <div class="field"><label>ترتیب نمایش</label><input type="number" data-sort value="${escHtml(b?.sort_order || 0)}"></div>
+      <div class="field full"><label>لینک (مثلاً /#/shop)</label><input data-link value="${escHtml(b?.link || '')}" dir="ltr"></div>
       <div class="field full"><label>تصویر</label>
         <div class="img-uploader">
           <div class="iu-item" style="width:150px;height:90px">${b?.image ? `<img src="${b.image}" alt="">` : '<span style="color:var(--muted);font-size:11px">تصویری انتخاب نشده</span>'}</div>

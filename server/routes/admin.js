@@ -7,7 +7,16 @@ const { authRequired, requirePerm, withRole } = require('../auth');
 const { PERMISSION_CATALOG, hasPermission } = require('../permissions');
 const { upload, toWebp } = require('../upload');
 const { sendOrderSMS } = require('../sms');
+const { sendOrderShipped } = require('../email');
 const { sanitizeHtml } = require('../sanitize');
+const { normalizePhone } = require('../customer-account');
+
+// آیا کاربر هدف، حساب مدیریتی است؟ (نقشی با حداقل یک دسترسی)
+function isAdminUser(user) {
+  if (!user || !user.role_id) return false;
+  const r = db.prepare('SELECT permissions FROM roles WHERE id = ?').get(user.role_id);
+  try { return JSON.parse((r && r.permissions) || '[]').length > 0; } catch { return false; }
+}
 
 const router = express.Router();
 router.use(authRequired);
@@ -369,11 +378,31 @@ router.get('/orders/:id', requirePerm('orders.manage'), (req, res) => {
 
 router.put('/orders/:id/status', requirePerm('orders.manage'), (req, res) => {
   try {
-    const { status, note } = req.body || {};
+    const { status, note, tracking_code } = req.body || {};
     const valid = ['pending', 'confirmed', 'paid', 'shipped', 'delivered', 'cancelled'];
     if (!valid.includes(status)) return res.status(400).json({ error: 'وضعیت نامعتبر است.' });
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
     if (!order) return res.status(404).json({ error: 'سفارش یافت نشد.' });
+
+    // کد رهگیری پستی: هنگام ارسال الزامی است تا در همان لحظه برای مشتری پیامک شود
+    let newTrackingCode = order.tracking_code || '';
+    if (status === 'shipped') {
+      newTrackingCode = String(tracking_code || '').trim();
+      if (!newTrackingCode) {
+        return res.status(400).json({ error: 'برای ارسال سفارش، کد رهگیری پستی را وارد کنید.' });
+      }
+      if (newTrackingCode.length > 100) {
+        return res.status(400).json({ error: 'کد رهگیری پستی بیش از حد طولانی است.' });
+      }
+    }
+    // تکرار همان وضعیت (به‌جز ارسال که می‌توان کد رهگیری را اصلاح کرد) بی‌اثر است و فقط پیامک/تاریخچهٔ تکراری می‌سازد
+    if (status === order.status && status !== 'shipped') {
+      return res.status(400).json({ error: 'سفارش هم‌اکنون در همین وضعیت است.' });
+    }
+    // بازگشت به «در انتظار» پس از پیشرفت سفارش معنا ندارد
+    if (status === 'pending' && order.status !== 'pending') {
+      return res.status(400).json({ error: 'بازگرداندن سفارش به «در انتظار» مجاز نیست.' });
+    }
     // جلوگیری از تغییر وضعیت سفارش‌های لغو/تحویل شده
     if (['cancelled', 'delivered'].includes(order.status) && status !== order.status) {
       return res.status(400).json({ error: `سفارش ${order.status === 'cancelled' ? 'لغو' : 'تحویل'} شده و قابل تغییر نیست.` });
@@ -409,7 +438,7 @@ router.put('/orders/:id/status', requirePerm('orders.manage'), (req, res) => {
     }
 
     db.transaction(() => {
-      db.prepare("UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, order.id);
+      db.prepare("UPDATE orders SET status = ?, tracking_code = ?, updated_at = datetime('now') WHERE id = ?").run(status, newTrackingCode, order.id);
       // آنلاین: تایید پرداخت به‌صورت دستی توسط مدیر → ثبت پرداخت
       if (isOnline && status === 'paid' && order.payment_status !== 'paid') {
         db.prepare("UPDATE orders SET payment_status = 'paid' WHERE id = ?").run(order.id);
@@ -431,11 +460,15 @@ router.put('/orders/:id/status', requirePerm('orders.manage'), (req, res) => {
     })();
     // لاگ امنیتی
     auditLog(req.user.id, 'order.status_changed', 'order', order.id, req);
-    // ارسال پیامک اطلاع‌رسانی
+    // ارسال اطلاع‌رسانی (با آخرین وضعیت و کد رهگیری ذخیره‌شده)
     if (['confirmed', 'shipped', 'delivered', 'cancelled'].includes(status)) {
       // نوع پیامک تایید سفارش «approved» است (قالب جداگانه در sms.js)
       const smsType = status === 'confirmed' ? 'approved' : status;
-      sendOrderSMS(order, smsType).catch(err => console.error('[SMS] Status change error:', err.message));
+      const updatedOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id);
+      sendOrderSMS(updatedOrder, smsType).catch(err => console.error('[SMS] Status change error:', err.message));
+      if (status === 'shipped') {
+        sendOrderShipped(updatedOrder).catch(err => console.error('[Email] Shipping error:', err.message));
+      }
     }
     res.json({ ok: true, status, message: `وضعیت سفارش به «${ORDER_STATUS_FA[status] || status}» تغییر کرد.` });
   } catch (err) {
@@ -478,7 +511,11 @@ router.post('/users', requirePerm('users.manage'), (req, res) => {
   const name = (b.name || '').trim();
   const email = (b.email || '').trim().toLowerCase();
   const password = String(b.password || '');
-  const phone = (b.phone || '').trim();
+  const phone = normalizePhone(b.phone);
+  if (b.phone && !phone) return res.status(400).json({ error: 'شماره موبایل نامعتبر است (09...).' });
+  if (phone && db.prepare('SELECT id FROM users WHERE phone = ?').get(phone)) {
+    return res.status(400).json({ error: 'این شماره موبایل قبلاً ثبت شده است.' });
+  }
   if (!name) return res.status(400).json({ error: 'نام و نام خانوادگی را وارد کنید.' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'ایمیل معتبر وارد کنید.' });
   if (password.length < 6) return res.status(400).json({ error: 'رمز عبور حداقل ۶ کاراکتر باشد.' });
@@ -506,6 +543,27 @@ router.put('/users/:id', requirePerm('users.manage'), (req, res) => {
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   if (!u) return res.status(404).json({ error: 'کاربر یافت نشد.' });
   const b = req.body || {};
+  const isSuper = hasPermission(req.user.permissions, '*');
+  // امنیت (Privilege Escalation): مدیر با دسترسی «users.manage» می‌توانست شماره موبایل مدیر کل را
+  // به شمارهٔ خودش تغییر دهد و با «فراموشی رمز» حساب مدیر کل را تصاحب کند.
+  // تغییر حساب‌های مدیریتی فقط برای مدیر کل مجاز است.
+  if (isAdminUser(u) && !isSuper && u.id !== req.user.id) {
+    return res.status(403).json({ error: 'ویرایش حساب‌های مدیریتی فقط توسط مدیر کل مجاز است.' });
+  }
+  if (b.status !== undefined && !['active', 'inactive', 'banned'].includes(String(b.status))) {
+    return res.status(400).json({ error: 'وضعیت کاربر نامعتبر است.' });
+  }
+  if (b.status !== undefined && b.status !== 'active' && u.id === req.user.id) {
+    return res.status(400).json({ error: 'نمی‌توانید حساب خودتان را غیرفعال کنید.' });
+  }
+  let newPhone = u.phone;
+  if (b.phone !== undefined && String(b.phone).trim() !== String(u.phone || '')) {
+    newPhone = normalizePhone(b.phone);
+    if (String(b.phone).trim() && !newPhone) return res.status(400).json({ error: 'شماره موبایل نامعتبر است (09...).' });
+    if (newPhone && db.prepare('SELECT id FROM users WHERE phone = ? AND id != ?').get(newPhone, u.id)) {
+      return res.status(409).json({ error: 'این شماره موبایل متعلق به کاربر دیگری است.' });
+    }
+  }
   const role = b.role_id ? db.prepare('SELECT * FROM roles WHERE id = ?').get(Number(b.role_id)) : null;
   if (b.role_id && !role) return res.status(400).json({ error: 'نقش نامعتبر است.' });
   // فقط super_admin می‌تواند نقش عوض کند
@@ -523,8 +581,8 @@ router.put('/users/:id', requirePerm('users.manage'), (req, res) => {
       if (superCount <= 1) return res.status(400).json({ error: 'حداقل یک مدیر کل باید باقی بماند.' });
     }
   }
-  db.prepare('UPDATE users SET name=?, phone=?, status=?, role_id=? WHERE id=?')
-    .run(b.name ?? u.name, b.phone ?? u.phone, b.status ?? u.status, role ? role.id : u.role_id, u.id);
+  db.prepare("UPDATE users SET name=?, phone=?, status=?, role_id=?, updated_at = datetime('now') WHERE id=?")
+    .run(String(b.name ?? u.name).trim().slice(0, 100) || u.name, newPhone, b.status ?? u.status, role ? role.id : u.role_id, u.id);
   res.json({ ok: true, message: 'کاربر به‌روزرسانی شد.' });
 });
 
@@ -562,23 +620,47 @@ router.delete('/reviews/:id', requirePerm('reviews.manage'), (req, res) => {
 router.get('/coupons', requirePerm('coupons.manage'), (req, res) => {
   res.json({ coupons: db.prepare('SELECT * FROM coupons ORDER BY id DESC').all() });
 });
+// اعتبارسنجی مشترک کد تخفیف (قبلاً درصد >۱۰۰ یا مقدار منفی پذیرفته می‌شد)
+function couponError(type, value) {
+  const v = Number(value);
+  if (!Number.isFinite(v) || v <= 0) return 'مقدار تخفیف باید عددی مثبت باشد.';
+  if (type === 'percent' && v > 100) return 'درصد تخفیف نمی‌تواند بیشتر از ۱۰۰ باشد.';
+  return null;
+}
+const isActiveFlag = (v, fallback = 1) => v === undefined ? fallback : (v === false || v === 0 || v === '0' || v === 'false' ? 0 : 1);
+
 router.post('/coupons', requirePerm('coupons.manage'), (req, res) => {
   const b = req.body || {};
   if (!b.code || !b.value) return res.status(400).json({ error: 'کد و مقدار تخفیف الزامی است.' });
   if (!['percent', 'fixed'].includes(b.type)) return res.status(400).json({ error: 'نوع تخفیف نامعتبر است.' });
+  const cErr = couponError(b.type, b.value);
+  if (cErr) return res.status(400).json({ error: cErr });
+  const code = String(b.code).trim().toUpperCase();
+  if (db.prepare('SELECT id FROM coupons WHERE code = ?').get(code)) {
+    return res.status(409).json({ error: 'این کد تخفیف قبلاً ثبت شده است.' });
+  }
   db.prepare('INSERT INTO coupons (code, type, value, min_amount, max_usage, expires_at, is_active) VALUES (?,?,?,?,?,?,?)')
-    .run(String(b.code).trim().toUpperCase(), b.type, Number(b.value), Number(b.min_amount) || 0,
-      Number(b.max_usage) || 0, b.expires_at || null, b.is_active === false ? 0 : 1);
+    .run(code, b.type, Number(b.value), Number(b.min_amount) || 0,
+      Number(b.max_usage) || 0, b.expires_at || null, isActiveFlag(b.is_active));
   res.json({ ok: true });
 });
 router.put('/coupons/:id', requirePerm('coupons.manage'), (req, res) => {
   const c = db.prepare('SELECT * FROM coupons WHERE id = ?').get(req.params.id);
   if (!c) return res.status(404).json({ error: 'کد تخفیف یافت نشد.' });
   const b = req.body || {};
+  const newType = b.type ?? c.type;
+  if (!['percent', 'fixed'].includes(newType)) return res.status(400).json({ error: 'نوع تخفیف نامعتبر است.' });
+  const cErr = couponError(newType, b.value ?? c.value);
+  if (cErr) return res.status(400).json({ error: cErr });
+  const newCode = String(b.code ?? c.code).trim().toUpperCase();
+  if (newCode !== c.code && db.prepare('SELECT id FROM coupons WHERE code = ?').get(newCode)) {
+    return res.status(409).json({ error: 'این کد تخفیف قبلاً ثبت شده است.' });
+  }
+  // باگ قبلی: اگر is_active ارسال نمی‌شد (یا عدد 0 بود) کوپن بی‌صدا فعال می‌شد
   db.prepare('UPDATE coupons SET code=?, type=?, value=?, min_amount=?, max_usage=?, expires_at=?, is_active=? WHERE id=?')
-    .run(String(b.code ?? c.code).trim().toUpperCase(), b.type ?? c.type, Number(b.value ?? c.value),
+    .run(newCode, newType, Number(b.value ?? c.value),
       Number(b.min_amount ?? c.min_amount) || 0, Number(b.max_usage ?? c.max_usage) || 0,
-      b.expires_at !== undefined ? b.expires_at : c.expires_at, b.is_active === false ? 0 : 1, c.id);
+      b.expires_at !== undefined ? b.expires_at : c.expires_at, isActiveFlag(b.is_active, c.is_active), c.id);
   res.json({ ok: true });
 });
 router.delete('/coupons/:id', requirePerm('coupons.manage'), (req, res) => {
@@ -696,7 +778,7 @@ router.post('/faqs', requirePerm('faq.manage'), (req, res) => {
   const b = req.body || {};
   if (!b.question || !b.answer) return res.status(400).json({ error: 'پرسش و پاسخ الزامی است.' });
   db.prepare('INSERT INTO faqs (question, answer, sort_order, is_active) VALUES (?,?,?,?)')
-    .run(b.question, b.answer, Number(b.sort_order) || 0, b.is_active === false ? 0 : 1);
+    .run(String(b.question).trim().slice(0, 500), sanitizeHtml(String(b.answer)).slice(0, 10000), Number(b.sort_order) || 0, isActiveFlag(b.is_active));
   res.json({ ok: true });
 });
 router.put('/faqs/:id', requirePerm('faq.manage'), (req, res) => {
@@ -704,7 +786,8 @@ router.put('/faqs/:id', requirePerm('faq.manage'), (req, res) => {
   if (!c) return res.status(404).json({ error: 'یافت نشد.' });
   const b = req.body || {};
   db.prepare('UPDATE faqs SET question=?, answer=?, sort_order=?, is_active=? WHERE id=?')
-    .run(b.question ?? c.question, b.answer ?? c.answer, Number(b.sort_order ?? c.sort_order), b.is_active === false ? 0 : 1, c.id);
+    .run(String(b.question ?? c.question).trim().slice(0, 500), sanitizeHtml(String(b.answer ?? c.answer)).slice(0, 10000),
+      Number(b.sort_order ?? c.sort_order) || 0, isActiveFlag(b.is_active, c.is_active), c.id);
   res.json({ ok: true });
 });
 router.delete('/faqs/:id', requirePerm('faq.manage'), (req, res) => {
@@ -749,7 +832,13 @@ router.get('/pages/:key', requirePerm('pages.manage'), (req, res) => {
 router.put('/pages/:key', requirePerm('pages.manage'), (req, res) => {
   const allowed = ['about_page', 'rules_page'];
   if (!allowed.includes(req.params.key)) return res.status(404).json({ error: 'صفحه یافت نشد.' });
-  setSetting(req.params.key, req.body || {});
+  // فقط فیلدهای مجاز ذخیره می‌شود (قبلاً کل body دلخواه ذخیره می‌شد) و HTML پاکسازی می‌شود
+  const b = req.body || {};
+  setSetting(req.params.key, {
+    title: String(b.title || '').trim().slice(0, 200),
+    content: sanitizeHtml(String(b.content || '')).slice(0, 200000),
+    image: String(b.image || '').trim().slice(0, 500),
+  });
   res.json({ ok: true, message: 'صفحه ذخیره شد.' });
 });
 
@@ -1035,13 +1124,22 @@ router.delete('/cleanup-test-data', requirePerm('users.manage'), (req, res) => {
     if (!hasPermission(req.user.permissions, '*')) {
       return res.status(403).json({ error: 'فقط مدیر کل مجاز است.' });
     }
+    // مسیر بسیار مخرب (حذف همهٔ سفارش‌ها و کاربران): در production به‌طور پیش‌فرض خاموش است
+    // و در هر حالت به تأیید صریح نیاز دارد تا با یک درخواست اشتباه یا توکن سرقت‌شده اجرا نشود.
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DATA_CLEANUP !== '1') {
+      return res.status(403).json({ error: 'پاکسازی داده در محیط production غیرفعال است (ALLOW_DATA_CLEANUP=1).' });
+    }
+    if ((req.body || {}).confirm !== 'DELETE_ALL_DATA') {
+      return res.status(400).json({ error: 'برای تأیید، مقدار confirm=DELETE_ALL_DATA ارسال شود.' });
+    }
 
     db.transaction(() => {
       // برگرداندن موجودی فقط برای سفارش‌هایی که موجودی‌شان هنوز بلوکه است؛
       // سفارش‌های لغوشده موجودی‌شان هنگام لغو برگشته و نباید دوباره اضافه شود
+      // سفارش‌های ارسال/تحویل‌شده کالایشان واقعاً از انبار خارج شده؛ موجودی‌شان برنمی‌گردد
       const items = db.prepare(`
         SELECT oi.product_id, oi.quantity FROM order_items oi
-        JOIN orders o ON o.id = oi.order_id WHERE o.status NOT IN ('cancelled')
+        JOIN orders o ON o.id = oi.order_id WHERE o.status IN ('pending', 'confirmed', 'paid')
       `).all();
       items.forEach(i => {
         db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(i.quantity, i.product_id);
@@ -1051,7 +1149,7 @@ router.delete('/cleanup-test-data', requirePerm('users.manage'), (req, res) => {
       db.prepare('DELETE FROM order_status_history').run();
       db.prepare('DELETE FROM coupon_usage').run();
       db.prepare('DELETE FROM payments').run();
-      db.prepare('DELETE FROM audit_log').run();
+      // گزارش امنیتی (audit_log) عمداً حذف نمی‌شود تا ردّ این عملیات باقی بماند
       db.prepare('DELETE FROM order_items').run();
       db.prepare('DELETE FROM orders').run();
       db.prepare('DELETE FROM product_reviews').run();

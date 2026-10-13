@@ -1,5 +1,5 @@
 // admin/pages/settings.js — تنظیمات فروشگاه: تماس، شبکه‌های اجتماعی، فوتر، ارسال
-import { AdminAPI } from '../api.js';
+import { AdminAPI, escHtml } from '../api.js';
 import { toast } from '../components.js';
 import { ic } from '../icons.js';
 
@@ -12,38 +12,38 @@ export async function render() {
   <div class="a-card">
     <h3>${ic('store', 18)} اطلاعات پایه</h3>
     <div class="form-grid">
-      <div class="field"><label>نام فروشگاه</label><input data-site-name value="${site.name || ''}"></div>
-      <div class="field"><label>شعار</label><input data-site-slogan value="${site.slogan || ''}"></div>
+      <div class="field"><label>نام فروشگاه</label><input data-site-name value="${escHtml(site.name || '')}"></div>
+      <div class="field"><label>شعار</label><input data-site-slogan value="${escHtml(site.slogan || '')}"></div>
     </div>
   </div>
 
   <div class="a-card">
     <h3>${ic('phone', 18)} اطلاعات تماس</h3>
     <div class="form-grid">
-      <div class="field"><label>تلفن ثابت</label><input data-phone value="${c.phone || ''}" dir="ltr"></div>
-      <div class="field"><label>موبایل</label><input data-mobile value="${c.mobile || ''}" dir="ltr"></div>
-      <div class="field"><label>ایمیل</label><input data-email value="${c.email || ''}" dir="ltr"></div>
-      <div class="field"><label>ساعات کاری</label><input data-hours value="${c.work_hours || ''}"></div>
-      <div class="field full"><label>آدرس</label><input data-address value="${c.address || ''}"></div>
+      <div class="field"><label>تلفن ثابت</label><input data-phone value="${escHtml(c.phone || '')}" dir="ltr"></div>
+      <div class="field"><label>موبایل</label><input data-mobile value="${escHtml(c.mobile || '')}" dir="ltr"></div>
+      <div class="field"><label>ایمیل</label><input data-email value="${escHtml(c.email || '')}" dir="ltr"></div>
+      <div class="field"><label>ساعات کاری</label><input data-hours value="${escHtml(c.work_hours || '')}"></div>
+      <div class="field full"><label>آدرس</label><input data-address value="${escHtml(c.address || '')}"></div>
     </div>
   </div>
 
   <div class="a-card">
     <h3>${ic('externalLink', 18)} شبکه‌های اجتماعی</h3>
     <div class="form-grid">
-      <div class="field"><label>اینستاگرام</label><input data-instagram value="${soc.instagram || ''}" dir="ltr"></div>
-      <div class="field"><label>تلگرام</label><input data-telegram value="${soc.telegram || ''}" dir="ltr"></div>
-      <div class="field"><label>واتساپ</label><input data-whatsapp value="${soc.whatsapp || ''}" dir="ltr"></div>
-      <div class="field"><label>یوتیوب</label><input data-youtube value="${soc.youtube || ''}" dir="ltr"></div>
+      <div class="field"><label>اینستاگرام</label><input data-instagram value="${escHtml(soc.instagram || '')}" dir="ltr"></div>
+      <div class="field"><label>تلگرام</label><input data-telegram value="${escHtml(soc.telegram || '')}" dir="ltr"></div>
+      <div class="field"><label>واتساپ</label><input data-whatsapp value="${escHtml(soc.whatsapp || '')}" dir="ltr"></div>
+      <div class="field"><label>یوتیوب</label><input data-youtube value="${escHtml(soc.youtube || '')}" dir="ltr"></div>
     </div>
   </div>
 
   <div class="a-card">
     <h3>${ic('truck', 18)} هزینه ارسال</h3>
     <div class="form-grid">
-      <div class="field"><label>هزینه ارسال (تومان)</label><input type="number" min="0" data-ship-cost value="${sh.cost || 0}"></div>
-      <div class="field"><label>ارسال رایگان برای خرید بالای (تومان)</label><input type="number" min="0" data-ship-free value="${sh.free_over || 0}"></div>
-      <div class="field full"><label>پیام ارسال</label><input data-ship-msg value="${sh.message || ''}"></div>
+      <div class="field"><label>هزینه ارسال (تومان)</label><input type="number" min="0" data-ship-cost value="${escHtml(sh.cost || 0)}"></div>
+      <div class="field"><label>ارسال رایگان برای خرید بالای (تومان)</label><input type="number" min="0" data-ship-free value="${escHtml(sh.free_over || 0)}"></div>
+      <div class="field full"><label>پیام ارسال</label><input data-ship-msg value="${escHtml(sh.message || '')}"></div>
     </div>
   </div>
 
@@ -62,13 +62,13 @@ export async function render() {
       <div class="field">
         <label>درگاه فعال</label>
         <select data-pay-gateway>
-          ${(pay.gateways || []).map(g => `<option value="${g.key}" ${g.key === pay.gateway ? 'selected' : ''}>${g.label}${g.configured ? '' : ' — تنظیم نشده'}</option>`).join('')}
+          ${(pay.gateways || []).map(g => `<option value="${escHtml(g.key)}" ${g.key === pay.gateway ? 'selected' : ''}>${g.label}${g.configured ? '' : ' — تنظیم نشده'}</option>`).join('')}
         </select>
         <p class="hint" style="margin-top:4px">همهٔ سفارش‌های آنلاین از این درگاه پرداخت می‌شوند.</p>
       </div>
       <div class="field">
         <label>آدرس بازگشت از بانک (Callback)</label>
-        <input data-pay-callback value="${pay.callback_url || ''}" dir="ltr" placeholder="https://yourdomain.com/api/payments/callback">
+        <input data-pay-callback value="${escHtml(pay.callback_url || '')}" dir="ltr" placeholder="https://yourdomain.com/api/payments/callback">
         <p class="hint" style="margin-top:4px">همین آدرس را در پنل پذیرندگی بانک ثبت کنید.</p>
       </div>
     </div>
@@ -83,7 +83,7 @@ export async function render() {
         <div class="form-grid" style="margin-top:10px">
           ${g.fields.map(f => f.type === 'boolean'
             ? `<div class="field"><label class="sf-check"><input type="checkbox" data-gw-field="${g.key}.${f.key}" ${g.values[f.key] ? 'checked' : ''}> ${f.label}</label></div>`
-            : `<div class="field"><label>${f.label}</label><input ${f.secret ? 'type="password"' : ''} data-gw-field="${g.key}.${f.key}" value="${f.secret ? '' : (g.values[f.key] || '')}" dir="ltr" placeholder="${f.secret && g.values[f.key] ? '••••••••' : ''}">${f.secret ? `<p class="hint" style="margin-top:4px">${g.values[f.key] ? 'مقدار قبلی ذخیره شده؛ برای تغییر مقدار جدید وارد کنید.' : ''}</p>` : ''}</div>`
+            : `<div class="field"><label>${f.label}</label><input ${f.secret ? 'type="password"' : ''} data-gw-field="${g.key}.${f.key}" value="${escHtml(f.secret ? '' : (g.values[f.key] || ''))}" dir="ltr" placeholder="${f.secret && g.values[f.key] ? '••••••••' : ''}">${f.secret ? `<p class="hint" style="margin-top:4px">${g.values[f.key] ? 'مقدار قبلی ذخیره شده؛ برای تغییر مقدار جدید وارد کنید.' : ''}</p>` : ''}</div>`
           ).join('')}
         </div>
         <div data-gw-result="${g.key}" style="font-size:12.5px;color:var(--muted);margin-top:6px"></div>
@@ -93,14 +93,14 @@ export async function render() {
   <div class="a-card">
     <h3>${ic('home', 18)} فوتر</h3>
     <div class="form-grid">
-      <div class="field full"><label>متن معرفی فوتر</label><textarea data-footer-desc rows="3">${f.description || ''}</textarea></div>
+      <div class="field full"><label>متن معرفی فوتر</label><textarea data-footer-desc rows="3">${escHtml(f.description || '')}</textarea></div>
       <div class="field full">
         <label>نشان‌های اعتماد (فرمت: آیکون | عنوان)</label>
         <div data-badges>
           ${(f.badges || []).map((b, i) => `
             <div class="feat-row">
-              <input placeholder="آیکون" data-b-icon value="${b.icon}" style="width:70px">
-              <input placeholder="عنوان" data-b-title value="${b.title}">
+              <input placeholder="آیکون" data-b-icon value="${escHtml(b.icon)}" style="width:70px">
+              <input placeholder="عنوان" data-b-title value="${escHtml(b.title)}">
               <button class="btn btn-ghost" data-badge-del style="color:var(--danger)">${ic('x', 14)}</button>
             </div>`).join('')}
         </div>
@@ -113,10 +113,10 @@ export async function render() {
     <h3>${ic('barChart3', 18)} آمار اولیه سایت</h3>
     <p class="hint" style="margin-bottom:12px">آمار قبلی سایت را اینجا وارد کنید. این آمار با آمار واقعی جمع می‌شوند.</p>
     <div class="form-grid">
-      <div class="field"><label>سال فعالیت (قبل از راه‌اندازی آنلاین)</label><input type="number" min="0" data-is-years value="${s.initialStats?.years || 0}"></div>
-      <div class="field"><label>تعداد مشتریان قبلی</label><input type="number" min="0" data-is-customers value="${s.initialStats?.customers || 0}"></div>
-      <div class="field"><label>درصد رضایت مشتری (۰ تا ۱۰۰)</label><input type="number" min="0" max="100" data-is-satisfaction value="${s.initialStats?.satisfaction || 0}"></div>
-      <div class="field"><label>سال تاسیس</label><input type="number" min="1300" max="1500" data-is-founded value="${s.initialStats?.founded_year || 1402}"></div>
+      <div class="field"><label>سال فعالیت (قبل از راه‌اندازی آنلاین)</label><input type="number" min="0" data-is-years value="${escHtml(s.initialStats?.years || 0)}"></div>
+      <div class="field"><label>تعداد مشتریان قبلی</label><input type="number" min="0" data-is-customers value="${escHtml(s.initialStats?.customers || 0)}"></div>
+      <div class="field"><label>درصد رضایت مشتری (۰ تا ۱۰۰)</label><input type="number" min="0" max="100" data-is-satisfaction value="${escHtml(s.initialStats?.satisfaction || 0)}"></div>
+      <div class="field"><label>سال تاسیس</label><input type="number" min="1300" max="1500" data-is-founded value="${escHtml(s.initialStats?.founded_year || 1402)}"></div>
     </div>
   </div>
 
@@ -124,13 +124,13 @@ export async function render() {
     <h3>${ic('megaphone', 18)} سئو (متاتگ‌ها و کلمات کلیدی)</h3>
     <p class="hint" style="margin-bottom:14px">این مقادیر در <b>متاتگ‌های صفحه اصلی</b> (title، description، keywords، Open Graph و لینک canonical) تزریق می‌شوند. محصولات و مقالات هم به‌صورت خودکار متاتگ اختصاصی می‌گیرند.</p>
     <div class="form-grid">
-      <div class="field full"><label>عنوان سایت (title)</label><input data-seo-title value="${seo.title || ''}"></div>
-      <div class="field full"><label>توضیحات متا (meta description)</label><textarea data-seo-desc rows="2">${seo.description || ''}</textarea></div>
-      <div class="field full"><label>کلمات کلیدی (با کاما جدا کنید)</label><input data-seo-keywords value="${seo.keywords || ''}"></div>
-      <div class="field"><label>نام سایت (og:site_name)</label><input data-seo-sitename value="${seo.site_name || ''}"></div>
-      <div class="field"><label>تصویر اشتراک‌گذاری (og:image)</label><input data-seo-ogimage value="${seo.og_image || ''}" dir="ltr" placeholder="/assets/img/og-cover.webp"></div>
-      <div class="field"><label>آدرس اصلی سایت (canonical)</label><input data-seo-canonical value="${seo.canonical_url || ''}" dir="ltr" placeholder="https://petshop.ir"></div>
-      <div class="field"><label>شناسه گوگل آنالیتیکس (GA4)</label><input data-seo-ga value="${seo.ga_measurement_id || ''}" dir="ltr" placeholder="G-XXXXXXXXXX"></div>
+      <div class="field full"><label>عنوان سایت (title)</label><input data-seo-title value="${escHtml(seo.title || '')}"></div>
+      <div class="field full"><label>توضیحات متا (meta description)</label><textarea data-seo-desc rows="2">${escHtml(seo.description || '')}</textarea></div>
+      <div class="field full"><label>کلمات کلیدی (با کاما جدا کنید)</label><input data-seo-keywords value="${escHtml(seo.keywords || '')}"></div>
+      <div class="field"><label>نام سایت (og:site_name)</label><input data-seo-sitename value="${escHtml(seo.site_name || '')}"></div>
+      <div class="field"><label>تصویر اشتراک‌گذاری (og:image)</label><input data-seo-ogimage value="${escHtml(seo.og_image || '')}" dir="ltr" placeholder="/assets/img/og-cover.webp"></div>
+      <div class="field"><label>آدرس اصلی سایت (canonical)</label><input data-seo-canonical value="${escHtml(seo.canonical_url || '')}" dir="ltr" placeholder="https://petshop.ir"></div>
+      <div class="field"><label>شناسه گوگل آنالیتیکس (GA4)</label><input data-seo-ga value="${escHtml(seo.ga_measurement_id || '')}" dir="ltr" placeholder="G-XXXXXXXXXX"></div>
     </div>
   </div>
 
@@ -140,10 +140,10 @@ export async function render() {
     ${sms.has_key ? '<p style="background:#D1FAE5;border:1px solid #A7F3D0;border-radius:10px;padding:10px 14px;font-size:12px;color:#065F46;margin-bottom:14px">✅ سرویس پیامک آموت متصل است.</p>' : '<p style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:14px">⚠️ توکن آموت تنظیم نشده است؛ پیامک‌ها فقط در لاگ سرور ثبت می‌شوند.</p>'}
     <div class="form-grid">
       <div class="field full"><label>توکن وب‌سرویس آموت (Token)</label><input type="password" data-sms-token value="" dir="ltr" placeholder="••••••••"><p class="hint" style="margin-top:4px">${sms.has_key ? 'توکن قبلی ذخیره شده است؛ فقط برای تغییر، مقدار جدید وارد کنید.' : 'توکن را از پنل آموت دریافت کنید.'}</p></div>
-      <div class="field"><label>خط خدماتی (پیامک سفارش‌ها)</label><input data-sms-line-service value="${sms.line_service || ''}" dir="ltr" placeholder="public"></div>
-      <div class="field"><label>خط ارسال کد تایید</label><input data-sms-line-otp value="${sms.line_otp || ''}" dir="ltr" placeholder="public"></div>
-      <div class="field"><label>خط تبلیغاتی</label><input data-sms-line-ads value="${sms.line_ads || ''}" dir="ltr" placeholder="خط تبلیغاتی اختصاصی"></div>
-      <div class="field"><label>کد الگوی کد تایید (اختیاری)</label><input data-sms-pattern value="${sms.otp_pattern_id || ''}" dir="ltr" placeholder="مثلاً 1234"><p class="hint" style="margin-top:4px">در صورت تنظیم، کد تایید با متد SendWithPattern ارسال می‌شود.</p></div>
+      <div class="field"><label>خط خدماتی (پیامک سفارش‌ها)</label><input data-sms-line-service value="${escHtml(sms.line_service || '')}" dir="ltr" placeholder="public"></div>
+      <div class="field"><label>خط ارسال کد تایید</label><input data-sms-line-otp value="${escHtml(sms.line_otp || '')}" dir="ltr" placeholder="public"></div>
+      <div class="field"><label>خط تبلیغاتی</label><input data-sms-line-ads value="${escHtml(sms.line_ads || '')}" dir="ltr" placeholder="خط تبلیغاتی اختصاصی"></div>
+      <div class="field"><label>کد الگوی کد تایید (اختیاری)</label><input data-sms-pattern value="${escHtml(sms.otp_pattern_id || '')}" dir="ltr" placeholder="مثلاً 1234"><p class="hint" style="margin-top:4px">در صورت تنظیم، کد تایید با متد SendWithPattern ارسال می‌شود.</p></div>
       <div class="field"><button class="btn btn-ghost" data-sms-status-btn style="margin-top:22px">${ic('refreshCw', 15)} بررسی اتصال و اعتبار</button></div>
     </div>
     <div data-sms-status style="font-size:12.5px;color:var(--muted);margin-top:6px"></div>
@@ -181,7 +181,7 @@ export async function render() {
     <p class="hint" style="margin-bottom:14px">آدرس فید محصولات را در پنل ترب ثبت کنید تا محصولات به‌صورت خودکار همگام شوند.</p>
     <div class="form-grid">
       <div class="field"><label class="sf-check"><input type="checkbox" data-torob-enabled ${torob.enabled === false ? '' : 'checked'}> فید ترب فعال باشد</label></div>
-      <div class="field"><label>عنوان فروشگاه در فید</label><input data-torob-title value="${torob.title || ''}"></div>
+      <div class="field"><label>عنوان فروشگاه در فید</label><input data-torob-title value="${escHtml(torob.title || '')}"></div>
       <div class="field full">
         <label>آدرس فید XML</label>
         <div style="display:flex;gap:8px">

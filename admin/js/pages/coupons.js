@@ -1,5 +1,5 @@
 // admin/pages/coupons.js — مدیریت کدهای تخفیف
-import { AdminAPI, faNum } from '../api.js';
+import { AdminAPI, faNum, escHtml } from '../api.js';
 import { toast, confirmModal, openModal } from '../components.js';
 import { ic } from '../icons.js';
 import {
@@ -19,7 +19,7 @@ export async function render() {
     <tbody>
       ${coupons.map(c => `
         <tr>
-          <td><b style="color:var(--brand-dark)" dir="ltr">${c.code}</b></td>
+          <td><b style="color:var(--brand-dark)" dir="ltr">${escHtml(c.code)}</b></td>
           <td>${c.type === 'percent' ? 'درصدی' : 'مبلغی'}</td>
           <td><b>${c.type === 'percent' ? faNum(c.value) + '٪' : faNum(c.value).replace(/,/g, '٬') + ' تومان'}</b></td>
           <td>${c.min_amount ? faNum(c.min_amount).replace(/,/g, '٬') + ' تومان' : '—'}</td>
@@ -50,18 +50,18 @@ function openForm(c) {
   const { close, body } = openModal(`
     <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${c ? ic('edit', 18) + ' ویرایش کد' : ic('plus', 18) + ' کد تخفیف جدید'}</h3>
     <div class="form-grid">
-      <div class="field"><label>کد تخفیف *</label><input data-code value="${c?.code || ''}" dir="ltr" placeholder="SUMMER10"></div>
+      <div class="field"><label>کد تخفیف *</label><input data-code value="${escHtml(c?.code || '')}" dir="ltr" placeholder="SUMMER10"></div>
       <div class="field"><label>نوع</label>
         <select data-type>
           <option value="percent" ${c?.type === 'percent' ? 'selected' : ''}>درصدی</option>
           <option value="fixed" ${c?.type === 'fixed' ? 'selected' : ''}>مبلغ ثابت (تومان)</option>
         </select>
       </div>
-      <div class="field"><label>مقدار تخفیف *</label><input type="number" min="1" data-value value="${c?.value || ''}"></div>
-      <div class="field"><label>حداقل مبلغ خرید</label><input type="number" min="0" data-min value="${c?.min_amount || 0}"></div>
+      <div class="field"><label>مقدار تخفیف *</label><input type="number" min="1" data-value value="${escHtml(c?.value || '')}"></div>
+      <div class="field"><label>حداقل مبلغ خرید</label><input type="number" min="0" data-min value="${escHtml(c?.min_amount || 0)}"></div>
       <div class="field">
         <label>سقف استفاده (تعداد کل استفاده؛ ۰ = نامحدود)</label>
-        <input type="number" min="0" data-max value="${c?.max_usage || 0}">
+        <input type="number" min="0" data-max value="${escHtml(c?.max_usage || 0)}">
         <span class="hint">این عدد مجموع دفعات استفاده از کد در همهٔ سفارش‌هاست — نه سهمیهٔ هر کاربر.</span>
       </div>
       <div class="field">
@@ -73,7 +73,7 @@ function openForm(c) {
         </div>
         <span class="hint">بر اساس منطقهٔ زمانی تهران (UTC+۳:۳۰)</span>
       </div>
-      <div class="field full"><label>وضعیت</label><button class="toggle ${c?.is_active === false ? '' : 'on'}" data-active></button></div>
+      <div class="field full"><label>وضعیت</label><button class="toggle ${c && !c.is_active ? '' : 'on'}" data-active></button></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:18px">
       <button class="btn btn-primary" data-save style="flex:1">ذخیره</button>
@@ -127,9 +127,9 @@ function initShamsiPicker(body, selected) {
   for (let y = today.jy - 1; y <= today.jy + 6; y += 1) years.push(y);
 
   selJY.innerHTML = '<option value="">سال</option>'
-    + years.map(y => `<option value="${y}">${faNum(y)}</option>`).join('');
+    + years.map(y => `<option value="${escHtml(y)}">${faNum(y)}</option>`).join('');
   selJM.innerHTML = '<option value="">ماه</option>'
-    + JALALI_MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
+    + JALALI_MONTHS.map((m, i) => `<option value="${escHtml(i + 1)}">${m}</option>`).join('');
 
   function renderDays() {
     const jy = Number(selJY.value) || 0;
@@ -137,7 +137,7 @@ function initShamsiPicker(body, selected) {
     if (!jy || !jm) { selJD.innerHTML = '<option value="">روز</option>'; return; }
     const len = jalaliMonthLength(jy, jm);
     selJD.innerHTML = '<option value="">روز</option>'
-      + Array.from({ length: len }, (_, i) => `<option value="${i + 1}">${faNum(i + 1)}</option>`).join('');
+      + Array.from({ length: len }, (_, i) => `<option value="${escHtml(i + 1)}">${faNum(i + 1)}</option>`).join('');
   }
   selJY.addEventListener('change', renderDays);
   selJM.addEventListener('change', renderDays);

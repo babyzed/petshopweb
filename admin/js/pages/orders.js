@@ -37,10 +37,10 @@ export async function render() {
   const d = await AdminAPI.get('/admin/orders?' + q);
   return `
   <div class="toolbar">
-    <input class="search-inp" placeholder="جستجو با کد سفارش یا نام مشتری..." value="${state.q}" data-search>
+    <input class="search-inp" placeholder="جستجو با کد سفارش یا نام مشتری..." value="${escHtml(state.q)}" data-search>
     <select data-status class="filter-sel">
       <option value="all">همه وضعیت‌ها</option>
-      ${FILTER_STATUSES.map(s => `<option value="${s}" ${state.status === s ? 'selected' : ''}>${FILTER_LABELS[s] || statusLabel(s)}</option>`).join('')}
+      ${FILTER_STATUSES.map(s => `<option value="${escHtml(s)}" ${state.status === s ? 'selected' : ''}>${FILTER_LABELS[s] || statusLabel(s)}</option>`).join('')}
     </select>
     ${d.demoCount > 0 ? `<span class="demo-hint">${ic('info', 12)} ${faNum(d.demoCount)} سفارش نمایشی</span>` : ''}
   </div>
@@ -53,7 +53,7 @@ export async function render() {
         const canApprove = o.payment_method === 'cod' && o.status === 'pending';
         return `
         <tr style="cursor:pointer" data-href="#/orders/${o.id}">
-          <td><b style="color:var(--brand-dark)">${o.code}</b> ${o.is_demo ? '<span class="s-badge s-draft" style="font-size:9px;margin-right:4px">نمایشی</span>' : ''}</td>
+          <td><b style="color:var(--brand-dark)">${escHtml(o.code)}</b> ${o.is_demo ? '<span class="s-badge s-draft" style="font-size:9px;margin-right:4px">نمایشی</span>' : ''}</td>
           <td><div class="t-name">${escHtml(c.full_name || '—')}</div><div class="t-sub" dir="ltr">${escHtml(c.phone || '')}</div></td>
           <td style="font-size:11px">${faDate(o.created_at)}</td>
           <td>${faNum(o.item_count)} کالا</td>
@@ -127,7 +127,7 @@ export async function detailRender(params) {
   return `
   <div class="toolbar">
     <a class="btn btn-ghost" href="#/orders" style="padding:9px 16px;font-size:12.5px">${ic('arrowLeft', 16)} بازگشت</a>
-    <h3 style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px">${ic('receipt', 18)} سفارش ${order.code}</h3>
+    <h3 style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px">${ic('receipt', 18)} سفارش ${escHtml(order.code)}</h3>
     <span style="margin-inline-start:auto">${statusBadge(order.status, order.payment_method)}</span>
   </div>
 
@@ -172,6 +172,13 @@ export async function detailRender(params) {
       <div class="dash-card">
         <h3>${ic('refreshCw', 18)} تغییر وضعیت سفارش</h3>
         ${statusPipeline(order)}
+        <div class="form-grid" style="margin-top:14px">
+          <div class="field">
+            <label>کد رهگیری پستی</label>
+            <input data-tracking-code dir="ltr" placeholder="هنگام ارسال وارد کنید" value="${escHtml(order.tracking_code || '')}">
+            <span style="font-size:11px;color:var(--muted)">این کد پس از ثبت «ارسال»، همزمان با پیامک ارسال برای مشتری فرستاده می‌شود.</span>
+          </div>
+        </div>
         <div class="status-actions">
           ${flow.map(s => `
             <button class="btn ${order.status === s ? 'btn-primary' : (s === 'cancelled' ? 'btn-ghost btn-cancel' : 'btn-ghost')}" data-set-status="${s}" ${order.status === s ? 'disabled' : ''} style="padding:9px 18px;font-size:12px">
@@ -213,6 +220,7 @@ export async function detailRender(params) {
         <div class="mini-list-item">${ic('card', 16)}<span class="mli-name">روش پرداخت</span><b>${isCod ? 'در محل' : 'آنلاین'}</b></div>
         <div class="mini-list-item">${ic('card', 16)}<span class="mli-name">وضعیت پرداخت</span>${paymentBadge(order.payment_method, order.payment_status)}</div>
         ${order.transaction_id ? `<div class="mini-list-item">${ic('clipboard', 16)}<span class="mli-name">شناسه تراکنش</span><b dir="ltr">${escHtml(order.transaction_id)}</b></div>` : ''}
+        ${order.tracking_code ? `<div class="mini-list-item">${ic('package', 16)}<span class="mli-name">کد رهگیری پستی</span><b dir="ltr">${escHtml(order.tracking_code)}</b></div>` : ''}
         <div class="mini-list-item">${ic('clock', 16)}<span class="mli-name">تاریخ ثبت</span><b>${faDate(order.created_at)}</b></div>
         ${order.note ? `<div class="mini-list-item">${ic('file', 16)}<span class="mli-name">یادداشت</span><b style="max-width:180px">${escHtml(order.note)}</b></div>` : ''}
       </div>
@@ -232,7 +240,10 @@ export function detailAfter(params) {
     if (b.disabled) return;
     b.disabled = true;
     try {
-      const r = await AdminAPI.put('/admin/orders/' + params + '/status', { status: b.dataset.setStatus });
+      const r = await AdminAPI.put('/admin/orders/' + params + '/status', {
+        status: b.dataset.setStatus,
+        tracking_code: document.querySelector('[data-tracking-code]')?.value || '',
+      });
       toast(r.message || 'وضعیت سفارش به‌روزرسانی شد ✅');
       setTimeout(() => location.reload(), 500);
     } catch (err) { b.disabled = false; toast(err.message, 'err'); }

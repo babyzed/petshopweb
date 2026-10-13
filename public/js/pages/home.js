@@ -1,5 +1,5 @@
 // pages/home.js — صفحه اصلی (همه بخش‌ها داینامیک از /api/home)
-import { API, price, faNum, currentPrice, discountPct, dateFa } from '../api.js';
+import { API, price, faNum, currentPrice, discountPct, dateFa, escHtml } from '../api.js';
 import { Cart, Settings } from '../store.js';
 import { productCard, productCardH, stars } from '../components.js';
 import { ic, catIcon, emojiIcon } from '../icons.js';
@@ -24,11 +24,11 @@ export async function render() {
     <div class="hero-slider" data-hero>
       ${heroSlides.map((s, i) => `
         <div class="hero-slide ${i === 0 ? 'active' : ''}" data-slide="${i}">
-          <img src="${s.image}" alt="${s.title}" loading="${i === 0 ? 'eager' : 'lazy'}">
+          <img src="${s.image}" alt="${escHtml(s.title)}" loading="${i === 0 ? 'eager' : 'lazy'}">
           <div class="hero-content">
             <span class="hero-tag">${ic('paw', 15)} پت‌شاپ؛ همراه وفادار شما</span>
-            <h2 class="hero-title">${s.title}</h2>
-            <p class="hero-subtitle">${s.subtitle || ''}</p>
+            <h2 class="hero-title">${escHtml(s.title)}</h2>
+            <p class="hero-subtitle">${escHtml(s.subtitle || '')}</p>
             <div class="hero-cta">
               <a class="btn btn-primary" href="${s.link || '#/shop'}">خرید کنید</a>
               <a class="btn btn-dark" href="#/category/dog-food">دسته‌بندی‌ها</a>
@@ -41,11 +41,11 @@ export async function render() {
     <div class="mobile-hero" data-mhero>
       ${heroSlides.map((s, i) => `
         <div class="mh-slide ${i === 0 ? 'active' : ''}" data-mslide="${i}">
-          <img src="${s.image}" alt="${s.title}" loading="lazy">
+          <img src="${s.image}" alt="${escHtml(s.title)}" loading="lazy">
           <div class="mh-body">
             <span class="hero-tag">${ic('paw', 14)} پت‌شاپ</span>
-            <h2 class="mh-title">${s.title}</h2>
-            <p class="mh-sub">${s.subtitle || ''}</p>
+            <h2 class="mh-title">${escHtml(s.title)}</h2>
+            <p class="mh-sub">${escHtml(s.subtitle || '')}</p>
             <a class="btn btn-primary mh-cta" href="${s.link || '#/shop'}">مشاهده</a>
           </div>
         </div>`).join('')}
@@ -59,10 +59,10 @@ export async function render() {
       <div class="container promo-grid">
         ${data.promo.filter(b => b.image).map(b => `
           <a class="promo-card" href="${b.link || '#/shop'}">
-            <img src="${b.image}" alt="${b.title}" loading="lazy">
+            <img src="${b.image}" alt="${escHtml(b.title)}" loading="lazy">
             <div class="promo-body">
-              <h3 class="promo-title">${b.title}</h3>
-              <p class="promo-sub">${b.subtitle || ''}</p>
+              <h3 class="promo-title">${escHtml(b.title)}</h3>
+              <p class="promo-sub">${escHtml(b.subtitle || '')}</p>
               <span class="promo-cta">مشاهده ←</span>
             </div>
           </a>`).join('')}
@@ -80,8 +80,8 @@ export async function render() {
           ${data.categories.map(c => `
             <a class="cat-card" href="#/category/${c.slug}">
               <span class="cat-emoji">${catIcon(c, 30)}</span>
-              ${c.image ? `<img class="cat-img" src="${c.image}" alt="${c.name}" loading="lazy">` : `<span style="font-size:44px">${catIcon(c, 40)}</span>`}
-              <span class="cat-name">${c.name}</span>
+              ${c.image ? `<img class="cat-img" src="${c.image}" alt="${escHtml(c.name)}" loading="lazy">` : `<span style="font-size:44px">${catIcon(c, 40)}</span>`}
+              <span class="cat-name">${escHtml(c.name)}</span>
               <span class="cat-count">${faNum(c.count)} محصول</span>
             </a>`).join('')}
         </div>
@@ -102,10 +102,10 @@ export async function render() {
   // کارت قهرمان دسکتاپ: اولین محصول سکشن پرفروش‌ها با نمایش بزرگ
   const heroCard = (p) => isMobile ? '' : `
     <a class="featured-card" href="#/product/${p.slug}">
-      <div class="fc-media"><img src="${p.image || '/assets/img/placeholder.webp'}" alt="${p.name}" loading="lazy"></div>
+      <div class="fc-media"><img src="${p.image || '/assets/img/placeholder.webp'}" alt="${escHtml(p.name)}" loading="lazy"></div>
       <div class="fc-body">
         <span class="fc-badge">${ic('star', 13)} پرفروش هفته</span>
-        <h3 class="fc-name">${p.name}</h3>
+        <h3 class="fc-name">${escHtml(p.name)}</h3>
         <div class="fc-price">${price(currentPrice(p))} <span class="unit">تومان</span></div>
         <span class="btn btn-primary fc-cta">خرید این محصول ←</span>
       </div>
@@ -132,7 +132,7 @@ export async function render() {
           <h2 class="section-title"><span class="st-ic">${ic('tag', 22)}</span>${secTitle('brands', 'برندهای معتبر')}</h2>
         </div>
         <div class="brands-row">
-          ${data.brands.map(b => `<a class="brand-chip" href="#/shop?brand=${b.id}">${b.logo ? `<img src="${b.logo}" style="height:26px">` : ''}${b.name}</a>`).join('')}
+          ${data.brands.map(b => `<a class="brand-chip" href="#/shop?brand=${b.id}">${b.logo ? `<img src="${b.logo}" style="height:26px">` : ''}${escHtml(b.name)}</a>`).join('')}
         </div>
       </div>
     </section>` : '';
@@ -143,8 +143,8 @@ export async function render() {
         <div class="about-teaser">
           <div>
             <span class="at-badge">${ic('star', 13)} ${data.about_teaser.badge || ''}</span>
-            <h2 class="at-title">${data.about_teaser.title || ''}</h2>
-            <p class="at-text">${data.about_teaser.text || ''}</p>
+            <h2 class="at-title">${escHtml(data.about_teaser.title || '')}</h2>
+            <p class="at-text">${escHtml(data.about_teaser.text || '')}</p>
             ${data.about_teaser.stats?.length ? `
             <div class="at-stats">
               ${data.about_teaser.stats.map(s => `<div class="at-stat"><div class="v">${s.value}</div><div class="l">${s.label}</div></div>`).join('')}
@@ -166,7 +166,7 @@ export async function render() {
           ${data.features.map(f => `
             <div class="feature-item">
               <div class="f-ic">${emojiIcon(f.icon, 22, 'sparkles')}</div>
-              <div class="f-t">${f.title}</div>
+              <div class="f-t">${escHtml(f.title)}</div>
               <div class="f-x">${f.text}</div>
             </div>`).join('')}
         </div>
@@ -184,12 +184,12 @@ export async function render() {
           ${data.articles.map(a => `
             <a class="article-card" href="#/blog/${a.slug}">
               <div class="a-media">
-                ${a.image ? `<img src="${a.image}" alt="${a.title}" loading="lazy">` : ''}
-                <span class="a-cat">${a.category || 'پت‌شاپ'}</span>
+                ${a.image ? `<img src="${a.image}" alt="${escHtml(a.title)}" loading="lazy">` : ''}
+                <span class="a-cat">${escHtml(a.category || 'پت‌شاپ')}</span>
               </div>
               <div class="a-body">
-                <h3 class="a-title">${a.title}</h3>
-                <p class="a-excerpt">${a.excerpt || ''}</p>
+                <h3 class="a-title">${escHtml(a.title)}</h3>
+                <p class="a-excerpt">${escHtml(a.excerpt || '')}</p>
                 <div class="a-meta"><span>${ic('calendar', 13)} ${dateFa(a.created_at)}</span><span>${ic('eye', 13)} ${faNum(3 + a.id % 20)} بازدید</span></div>
               </div>
             </a>`).join('')}
@@ -211,7 +211,7 @@ export async function render() {
               <div class="testi-foot">
                 <span class="testi-avatar">${t.name.trim()[0]}</span>
                 <div>
-                  <div class="testi-name">${t.name}</div>
+                  <div class="testi-name">${escHtml(t.name)}</div>
                   <div class="testi-role">${t.role || ''}</div>
                 </div>
                 <div style="margin-inline-start:auto">${stars(t.rating)}</div>
@@ -268,8 +268,8 @@ function bannerWide(promos) {
   return `
     <section class="section" style="padding-top:0">
       <a class="promo-card" href="${b.link || '#/shop'}" style="min-height:160px;display:block">
-        <img src="${b.image}" alt="${b.title}" loading="lazy">
-        <div class="promo-body"><h3 class="promo-title">${b.title}</h3><p class="promo-sub">${b.subtitle || ''}</p></div>
+        <img src="${b.image}" alt="${escHtml(b.title)}" loading="lazy">
+        <div class="promo-body"><h3 class="promo-title">${escHtml(b.title)}</h3><p class="promo-sub">${escHtml(b.subtitle || '')}</p></div>
       </a>
     </section>`;
 }

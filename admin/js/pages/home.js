@@ -1,5 +1,5 @@
 // admin/pages/home.js — ویرایشگر محتوای صفحه اصلی (بدون کد!)
-import { AdminAPI, uploadImage } from '../api.js';
+import { AdminAPI, uploadImage, escHtml } from '../api.js';
 import { toast, openModal } from '../components.js';
 import { ic } from '../icons.js';
 
@@ -16,7 +16,7 @@ export async function render() {
       <span style="color:var(--brand);display:flex">${icon}</span>
       <div style="flex:1">
         <b style="font-size:13px">${label}</b>
-        <input class="sec-title-inp" data-sec-title="${key}" value="${s.title || ''}" placeholder="تیتر بخش (خالی = پیش‌فرض)" style="width:100%;margin-top:4px;padding:7px 10px;border:1.5px solid #E7E0D8;border-radius:9px;font-size:12px;outline:none">
+        <input class="sec-title-inp" data-sec-title="${key}" value="${escHtml(s.title || '')}" placeholder="تیتر بخش (خالی = پیش‌فرض)" style="width:100%;margin-top:4px;padding:7px 10px;border:1.5px solid #E7E0D8;border-radius:9px;font-size:12px;outline:none">
       </div>
       <button class="toggle ${s.enabled !== false ? 'on' : ''}" data-sec-toggle="${key}"></button>
     </div>`;
@@ -45,10 +45,10 @@ export async function render() {
     <div data-feats>
       ${feats.map((f, i) => `
         <div class="feat-row" data-feat-row>
-          <input placeholder="آیکون (ایموجی)" data-fi value="${f.icon || ''}" style="width:70px">
-          <input placeholder="عنوان (مثلاً: ارسال سریع)" data-ft value="${f.title || ''}">
+          <input placeholder="آیکون (ایموجی)" data-fi value="${escHtml(f.icon || '')}" style="width:70px">
+          <input placeholder="عنوان (مثلاً: ارسال سریع)" data-ft value="${escHtml(f.title || '')}">
           <button class="btn btn-ghost" data-feat-del style="color:var(--danger)">${ic('x', 14)}</button>
-          <input placeholder="توضیح کوتاه" data-fx value="${f.text || ''}" style="grid-column:1/-1">
+          <input placeholder="توضیح کوتاه" data-fx value="${escHtml(f.text || '')}" style="grid-column:1/-1">
         </div>`).join('')}
     </div>
     <button class="btn btn-ghost" data-feat-add style="margin-top:8px">${ic('plus', 14)} افزودن مزیت</button>
@@ -57,9 +57,9 @@ export async function render() {
   <div class="a-card">
     <h3>${ic('award', 18)} بخش معرفی پت‌شاپ</h3>
     <div class="form-grid">
-      <div class="field"><label>نشان (بج)</label><input data-at-badge value="${at.badge || ''}"></div>
-      <div class="field"><label>عنوان</label><input data-at-title value="${at.title || ''}"></div>
-      <div class="field full"><label>متن معرفی</label><textarea data-at-text rows="3">${at.text || ''}</textarea></div>
+      <div class="field"><label>نشان (بج)</label><input data-at-badge value="${escHtml(at.badge || '')}"></div>
+      <div class="field"><label>عنوان</label><input data-at-title value="${escHtml(at.title || '')}"></div>
+      <div class="field full"><label>متن معرفی</label><textarea data-at-text rows="3">${escHtml(at.text || '')}</textarea></div>
       <div class="field full"><label>تصویر</label>
         <div class="img-uploader">
           ${at.image ? `<div class="iu-item" style="width:150px;height:90px"><img src="${at.image}" alt=""></div>` : ''}
@@ -71,8 +71,8 @@ export async function render() {
         <div data-at-stats>
           ${(at.stats || []).map((s, i) => `
             <div class="feat-row">
-              <input placeholder="مقدار (مثلاً: ۱۲+)" data-sv value="${s.value}" style="width:90px">
-              <input placeholder="برچسب (مثلاً: سال تجربه)" data-sl value="${s.label}">
+              <input placeholder="مقدار (مثلاً: ۱۲+)" data-sv value="${escHtml(s.value)}" style="width:90px">
+              <input placeholder="برچسب (مثلاً: سال تجربه)" data-sl value="${escHtml(s.label)}">
               <button class="btn btn-ghost" data-stat-del style="color:var(--danger)">${ic('x', 14)}</button>
             </div>`).join('')}
         </div>

@@ -1,5 +1,5 @@
 // admin/pages/roles.js — نقش‌ها و دسترسی‌ها (Role & Permission)
-import { AdminAPI, faNum } from '../api.js';
+import { AdminAPI, faNum, escHtml } from '../api.js';
 import { toast, confirmModal, openModal } from '../components.js';
 import { ic } from '../icons.js';
 
@@ -23,7 +23,7 @@ export async function render() {
             <td>
               <div style="display:flex;align-items:center;gap:10px">
                 <span class="stat-ic ${r.is_system ? 'o' : 'g'}" style="width:36px;height:36px">${r.is_system ? ic('star', 18) : ic('user', 18)}</span>
-                <div><b style="font-size:13px">${r.title}</b><div class="t-sub" dir="ltr">${r.name}</div></div>
+                <div><b style="font-size:13px">${escHtml(r.title)}</b><div class="t-sub" dir="ltr">${escHtml(r.name)}</div></div>
               </div>
             </td>
             <td>${faNum(userCount(r.id))} کاربر</td>
@@ -32,7 +32,7 @@ export async function render() {
             <td style="white-space:nowrap">
               ${r.is_system ? '<span class="t-sub">غیرقابل ویرایش</span>' : `
                 <button class="btn btn-ghost" data-edit='${JSON.stringify(r)}' style="padding:7px 12px;font-size:11.5px">${ic('edit', 14)} ویرایش دسترسی‌ها</button>
-                <button class="btn btn-ghost" data-del="${r.id}" data-name="${r.title}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">${ic('trash', 14)} حذف</button>`}
+                <button class="btn btn-ghost" data-del="${r.id}" data-name="${escHtml(r.title)}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">${ic('trash', 14)} حذف</button>`}
             </td>
           </tr>`).join('')}
       </tbody>
@@ -51,7 +51,7 @@ export function after() {
   document.querySelector('[data-new]').addEventListener('click', async () => openForm(null));
   document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openForm(JSON.parse(b.dataset.edit))));
   document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
-    confirmModal('حذف نقش', `نقش «${b.dataset.name}» حذف شود؟`, async () => {
+    confirmModal('حذف نقش', `نقش «${escHtml(b.dataset.name)}» حذف شود؟`, async () => {
       try { await AdminAPI.del('/admin/roles/' + b.dataset.del); toast('نقش حذف شد'); setTimeout(() => location.reload(), 350); }
       catch (err) { toast(err.message, 'err'); }
     });
@@ -65,8 +65,8 @@ async function openForm(role) {
   const { close, body } = openModal(`
     <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${role ? ic('edit', 18) + ' ویرایش نقش ' + role.title : ic('plus', 18) + ' نقش جدید'}</h3>
     <div class="form-grid">
-      <div class="field"><label>نام انگلیسی (کلید) *</label><input data-name value="${role?.name || ''}" dir="ltr" placeholder="editor" ${role ? 'disabled' : ''}></div>
-      <div class="field"><label>عنوان فارسی *</label><input data-title value="${role?.title || ''}" placeholder="مثلاً: ویرایشگر محتوا"></div>
+      <div class="field"><label>نام انگلیسی (کلید) *</label><input data-name value="${escHtml(role?.name || '')}" dir="ltr" placeholder="editor" ${role ? 'disabled' : ''}></div>
+      <div class="field"><label>عنوان فارسی *</label><input data-title value="${escHtml(role?.title || '')}" placeholder="مثلاً: ویرایشگر محتوا"></div>
     </div>
     <div style="margin-top:14px">
       ${groups.map(g => `

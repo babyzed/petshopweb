@@ -1,5 +1,5 @@
 // admin/pages/faq.js — سوالات متداول
-import { AdminAPI, faNum } from '../api.js';
+import { AdminAPI, faNum, escHtml } from '../api.js';
 import { toast, confirmModal, openModal } from '../components.js';
 import { ic } from '../icons.js';
 
@@ -16,8 +16,8 @@ export async function render() {
       ${faqs.map((f, i) => `
         <tr>
           <td>${faNum(i + 1)}</td>
-          <td><b style="font-size:12.5px">${f.question}</b></td>
-          <td class="t-sub" style="max-width:280px">${f.answer}</td>
+          <td><b style="font-size:12.5px">${escHtml(f.question)}</b></td>
+          <td class="t-sub" style="max-width:280px">${escHtml(f.answer)}</td>
           <td>${f.is_active ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">غیرفعال</span>'}</td>
           <td style="white-space:nowrap">
             <button class="btn btn-ghost" data-edit='${JSON.stringify(f)}' style="padding:7px 12px;font-size:11.5px">${ic('edit', 14)} ویرایش</button>
@@ -43,9 +43,9 @@ function openForm(f) {
   const { close, body } = openModal(`
     <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px">${f ? ic('edit', 18) + ' ویرایش' : ic('plus', 18) + ' پرسش جدید'}</h3>
     <div class="form-grid">
-      <div class="field full"><label>پرسش *</label><input data-q value="${f?.question || ''}"></div>
-      <div class="field full"><label>پاسخ *</label><textarea data-a rows="4">${f?.answer || ''}</textarea></div>
-      <div class="field"><label>ترتیب</label><input type="number" data-sort value="${f?.sort_order || 0}"></div>
+      <div class="field full"><label>پرسش *</label><input data-q value="${escHtml(f?.question || '')}"></div>
+      <div class="field full"><label>پاسخ *</label><textarea data-a rows="4">${escHtml(f?.answer || '')}</textarea></div>
+      <div class="field"><label>ترتیب</label><input type="number" data-sort value="${escHtml(f?.sort_order || 0)}"></div>
       <div class="field"><label>وضعیت</label><button class="toggle ${f?.is_active === false ? '' : 'on'}" data-active></button></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:18px">

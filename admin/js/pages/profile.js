@@ -1,5 +1,5 @@
 // admin/pages/profile.js — پروفایل مدیر
-import { AdminAPI } from '../api.js';
+import { AdminAPI, escHtml } from '../api.js';
 import { toast } from '../components.js';
 import { ic } from '../icons.js';
 
@@ -9,9 +9,9 @@ export function render() {
   <div class="a-card" style="max-width:560px">
     <h3>${ic('user', 18)} پروفایل مدیر</h3>
     <div class="form-grid">
-      <div class="field full"><label>نام</label><input value="${u?.name || ''}" disabled></div>
-      <div class="field full"><label>ایمیل</label><input value="${u?.email || ''}" dir="ltr" disabled></div>
-      <div class="field full"><label>نقش</label><input value="${u?.role_title || ''}" disabled></div>
+      <div class="field full"><label>نام</label><input value="${escHtml(u?.name || '')}" disabled></div>
+      <div class="field full"><label>ایمیل</label><input value="${escHtml(u?.email || '')}" dir="ltr" disabled></div>
+      <div class="field full"><label>نقش</label><input value="${escHtml(u?.role_title || '')}" disabled></div>
       <div class="field full"><label>رمز عبور فعلی *</label><input type="password" dir="ltr" data-current></div>
       <div class="field full"><label>رمز عبور جدید * (حداقل ۶ کاراکتر)</label><input type="password" dir="ltr" data-new></div>
     </div>

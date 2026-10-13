@@ -1,5 +1,5 @@
 // pages/shop.js — فروشگاه با فیلتر، مرتب‌سازی و صفحه‌بندی
-import { API, price, faNum, currentPrice } from '../api.js';
+import { API, price, faNum, currentPrice, escHtml } from '../api.js';
 import { productCard, productCardH } from '../components.js';
 import { ic, catIcon } from '../icons.js';
 import { setMeta } from '../meta.js';
@@ -50,7 +50,7 @@ export async function render(params, query) {
 
   const catListHtml = (list, depth = 0) => list.map(c => `
     <button class="sf-cat ${c.slug === activeCat ? 'active' : ''} ${depth ? 'sub' : ''}" data-cat="${c.slug}">
-      ${catIcon(c, 13)} ${c.name} <span style="opacity:.6;font-size:11px">${faNum(c.count)}</span>
+      ${catIcon(c, 13)} ${escHtml(c.name)} <span style="opacity:.6;font-size:11px">${faNum(c.count)}</span>
     </button>
     ${c.children?.length ? catListHtml(c.children, depth + 1) : ''}`).join('');
 
@@ -59,7 +59,7 @@ export async function render(params, query) {
     <nav class="breadcrumb">
       <a href="#/">خانه</a><span class="sep">/</span>
       <span>فروشگاه</span>
-      ${activeCatObj ? `<span class="sep">/</span><span style="color:var(--text);font-weight:600">${activeCatObj.name}</span>` : ''}
+      ${activeCatObj ? `<span class="sep">/</span><span style="color:var(--text);font-weight:600">${escHtml(activeCatObj.name)}</span>` : ''}
     </nav>
 
     <div class="page-hero">
@@ -81,14 +81,14 @@ export async function render(params, query) {
           <div class="sf-title">${ic('tag', 15)} برند</div>
           ${brands.map(b => `
             <label class="sf-check">
-              <input type="checkbox" data-brand="${b.id}" ${query.get('brand') == b.id ? 'checked' : ''}> ${b.name}
+              <input type="checkbox" data-brand="${b.id}" ${query.get('brand') == b.id ? 'checked' : ''}> ${escHtml(b.name)}
             </label>`).join('')}
         </div>
         <div class="sf-group">
           <div class="sf-title">${ic('cash', 15)} محدوده قیمت (تومان)</div>
           <div class="sf-range">
-            <input type="number" placeholder="از" min="0" value="${query.get('min_price') || ''}" data-min-price>
-            <input type="number" placeholder="تا" min="0" value="${query.get('max_price') || ''}" data-max-price>
+            <input type="number" placeholder="از" min="0" value="${escHtml(query.get('min_price') || '')}" data-min-price>
+            <input type="number" placeholder="تا" min="0" value="${escHtml(query.get('max_price') || '')}" data-max-price>
           </div>
         </div>
         <div class="sf-group">
@@ -152,10 +152,10 @@ export async function render(params, query) {
         <div class="fs-head"><h3>${ic('sliders', 16)} فیلترها</h3><button class="btn btn-ghost" data-close-sheet>بستن</button></div>
         ${catListHtml(cats)}
         <hr style="border:none;border-top:1px solid var(--line);margin:12px 0">
-        ${brands.map(b => `<label class="sf-check"><input type="checkbox" data-brand="${b.id}" ${query.get('brand') == b.id ? 'checked' : ''}> ${b.name}</label>`).join('')}
+        ${brands.map(b => `<label class="sf-check"><input type="checkbox" data-brand="${b.id}" ${query.get('brand') == b.id ? 'checked' : ''}> ${escHtml(b.name)}</label>`).join('')}
         <div class="sf-range" style="margin:12px 0">
-          <input type="number" placeholder="قیمت از" value="${query.get('min_price') || ''}" data-min-price>
-          <input type="number" placeholder="قیمت تا" value="${query.get('max_price') || ''}" data-max-price>
+          <input type="number" placeholder="قیمت از" value="${escHtml(query.get('min_price') || '')}" data-min-price>
+          <input type="number" placeholder="قیمت تا" value="${escHtml(query.get('max_price') || '')}" data-max-price>
         </div>
         <label class="sf-check"><input type="checkbox" data-stock ${query.get('in_stock') === '1' ? 'checked' : ''}> فقط موجود</label>
         <label class="sf-check"><input type="checkbox" data-sale ${query.get('on_sale') === '1' ? 'checked' : ''}> فقط تخفیف‌دار</label>
@@ -172,26 +172,45 @@ export function mount(el, params, query) {
   el.querySelector('[data-open-filters]')?.addEventListener('click', openSheet);
   el.querySelectorAll('[data-close-sheet]').forEach(b => b.addEventListener('click', closeSheet));
 
-  const buildQs = () => {
+  // باگ قبلی: فیلترها دو بار در DOM هستند (سایدبار دسکتاپ + شیتِ موبایل) و querySelector همیشه
+  // اولی (سایدبارِ پنهان در موبایل) را می‌خواند؛ پس قیمت/موجود/تخفیف‌دار در موبایل نادیده گرفته می‌شد.
+  // حالا مقادیر از «همان پنل»ی خوانده می‌شود که کاربر در آن دکمه را زده است.
+  const defaultScope = el.querySelector('.shop-filters') || el;
+  const buildQs = (scope = defaultScope) => {
     const q = new URLSearchParams();
     const cat = el.querySelector('.sf-cat.active')?.dataset.cat || lastQuery.get('category') || '';
     if (cat) q.set('category', cat);
-    el.querySelectorAll('[data-brand]:checked').forEach(b => q.set('brand', b.dataset.brand));
-    const min = el.querySelector('[data-min-price]').value.trim();
-    const max = el.querySelector('[data-max-price]').value.trim();
+    const brand = scope.querySelector('[data-brand]:checked');
+    if (brand) q.set('brand', brand.dataset.brand);
+    const min = (scope.querySelector('[data-min-price]')?.value || '').trim();
+    const max = (scope.querySelector('[data-max-price]')?.value || '').trim();
     if (min) q.set('min_price', min);
     if (max) q.set('max_price', max);
-    if (el.querySelector('[data-stock]')?.checked) q.set('in_stock', '1');
-    if (el.querySelector('[data-sale]')?.checked) q.set('on_sale', '1');
-    const feat = el.querySelector('[data-feature]:checked')?.dataset.feature;
+    if (scope.querySelector('[data-stock]')?.checked) q.set('in_stock', '1');
+    if (scope.querySelector('[data-sale]')?.checked) q.set('on_sale', '1');
+    // شیت موبایل فیلتر ویژگی ندارد؛ در این حالت ویژگی انتخاب‌شدهٔ فعلی حفظ می‌شود
+    const feat = scope.querySelector('[data-feature]')
+      ? scope.querySelector('[data-feature]:checked')?.dataset.feature
+      : lastQuery.get('feature');
     if (feat) q.set('feature', feat);
     const sort = el.querySelector('[data-sort]')?.value || lastQuery.get('sort') || 'newest';
     q.set('sort', sort);
     return q.toString();
   };
 
-  el.querySelector('[data-apply]')?.addEventListener('click', () => { location.hash = '#/shop?' + buildQs(); });
-  el.querySelector('[data-reset]')?.addEventListener('click', () => { location.hash = '#/shop'; });
+  // باگ قبلی: فقط اولین دکمهٔ «اعمال فیلترها» (سایدبار) listener داشت؛ دکمهٔ شیت موبایل کاری نمی‌کرد
+  el.querySelectorAll('[data-apply]').forEach(b => b.addEventListener('click', () => {
+    const scope = b.closest('[data-filter-sheet]') || b.closest('.shop-filters') || defaultScope;
+    closeSheet();
+    location.hash = '#/shop?' + buildQs(scope);
+  }));
+  el.querySelectorAll('[data-reset]').forEach(b => b.addEventListener('click', () => { closeSheet(); location.hash = '#/shop'; }));
+  // API فقط یک برند را می‌پذیرد؛ چک‌باکس‌ها مثل رادیو رفتار کنند
+  el.querySelectorAll('[data-brand]').forEach(cb => cb.addEventListener('change', () => {
+    if (!cb.checked) return;
+    const box = cb.closest('[data-filter-sheet]') || cb.closest('.shop-filters') || el;
+    box.querySelectorAll('[data-brand]').forEach(o => { if (o !== cb) o.checked = false; });
+  }));
   el.querySelectorAll('[data-cat]').forEach(b => b.addEventListener('click', () => {
     const q = new URLSearchParams(buildQs());
     if (b.dataset.cat) q.set('category', b.dataset.cat); else q.delete('category');

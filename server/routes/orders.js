@@ -4,8 +4,9 @@ const express = require('express');
 const { db, getSetting } = require('../db');
 const { authRequired, requirePerm, optionalAuth, signToken, withRole } = require('../auth');
 const { ensureCustomerUser } = require('../customer-account');
+const { hasPermission } = require('../permissions');
 const {
-  createPayment, verifyPayment, parseCallback, getErrorMessage, testConnection,
+  GATEWAY_KEYS, createPayment, verifyPayment, parseCallback, getErrorMessage, testConnection,
   listGateways, activeGatewayKey, isOnlineAvailable, takeFormPost, renderRedirectPage,
 } = require('../payment');
 const { sendOrderConfirmation, sendOrderShipped } = require('../email');
@@ -149,6 +150,12 @@ router.post('/orders', optionalAuth, (req, res) => {
     // --- اعتبارسنجی ورودی ---
     if (!customer || !customer.full_name || !customer.phone) {
       return res.status(400).json({ error: 'اطلاعات گیرنده را کامل وارد کنید.' });
+    }
+    if (!/^09\d{9}$/.test(String(customer.phone).replace(/\D/g, ''))) {
+      return res.status(400).json({ error: 'شماره موبایل معتبر وارد کنید (مثال: 09123456789).' });
+    }
+    if (String(customer.full_name).length > 100 || String(address || '').length > 1000) {
+      return res.status(400).json({ error: 'طول نام یا آدرس بیش از حد مجاز است.' });
     }
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'سبد خرید خالی است.' });
@@ -298,9 +305,13 @@ router.post('/orders', optionalAuth, (req, res) => {
     // === برای مهمان‌هایی که حساب برای‌شان ساخته/متصل شد، جلسه (توکن) برمی‌گردانیم
     // تا مشتری بلافاصله بتواند سفارش را در «سفارش‌های من» پیگیری کند
     let sessionUser = null;
-    if (autoAccount && autoAccount.user && !req.user) {
+    // امنیت (CRITICAL): توکن فقط برای حسابی که «همین الان» ساخته شده صادر می‌شود.
+    // قبلاً اگر شماره/ایمیل مهمان با حساب موجود (حتی مدیر کل) یکی بود، توکن آن حساب
+    // بدون هیچ احراز هویتی به مهمان داده می‌شد (Account Takeover).
+    if (autoAccount && autoAccount.created && autoAccount.user && !req.user) {
       const full = withRole(autoAccount.user);
       delete full.password_hash;
+      if (!full.is_admin) delete full.permissions;
       sessionUser = full;
     }
     const sessionToken = sessionUser ? signToken(withRole(autoAccount.user)) : null;
@@ -362,15 +373,16 @@ router.post('/orders', optionalAuth, (req, res) => {
 // ============================================================
 // ایجاد لینک پرداخت — با بررسی وضعیت سفارش
 // ============================================================
-router.post('/payments/create', (req, res) => {
+router.post('/payments/create', optionalAuth, (req, res) => {
   const { orderCode } = req.body || {};
   if (!orderCode || typeof orderCode !== 'string') return res.status(400).json({ error: 'کد سفارش الزامی است.' });
 
-  const order = db.prepare("SELECT * FROM orders WHERE code = ? AND payment_method = 'online' AND payment_status = 'unpaid'").get(orderCode.trim());
+  // سفارش لغو/منقضی‌شده دیگر قابل پرداخت نیست (موجودی آن آزاد شده است)
+  const order = db.prepare("SELECT * FROM orders WHERE code = ? AND payment_method = 'online' AND payment_status = 'unpaid' AND status != 'cancelled'").get(orderCode.trim());
   if (!order) return res.status(404).json({ error: 'سفارش یافت نشد یا قبلاً پرداخت شده است.' });
 
-  // بررسی مالکیت (اگر کاربر لاگین است)
-  if (req.user && order.user_id !== req.user.id) {
+  // بررسی مالکیت (اگر کاربر لاگین است) — قبلاً optionalAuth نبود و req.user همیشه undefined بود
+  if (req.user && order.user_id !== req.user.id && !hasPermission(req.user.permissions, 'orders.manage')) {
     return res.status(403).json({ error: 'دسترسی غیرمجاز.' });
   }
 
@@ -422,8 +434,55 @@ router.get('/payments/redirect/:id', (req, res) => {
 // Callback از بانک — Idempotent و مشترک بین همهٔ درگاه‌ها
 // (برخی درگاه‌ها GET و برخی POST برمی‌گردانند)
 // ============================================================
+// ------------------------------------------------------------
+// ثبت نهایی پرداخت موفق — مشترک بین callback و verify
+// محافظ‌ها:
+//  • سفارش لغو/منقضی‌شده دوباره «پرداخت‌شده» نمی‌شود (موجودی‌اش قبلاً آزاد شده بود)
+//  • یک شناسهٔ تراکنش بانکی فقط برای یک سفارش قابل استفاده است (Replay)
+// خروجی: 'ok' | 'already' | 'cancelled' | 'replay'
+// ------------------------------------------------------------
+function finalizeOnlinePayment(dbOrder, { gateway, gatewayLabel, refId, raw, authority, actorId, note }) {
+  let outcome = 'ok';
+  db.transaction(() => {
+    const current = db.prepare('SELECT payment_status, status FROM orders WHERE id = ?').get(dbOrder.id);
+    if (current.payment_status === 'paid') { outcome = 'already'; return; }
+    if (current.status === 'cancelled') { outcome = 'cancelled'; return; }
+    if (refId && !/^MOCK-/.test(refId)) {
+      const dup = db.prepare("SELECT order_id FROM payments WHERE transaction_id = ? AND gateway = ? AND status = 'paid' AND order_id != ?")
+        .get(refId, gateway, dbOrder.id);
+      if (dup) { outcome = 'replay'; return; }
+    }
+
+    db.prepare("UPDATE orders SET payment_status = 'paid', status = 'paid', updated_at = datetime('now') WHERE id = ? AND payment_status = 'unpaid'")
+      .run(dbOrder.id);
+    const updated = db.prepare("UPDATE payments SET status = 'paid', gateway = ?, transaction_id = ?, raw_response = ?, verified_at = datetime('now') WHERE order_id = ? AND status = 'pending'")
+      .run(gateway, refId, JSON.stringify(raw || {}), dbOrder.id);
+    if (!updated.changes) {
+      db.prepare("INSERT INTO payments (order_id, user_id, amount, gateway, authority, transaction_id, status, raw_response, verified_at) VALUES (?,?,?,?,?,?,'paid',?,datetime('now'))")
+        .run(dbOrder.id, dbOrder.user_id, dbOrder.total, gateway, String(authority || ''), refId, JSON.stringify(raw || {}));
+    }
+    addOrderHistory(dbOrder.id, dbOrder.status, 'paid', actorId || dbOrder.user_id, note || `پرداخت موفق بانکی (${gatewayLabel || gateway})`);
+  })();
+  return outcome;
+}
+
+// اتصال callback به همان تراکنشی که برای همین سفارش ساخته شده است.
+// زرین‌پال و ملی (سداد) توکن/Authority را در لحظهٔ ساخت پرداخت به ما می‌دهند؛
+// اگر توکن بازگشتی با توکن ذخیره‌شدهٔ همین سفارش یکی نباشد، مهاجم می‌توانست
+// Authority یک سفارش دیگرِ پرداخت‌شده (با مبلغ برابر) را برای این سفارش بفرستد.
+function paymentBindingError(gateway, params, payRow) {
+  if (gateway !== 'zarinpal' && gateway !== 'melli') return null;
+  const supplied = String(gateway === 'zarinpal'
+    ? (params.Authority || params.authority || '')
+    : (params.token || params.Token || '')).trim();
+  if (!payRow || !payRow.authority || supplied !== payRow.authority) {
+    return 'شناسهٔ تراکنش با این سفارش مطابقت ندارد.';
+  }
+  return null;
+}
+
 function handlePaymentCallback(req, res) {
-  const cb = parseCallback(req);
+  let cb = parseCallback(req);
 
   // یافتن سفارش: ابتدا با کد سفارش، سپس با شناسهٔ عددی سفارش
   let dbOrder = null;
@@ -440,12 +499,36 @@ function handlePaymentCallback(req, res) {
     return res.redirect(`/#/payment-result?status=success&order=${orderCode}&RRN=${encodeURIComponent(cb.ref || '')}&message=${encodeURIComponent('پرداخت قبلاً تایید شده')}`);
   }
 
+  if (dbOrder.payment_method !== 'online') {
+    return res.redirect(`/#/payment-result?status=error&order=${orderCode}&message=${encodeURIComponent('این سفارش پرداخت آنلاین ندارد')}`);
+  }
+
+  // درگاه را از «رکورد پرداخت همین سفارش» می‌خوانیم، نه از پارامتر gw که کاربر می‌تواند دستکاری کند
+  const payRow = db.prepare("SELECT gateway, authority FROM payments WHERE order_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1").get(dbOrder.id);
+  if (payRow && payRow.gateway && payRow.gateway !== cb.gateway && GATEWAY_KEYS.includes(payRow.gateway)) {
+    cb = parseCallback(req, payRow.gateway);
+  }
+
+  // سفارش لغو/منقضی‌شده: پیش از تایید با بانک رد می‌شود تا مبلغ کسرشده توسط بانک برگردانده شود
+  if (dbOrder.status === 'cancelled') {
+    return res.redirect(`/#/payment-result?status=failed&order=${orderCode}&message=${encodeURIComponent('این سفارش لغو یا منقضی شده است. در صورت کسر وجه، مبلغ توسط بانک به حساب شما بازمی‌گردد.')}`);
+  }
+
   // بررسی وضعیت بازگشتی بانک
   if (!cb.ok) {
     const errorMsg = getErrorMessage(cb.statusCode, cb.gateway);
-    db.prepare('INSERT INTO payments (order_id, user_id, amount, gateway, authority, status, raw_response) VALUES (?,?,?,?,?,?,?)')
-      .run(dbOrder.id, dbOrder.user_id, dbOrder.total, cb.gateway, String(cb.ref || ''), 'failed', JSON.stringify({ status: cb.statusCode, error: errorMsg }));
+    // فقط برای سفارشی که واقعاً پرداختی در جریان دارد ردیف «ناموفق» ثبت می‌شود (جلوگیری از پر شدن جدول با درخواست‌های ساختگی)
+    if (payRow) {
+      db.prepare('INSERT INTO payments (order_id, user_id, amount, gateway, authority, status, raw_response) VALUES (?,?,?,?,?,?,?)')
+        .run(dbOrder.id, dbOrder.user_id, dbOrder.total, cb.gateway, String(cb.ref || ''), 'failed', JSON.stringify({ status: cb.statusCode, error: errorMsg }));
+    }
     return res.redirect(`/#/payment-result?status=failed&message=${encodeURIComponent(errorMsg)}&order=${orderCode}`);
+  }
+
+  const bindErr = paymentBindingError(cb.gateway, cb.params, payRow);
+  if (bindErr) {
+    console.error(`[Payment Callback] Binding mismatch for ${orderCode} (${cb.gateway})`);
+    return res.redirect(`/#/payment-result?status=failed&order=${orderCode}&message=${encodeURIComponent(bindErr)}`);
   }
 
   // تایید پرداخت با بانک
@@ -453,7 +536,7 @@ function handlePaymentCallback(req, res) {
     if (result.ok) {
       const refId = String(result.refId || cb.ref || '');
 
-      // بررسی مبلغ (در صورتی که بانک مبلغ را برگرداند)
+      // بررسی مبلغ (مبلغ باید از سمت بانک آمده باشد)
       if (result.amountRial && Math.round(dbOrder.total * 10) !== Number(result.amountRial)) {
         console.error(`[Payment Callback] Amount mismatch for ${orderCode}: expected ${dbOrder.total * 10} got ${result.amountRial}`);
         db.prepare('INSERT INTO payments (order_id, user_id, amount, gateway, authority, status, raw_response) VALUES (?,?,?,?,?,?,?)')
@@ -461,30 +544,24 @@ function handlePaymentCallback(req, res) {
         return res.redirect(`/#/payment-result?status=failed&order=${orderCode}&message=${encodeURIComponent('مبلغ پرداخت‌شده با مبلغ سفارش مطابقت ندارد')}`);
       }
 
-      // === TRANSACTION: به‌روزرسانی اتمیک وضعیت ===
-      db.transaction(() => {
-        // دوباره بررسی idempotency داخل Transaction
-        const current = db.prepare('SELECT payment_status FROM orders WHERE id = ?').get(dbOrder.id);
-        if (current.payment_status === 'paid') return; // قبلاً پرداخت شده
-
-        db.prepare("UPDATE orders SET payment_status = 'paid', status = 'paid', updated_at = datetime('now') WHERE id = ? AND payment_status = 'unpaid'")
-          .run(dbOrder.id);
-
-        const updated = db.prepare("UPDATE payments SET status = 'paid', gateway = ?, transaction_id = ?, raw_response = ?, verified_at = datetime('now') WHERE order_id = ? AND status = 'pending'")
-          .run(cb.gateway, refId, JSON.stringify(result.raw || {}), dbOrder.id);
-        if (!updated.changes) {
-          db.prepare("INSERT INTO payments (order_id, user_id, amount, gateway, authority, transaction_id, status, raw_response, verified_at) VALUES (?,?,?,?,?,?,'paid',?,datetime('now'))")
-            .run(dbOrder.id, dbOrder.user_id, dbOrder.total, cb.gateway, String(cb.ref || ''), refId, JSON.stringify(result.raw || {}));
-        }
-
-        addOrderHistory(dbOrder.id, dbOrder.status, 'paid', dbOrder.user_id, `پرداخت موفق بانکی (${cb.gatewayLabel})`);
-      })();
-
-      // اطلاع‌رسانی (غیرهمزمان)
-      setImmediate(() => {
-        const updatedOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(dbOrder.id);
-        sendOrderSMS(updatedOrder, 'paid').catch(() => {});
+      const outcome = finalizeOnlinePayment(dbOrder, {
+        gateway: cb.gateway, gatewayLabel: cb.gatewayLabel, refId, raw: result.raw, authority: cb.ref,
       });
+      if (outcome === 'replay' || outcome === 'cancelled') {
+        console.error(`[Payment Callback] Rejected (${outcome}) for ${orderCode} ref=${refId}`);
+        const msg = outcome === 'replay'
+          ? 'این تراکنش قبلاً برای سفارش دیگری استفاده شده است.'
+          : 'این سفارش لغو یا منقضی شده است. با پشتیبانی تماس بگیرید.';
+        return res.redirect(`/#/payment-result?status=failed&order=${orderCode}&message=${encodeURIComponent(msg)}`);
+      }
+
+      // اطلاع‌رسانی (غیرهمزمان) — فقط بار اول
+      if (outcome === 'ok') {
+        setImmediate(() => {
+          const updatedOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(dbOrder.id);
+          sendOrderSMS(updatedOrder, 'paid').catch(() => {});
+        });
+      }
 
       res.redirect(`/#/payment-result?status=success&order=${orderCode}&RRN=${encodeURIComponent(refId)}`);
     } else {
@@ -507,11 +584,12 @@ router.post('/payments/verify', authRequired, (req, res) => {
   const { orderCode, RRN, gateway, params } = req.body || {};
   if (!orderCode || (!RRN && !params)) return res.status(400).json({ error: 'اطلاعات ناقص است.' });
 
-  const order = db.prepare("SELECT * FROM orders WHERE code = ?").get(orderCode);
+  const order = db.prepare("SELECT * FROM orders WHERE code = ?").get(String(orderCode));
   if (!order) return res.status(404).json({ error: 'سفارش یافت نشد.' });
 
-  // بررسی مالکیت
-  if (order.user_id && order.user_id !== req.user.id) {
+  // بررسی مالکیت: فقط صاحب سفارش یا مدیر. (قبلاً سفارش با user_id خالی برای هر کاربر لاگین‌شده باز بود)
+  const isManager = hasPermission(req.user.permissions, 'orders.manage');
+  if (!isManager && order.user_id !== req.user.id) {
     return res.status(403).json({ error: 'دسترسی غیرمجاز.' });
   }
 
@@ -519,24 +597,33 @@ router.post('/payments/verify', authRequired, (req, res) => {
   if (order.payment_status === 'paid') {
     return res.json({ ok: true, message: 'پرداخت قبلاً تایید شده.' });
   }
+  if (order.payment_method !== 'online' || order.status === 'cancelled') {
+    return res.status(400).json({ error: 'این سفارش قابل تایید پرداخت نیست.' });
+  }
 
-  // درگاه: از بدنهٔ درخواست یا از رکورد پرداخت ثبت‌شدهٔ سفارش
-  const payRow = db.prepare('SELECT gateway FROM payments WHERE order_id = ? ORDER BY id DESC LIMIT 1').get(order.id);
-  const gw = gateway || payRow?.gateway || undefined;
+  // درگاه فقط از رکورد پرداخت ثبت‌شدهٔ خود سفارش (نه از ورودی کاربر)
+  const payRow = db.prepare("SELECT gateway, authority FROM payments WHERE order_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1").get(order.id);
+  if (!payRow) return res.status(400).json({ error: 'پرداخت در جریانی برای این سفارش ثبت نشده است.' });
+  const gw = payRow.gateway;
   const verifyParams = params && typeof params === 'object'
     ? params
     : { RRN, RefNum: RRN, Authority: RRN, token: RRN, digitalreceipt: RRN };
 
+  const bindErr = paymentBindingError(gw, verifyParams, payRow);
+  if (bindErr) return res.status(400).json({ ok: false, error: bindErr });
+
   verifyPayment({ gateway: gw, params: verifyParams, amount: order.total }).then(result => {
     if (result.ok) {
       const refId = String(result.refId || RRN || '');
-      db.transaction(() => {
-        db.prepare("UPDATE orders SET payment_status = 'paid', status = 'paid', updated_at = datetime('now') WHERE id = ? AND payment_status = 'unpaid'")
-          .run(order.id);
-        db.prepare("UPDATE payments SET status = 'paid', gateway = ?, transaction_id = ?, verified_at = datetime('now') WHERE order_id = ? AND status = 'pending'")
-          .run(result.gateway, refId, order.id);
-        addOrderHistory(order.id, order.status, 'paid', req.user.id, 'تایید پرداخت دستی');
-      })();
+      if (result.amountRial && Math.round(order.total * 10) !== Number(result.amountRial)) {
+        return res.json({ ok: false, error: 'مبلغ پرداخت‌شده با مبلغ سفارش مطابقت ندارد.' });
+      }
+      const outcome = finalizeOnlinePayment(order, {
+        gateway: result.gateway, gatewayLabel: result.gateway, refId, raw: result.raw,
+        authority: RRN, actorId: req.user.id, note: 'تایید پرداخت دستی',
+      });
+      if (outcome === 'replay') return res.json({ ok: false, error: 'این تراکنش قبلاً برای سفارش دیگری استفاده شده است.' });
+      if (outcome === 'cancelled') return res.json({ ok: false, error: 'سفارش لغو شده است.' });
       res.json({ ok: true, message: 'پرداخت با موفقیت تایید شد.', gateway: result.gateway });
     } else {
       res.json({ ok: false, error: result.error || 'تایید پرداخت ناموفق' });

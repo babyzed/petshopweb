@@ -1,12 +1,13 @@
 // pages/search.js — صفحه نتایج جستجو
-import { API, price, faNum, currentPrice } from '../api.js';
+import { API, price, faNum, currentPrice, escHtml } from '../api.js';
 import { productCard, productCardH } from '../components.js';
 import { ic, catIcon } from '../icons.js';
 
 export function title(params) { return 'جستجو: ' + params.q + ' | پت‌شاپ'; }
 
 export async function render(params, query) {
-  const q = decodeURIComponent(params.q || '');
+  // router.js پارامتر را یک‌بار decode کرده است؛ decode دوباره با «%» در متن (مثلاً «۵۰%») URIError می‌داد
+  const q = params.q || '';
   const [searchRes, listRes] = await Promise.all([
     API.get('/search?q=' + encodeURIComponent(q)),
     API.get('/products?q=' + encodeURIComponent(q) + '&per_page=24'),
@@ -19,7 +20,7 @@ export async function render(params, query) {
     <nav class="breadcrumb"><a href="#/">خانه</a><span class="sep">/</span><span>نتایج جستجو</span></nav>
     <div class="page-hero">
       <div>
-        <h1>نتایج جستجو برای «${q}»</h1>
+        <h1>نتایج جستجو برای «${escHtml(q)}»</h1>
         <p>${faNum(listRes.total)} محصول پیدا شد</p>
       </div>
       <div class="ph-ic">${ic('search', 40)}</div>
@@ -32,7 +33,7 @@ export async function render(params, query) {
         ${searchRes.categories.map(c => `
           <a class="cat-card" href="#/category/${c.slug}">
             <span class="cat-emoji">${catIcon(c, 30)}</span>
-            <span class="cat-name">${c.name}</span>
+            <span class="cat-name">${escHtml(c.name)}</span>
             <span class="cat-count">${faNum(c.count)} محصول</span>
           </a>`).join('')}
       </div>
@@ -45,7 +46,7 @@ export async function render(params, query) {
         ${searchRes.articles.map(a => `
           <a class="article-card" href="#/blog/${a.slug}">
             <div class="a-media">${a.image ? `<img src="${a.image}" alt="" loading="lazy">` : ''}<span class="a-cat">پت‌شاپ</span></div>
-            <div class="a-body"><h3 class="a-title">${a.title}</h3></div>
+            <div class="a-body"><h3 class="a-title">${escHtml(a.title)}</h3></div>
           </a>`).join('')}
       </div>
     </section>` : ''}
@@ -57,7 +58,7 @@ export async function render(params, query) {
     </section>` : `
     <div class="empty-state" style="background:var(--card);border:1px solid var(--line);border-radius:24px;margin-top:20px">
       <div class="es-ic">${ic('search', 34)}</div>
-      <h3>نتیجه‌ای برای «${q}» پیدا نشد</h3>
+      <h3>نتیجه‌ای برای «${escHtml(q)}» پیدا نشد</h3>
       <p>املای کلمه را بررسی کنید یا عبارت دیگری امتحان کنید.</p>
       <a class="btn btn-primary" href="#/shop" style="margin-top:14px">مشاهده همه محصولات</a>
     </div>`}

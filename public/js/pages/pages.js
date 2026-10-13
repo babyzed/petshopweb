@@ -1,5 +1,5 @@
 // pages/pages.js — صفحات محتوایی: درباره ما، تماس، FAQ، قوانین
-import { API } from '../api.js';
+import { API, escHtml } from '../api.js';
 import { ic } from '../icons.js';
 import { Settings } from '../store.js';
 import { setMeta } from '../meta.js';
@@ -47,10 +47,10 @@ export async function render(params, query) {
       <div class="contact-grid">
         <div class="contact-card">
           <h3>${ic('store', 17)} اطلاعات فروشگاه</h3>
-          <div class="c-info-row"><span class="ci-ic">${ic('pin', 16)}</span><div><span class="ci-l">آدرس</span><span class="ci-v">${c.address || ''}</span></div></div>
-          <div class="c-info-row"><span class="ci-ic">${ic('phone', 16)}</span><div><span class="ci-l">تلفن ثابت</span><span class="ci-v" dir="ltr">${c.phone || ''}</span></div></div>
+          <div class="c-info-row"><span class="ci-ic">${ic('pin', 16)}</span><div><span class="ci-l">آدرس</span><span class="ci-v">${escHtml(c.address || '')}</span></div></div>
+          <div class="c-info-row"><span class="ci-ic">${ic('phone', 16)}</span><div><span class="ci-l">تلفن ثابت</span><span class="ci-v" dir="ltr">${escHtml(c.phone || '')}</span></div></div>
           <div class="c-info-row"><span class="ci-ic">${ic('phone', 16)}</span><div><span class="ci-l">موبایل / واتساپ</span><span class="ci-v" dir="ltr">${c.mobile || ''}</span></div></div>
-          <div class="c-info-row"><span class="ci-ic">${ic('mail', 16)}</span><div><span class="ci-l">ایمیل</span><span class="ci-v" dir="ltr">${c.email || ''}</span></div></div>
+          <div class="c-info-row"><span class="ci-ic">${ic('mail', 16)}</span><div><span class="ci-l">ایمیل</span><span class="ci-v" dir="ltr">${escHtml(c.email || '')}</span></div></div>
           <div class="c-info-row"><span class="ci-ic">${ic('clock', 16)}</span><div><span class="ci-l">ساعات کاری</span><span class="ci-v">${c.work_hours || ''}</span></div></div>
         </div>
         <div class="contact-card">
@@ -79,13 +79,13 @@ export async function render(params, query) {
   });
   return `
   <div class="container">
-    <nav class="breadcrumb"><a href="#/">خانه</a><span class="sep">/</span><span>${page.title || ''}</span></nav>
+    <nav class="breadcrumb"><a href="#/">خانه</a><span class="sep">/</span><span>${escHtml(page.title || '')}</span></nav>
     <div class="page-hero">
-      <div><h1>${page.title || ''}</h1><p>${key === 'about' ? 'داستان پت‌شاپ و عشق ما به حیوانات' : 'قوانین خرید از پت‌شاپ'}</p></div>
+      <div><h1>${escHtml(page.title || '')}</h1><p>${key === 'about' ? 'داستان پت‌شاپ و عشق ما به حیوانات' : 'قوانین خرید از پت‌شاپ'}</p></div>
       <div class="ph-ic">${ic(key === 'about' ? 'heart' : 'file', 42)}</div>
     </div>
     <article class="article-single" style="margin-top:26px">
-      ${page.image ? `<div class="as-img"><img src="${page.image}" alt="${page.title}"></div>` : ''}
+      ${page.image ? `<div class="as-img"><img src="${page.image}" alt="${escHtml(page.title)}"></div>` : ''}
       <div class="as-content">${page.content || '<p>محتوای این صفحه به‌زودی منتشر می‌شود.</p>'}</div>
     </article>
   </div>`;

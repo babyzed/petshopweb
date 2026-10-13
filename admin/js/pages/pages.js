@@ -1,5 +1,5 @@
 // admin/pages/pages.js — ویرایش صفحات درباره ما و قوانین
-import { AdminAPI, uploadImage } from '../api.js';
+import { AdminAPI, uploadImage, escHtml } from '../api.js';
 import { toast } from '../components.js';
 import { ic } from '../icons.js';
 
@@ -10,7 +10,7 @@ export async function render() {
   <div class="a-card">
     <h3>${ic('paw', 18)} صفحه «درباره ما»</h3>
     <div class="form-grid">
-      <div class="field full"><label>عنوان صفحه</label><input data-about-title value="${about.title || ''}"></div>
+      <div class="field full"><label>عنوان صفحه</label><input data-about-title value="${escHtml(about.title || '')}"></div>
       <div class="field full"><label>تصویر</label>
         <div class="img-uploader">
           ${about.image ? `<div class="iu-item" style="width:170px;height:100px"><img src="${about.image}" alt=""></div>` : ''}
@@ -18,7 +18,7 @@ export async function render() {
         </div>
       </div>
       <div class="field full"><label>محتوا (HTML)</label>
-        <textarea data-about-content rows="12">${about.content || ''}</textarea>
+        <textarea data-about-content rows="12">${escHtml(about.content || '')}</textarea>
         <span class="hint">می‌توانید از تگ‌های p ،h3 ،ul ،li استفاده کنید.</span>
       </div>
     </div>
@@ -28,9 +28,9 @@ export async function render() {
   <div class="a-card">
     <h3>${ic('file', 18)} صفحه «قوانین و مقررات»</h3>
     <div class="form-grid">
-      <div class="field full"><label>عنوان صفحه</label><input data-rules-title value="${rules.title || ''}"></div>
+      <div class="field full"><label>عنوان صفحه</label><input data-rules-title value="${escHtml(rules.title || '')}"></div>
       <div class="field full"><label>محتوا (HTML)</label>
-        <textarea data-rules-content rows="12">${rules.content || ''}</textarea>
+        <textarea data-rules-content rows="12">${escHtml(rules.content || '')}</textarea>
       </div>
     </div>
     <button class="btn btn-primary" data-save-rules style="margin-top:14px">${ic('settings', 16)} ذخیره قوانین</button>

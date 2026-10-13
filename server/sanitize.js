@@ -27,7 +27,8 @@ const DANGEROUS_PATTERNS = [
   /<script[\s>]/i,
   /<\/script>/i,
   /javascript:/i,
-  /on\w+\s*=/i,           // onclick, onerror, onload, etc.
+  // توجه: الگوی /on\w+\s*=/ عمداً حذف شد؛ متن عادی (مثل "one = 1" یا "conditions =") را خراب می‌کرد.
+  // اتریبیوت‌های on* در مرحلهٔ بازسازی تگ‌ها حذف می‌شوند و هر «<»ِ بدون تگِ کامل escape می‌شود.
   /data:text\/html/i,
   /vbscript:/i,
   /expression\(/i,
@@ -90,10 +91,13 @@ function sanitizeHtml(html) {
   }
 
   // بازسازی تگ‌ها فقط با اتریبیوت‌های مجاز
-  clean = clean.replace(/<[^>]+>/g, (tag) => {
+  // regex آگاه از کوتیشن (title="a>b" دیگر تگ را نصفه نمی‌کند). «<»ِ تنها (تگ ناتمام) → escape
+  clean = clean.replace(/<(?:[^>"']|"[^"]*"|'[^']*')*>|</g, (tag) => {
+    if (tag === '<') return '&lt;';
     // استخراج نام تگ
     const match = tag.match(/^<\/?([a-zA-Z][a-zA-Z0-9]*)/);
-    if (!match) return '';
+    // چیزی شبیه تگ نیست (مثل «a < b and c > d»): به‌جای حذف متن، escape می‌شود
+    if (!match) return tag.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const tagName = match[1].toLowerCase();
 
     // اگر تگ مجاز نیست، حذف شود

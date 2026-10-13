@@ -1,5 +1,5 @@
 // admin/pages/products.js — مدیریت کامل محصولات
-import { AdminAPI, price, faNum, uploadImage } from '../api.js';
+import { AdminAPI, price, faNum, uploadImage, escHtml } from '../api.js';
 import { toast, confirmModal, openModal } from '../components.js';
 import { ic } from '../icons.js';
 
@@ -16,10 +16,10 @@ export async function render() {
 
   return `
   <div class="toolbar">
-    <input class="search-inp" placeholder="جستجو در نام یا کد محصول..." value="${listState.q}" data-search>
+    <input class="search-inp" placeholder="جستجو در نام یا کد محصول..." value="${escHtml(listState.q)}" data-search>
     <select data-cat-filter style="padding:10px 14px;border:1.5px solid #E7E0D8;border-radius:12px;font-size:13px;background:#fff">
       <option value="">همه دسته‌ها</option>
-      ${cats.map(c => `<option value="${c.id}" ${listState.category == c.id ? 'selected' : ''}>${'—'.repeat(c.parent_id ? 1 : 0)} ${c.name}</option>`).join('')}
+      ${cats.map(c => `<option value="${escHtml(c.id)}" ${listState.category == c.id ? 'selected' : ''}>${'—'.repeat(c.parent_id ? 1 : 0)} ${escHtml(c.name)}</option>`).join('')}
     </select>
     <select data-status-filter style="padding:10px 14px;border:1.5px solid #E7E0D8;border-radius:12px;font-size:13px;background:#fff">
       <option value="all" ${listState.status === 'all' ? 'selected' : ''}>همه وضعیت‌ها</option>
@@ -41,7 +41,7 @@ export async function render() {
             <div style="display:flex;align-items:center;gap:10px">
               ${p.image ? `<img class="t-img" src="${p.image}" alt="">` : `<span style="font-size:22px;color:var(--brand)">${ic('package', 26)}</span>`}
               <div>
-                <div class="t-name" style="max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</div>
+                <div class="t-name" style="max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.name)}</div>
                 <div class="t-sub" dir="ltr">${p.sku || p.slug}</div>
               </div>
             </div>
@@ -55,7 +55,7 @@ export async function render() {
           <td>${p.status === 'active' ? '<span class="s-badge s-active">فعال</span>' : '<span class="s-badge s-inactive">غیرفعال</span>'}</td>
           <td style="white-space:nowrap">
             <a class="btn btn-ghost" href="#/products/${p.id}" style="padding:7px 12px;font-size:11.5px">${ic('edit', 14)} ویرایش</a>
-            <button class="btn btn-ghost" data-del="${p.id}" data-name="${p.name}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">${ic('trash', 14)} حذف</button>
+            <button class="btn btn-ghost" data-del="${p.id}" data-name="${escHtml(p.name)}" style="padding:7px 12px;font-size:11.5px;color:var(--danger)">${ic('trash', 14)} حذف</button>
           </td>
         </tr>`).join('')}
     </tbody>
@@ -79,7 +79,7 @@ export function after() {
   document.querySelector('[data-status-filter]').addEventListener('change', (e) => { listState.status = e.target.value; listState.page = 1; location.reload(); });
   document.querySelectorAll('[data-page]').forEach(b => b.addEventListener('click', () => { listState.page = Number(b.dataset.page); location.reload(); }));
   document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
-    confirmModal('حذف محصول', `«${b.dataset.name}» حذف شود؟ این عملیات برگشت‌پذیر نیست.`, async () => {
+    confirmModal('حذف محصول', `«${escHtml(b.dataset.name)}» حذف شود؟ این عملیات برگشت‌پذیر نیست.`, async () => {
       try { await AdminAPI.del('/admin/products/' + b.dataset.del); toast('محصول حذف شد'); setTimeout(() => location.reload(), 400); }
       catch (err) { toast(err.message, 'err'); }
     });
@@ -97,31 +97,31 @@ export async function formRender(params) {
   if (id) p = (await AdminAPI.get('/admin/products/' + id)).product;
 
   const featRows = Object.entries(p.features || {}).map(([k, v]) =>
-    `<div class="feat-row"><input placeholder="نام ویژگی (مثلاً: وزن)" value="${k}" data-fk><input placeholder="مقدار (مثلاً: ۲ کیلوگرم)" value="${v}" data-fv><button class="btn btn-ghost" data-feat-del style="color:var(--danger)">${ic('x', 14)}</button></div>`).join('');
+    `<div class="feat-row"><input placeholder="نام ویژگی (مثلاً: وزن)" value="${escHtml(k)}" data-fk><input placeholder="مقدار (مثلاً: ۲ کیلوگرم)" value="${escHtml(v)}" data-fv><button class="btn btn-ghost" data-feat-del style="color:var(--danger)">${ic('x', 14)}</button></div>`).join('');
 
   return `
   <div class="a-card">
     <h3>${ic('package', 18)} ${id ? 'ویرایش محصول' : 'افزودن محصول جدید'}</h3>
     <div class="form-grid">
-      <div class="field full"><label>نام محصول *</label><input data-f-name value="${p.name || ''}" placeholder="مثلاً: غذای خشک گربه بالغ"></div>
-      <div class="field"><label>SKU</label><input data-f-sku value="${p.sku || ''}" placeholder="مثلاً: CF-1001" dir="ltr"></div>
-      <div class="field"><label>اسلاگ (خالی = خودکار)</label><input data-f-slug value="${p.slug || ''}" dir="ltr"></div>
+      <div class="field full"><label>نام محصول *</label><input data-f-name value="${escHtml(p.name || '')}" placeholder="مثلاً: غذای خشک گربه بالغ"></div>
+      <div class="field"><label>SKU</label><input data-f-sku value="${escHtml(p.sku || '')}" placeholder="مثلاً: CF-1001" dir="ltr"></div>
+      <div class="field"><label>اسلاگ (خالی = خودکار)</label><input data-f-slug value="${escHtml(p.slug || '')}" dir="ltr"></div>
       <div class="field"><label>دسته‌بندی</label>
         <select data-f-cat>
           <option value="">بدون دسته</option>
-          ${cats.map(c => `<option value="${c.id}" ${p.category_id == c.id ? 'selected' : ''}>${'—'.repeat(c.parent_id ? 1 : 0)} ${c.name}</option>`).join('')}
+          ${cats.map(c => `<option value="${escHtml(c.id)}" ${p.category_id == c.id ? 'selected' : ''}>${'—'.repeat(c.parent_id ? 1 : 0)} ${escHtml(c.name)}</option>`).join('')}
         </select>
       </div>
       <div class="field"><label>برند</label>
         <select data-f-brand>
           <option value="">بدون برند</option>
-          ${brands.map(b => `<option value="${b.id}" ${p.brand_id == b.id ? 'selected' : ''}>${b.name}</option>`).join('')}
+          ${brands.map(b => `<option value="${escHtml(b.id)}" ${p.brand_id == b.id ? 'selected' : ''}>${escHtml(b.name)}</option>`).join('')}
         </select>
       </div>
-      <div class="field"><label>قیمت (تومان) *</label><input type="number" min="0" data-f-price value="${p.price || ''}"></div>
-      <div class="field"><label>قیمت تخفیف‌خورده (تومان)</label><input type="number" min="0" data-f-sale value="${p.sale_price || ''}"></div>
-      <div class="field"><label>موجودی</label><input type="number" min="0" data-f-stock value="${p.stock || 0}"></div>
-      <div class="field"><label>وزن / حجم</label><input data-f-weight value="${p.weight || ''}" placeholder="مثلاً: ۲ کیلوگرم"></div>
+      <div class="field"><label>قیمت (تومان) *</label><input type="number" min="0" data-f-price value="${escHtml(p.price || '')}"></div>
+      <div class="field"><label>قیمت تخفیف‌خورده (تومان)</label><input type="number" min="0" data-f-sale value="${escHtml(p.sale_price || '')}"></div>
+      <div class="field"><label>موجودی</label><input type="number" min="0" data-f-stock value="${escHtml(p.stock || 0)}"></div>
+      <div class="field"><label>وزن / حجم</label><input data-f-weight value="${escHtml(p.weight || '')}" placeholder="مثلاً: ۲ کیلوگرم"></div>
       <div class="field"><label>وضعیت</label>
         <select data-f-status>
           <option value="active" ${p.status === 'active' ? 'selected' : ''}>فعال</option>
@@ -132,7 +132,7 @@ export async function formRender(params) {
       <div class="field"><label>محصول ویژه (نمایش در بخش پیشنهاد پت‌شاپ)</label>
         <div class="toggle-row"><button class="toggle ${p.is_special ? 'on' : ''}" data-f-special></button><span style="font-size:12px;color:var(--muted)">${ic('sparkles', 14)} نمایش در صفحه اصلی</span></div>
       </div>
-      <div class="field full"><label>توضیحات کامل</label><textarea data-f-desc rows="4">${p.description || ''}</textarea></div>
+      <div class="field full"><label>توضیحات کامل</label><textarea data-f-desc rows="4">${escHtml(p.description || '')}</textarea></div>
     </div>
   </div>
 

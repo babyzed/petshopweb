@@ -1,5 +1,5 @@
 // admin/js/components.js — کامپوننت‌های مشترک پنل مدیریت
-import { AdminAPI, faNum, faDate } from './api.js';
+import { AdminAPI, faNum, faDate, escHtml } from './api.js';
 import { ic } from './icons.js';
 
 export function toast(message, type = 'ok') {
@@ -133,7 +133,7 @@ export function renderSidebar() {
       `).join('')}
     </nav>
     <div class="as-foot">
-      <a href="#/profile"><span class="as-link-icon">${ic('user', 16)}</span> ${u?.name || ''}</a>
+      <a href="#/profile"><span class="as-link-icon">${ic('user', 16)}</span> ${escHtml(u?.name || '')}</a>
       <a href="/" target="_blank"><span class="as-link-icon">${ic('externalLink', 16)}</span> مشاهده فروشگاه</a>
     </div>`;
   el.querySelector('[data-sidebar-close]')?.addEventListener('click', closeSidebar);
@@ -191,7 +191,7 @@ export function renderTopbar() {
     </div>
     <div class="at-user">
       <div style="text-align:end">
-        <div class="at-name">${u?.name || ''}</div>
+        <div class="at-name">${escHtml(u?.name || '')}</div>
         <div class="at-role">${u?.role_title || ''}</div>
       </div>
       <span class="at-avatar">${initials(u?.name)}</span>

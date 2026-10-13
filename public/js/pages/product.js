@@ -58,15 +58,15 @@ export async function render(params) {
       <a href="#/">خانه</a><span class="sep">/</span>
       <a href="#/shop">فروشگاه</a>
       <span class="sep">/</span>
-      <a href="#/category/${product.category_slug || ''}">${product.category_name || ''}</a>
+      <a href="#/category/${product.category_slug || ''}">${escHtml(product.category_name || '')}</a>
       <span class="sep">/</span>
-      <span style="color:var(--text);font-weight:600">${product.name}</span>
+      <span style="color:var(--text);font-weight:600">${escHtml(product.name)}</span>
     </nav>
 
     <div class="pd-layout">
       <div class="pd-gallery">
         <div class="pd-main-img">
-          <img src="${mainImage}" alt="${product.name}" id="pd-main-img">
+          <img src="${mainImage}" alt="${escHtml(product.name)}" id="pd-main-img">
         </div>
         ${product.images?.length > 1 ? `
         <div class="pd-thumbs">
@@ -76,10 +76,10 @@ export async function render(params) {
 
       <div class="pd-info">
         <div class="pd-cats">
-          <a href="#/shop">فروشگاه</a> ← <a href="#/category/${product.category_slug || ''}">${product.category_name || ''}</a>
-          ${product.brand_name ? `← <a href="#/shop?brand=${product.brand_id}">${product.brand_name}</a>` : ''}
+          <a href="#/shop">فروشگاه</a> ← <a href="#/category/${product.category_slug || ''}">${escHtml(product.category_name || '')}</a>
+          ${product.brand_name ? `← <a href="#/shop?brand=${product.brand_id}">${escHtml(product.brand_name)}</a>` : ''}
         </div>
-        <h1 class="pd-title">${product.name}</h1>
+        <h1 class="pd-title">${escHtml(product.name)}</h1>
         <div class="pd-meta">
           <span>${stars(product.rating)} ${product.rating ? faNum(product.rating) : ''} (${faNum(product.review_count || 0)} نظر)</span>
           <span class="sep"></span>
@@ -97,7 +97,7 @@ export async function render(params) {
           <span class="pd-stock-line ${inStock ? 'in' : 'out'}">${inStock ? `✔ موجود در انبار (${faNum(product.stock)} عدد)` : '✖ ناموجود'}</span>
         </div>
 
-        <p class="pd-desc">${product.description || ''}</p>
+        <p class="pd-desc">${escHtml(product.description || '')}</p>
 
         <div class="pd-buy-row">
           ${inStock ? `
@@ -120,7 +120,7 @@ export async function render(params) {
     ${features.length ? `
     <div class="pd-features">
       <h3>${ic('list', 17)} ویژگی‌های محصول</h3>
-      ${features.map(([k, v]) => `<div class="pd-feat-row"><span class="k">${k}</span><span>${v}</span></div>`).join('')}
+      ${features.map(([k, v]) => `<div class="pd-feat-row"><span class="k">${escHtml(k)}</span><span>${escHtml(v)}</span></div>`).join('')}
     </div>` : ''}
 
     <div class="reviews-section">
