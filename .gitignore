@@ -7,3 +7,4 @@ uploads/*
 backups
 *.log
 .env
+.freebuff/
